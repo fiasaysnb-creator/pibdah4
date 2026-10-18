@@ -33,6 +33,21 @@ import PackageTermsDisplay from '../../packages/components/PackageTermsDisplay';
 import WorkflowDisplay from '../../packages/components/WorkflowDisplay';
 import { getWorkflows } from '../../packages/workflows';
 import { customizeUiText, useUiTextOverrides } from '../../../utils/uiTextCustomization';
+import { useChatTemplates } from '../../../hooks/useChatTemplates';
+import Modal from '../../../shared/ui/Modal';
+import { generateWhatsAppLink } from '../../../utils/whatsapp';
+
+const DOCUMENTATION_REMINDER_TITLE = 'Pengingat Persiapan Dokumentasi';
+const DOCUMENTATION_REMINDER_TEMPLATE = `Kak, Aku izin mengingatkan persiapan dokumentasi yang perlu disiapkan untuk hari H 😊🙏🏻
+
+1. Mohon dipersiapkan:
+  - Keepsake/undangan
+  - Cincin
+  - Accessories lainnya jika ada dan ingin di shoot
+2. Jika ada moodboard atau referensi foto dan video, mohon dikirimkan ke mimin maksimal H-1 sebelum acara.
+3. Jika ada request backsound untuk video durasi teaser 1 menit dan cinematic clip 3 menit, mohon dikirimkan ke mimin maksimal H-1 sebelum acara. Dikarenakan tidak ada revisi untuk pemilihan backsound.
+
+Jika seluruh poin di atas sudah aman, kakak tinggal fokus mempersiapkan diri dan menikmati momen menuju hari bahagia yaa. Terimakasih 😊🙏🏻`;
 
 export interface ProjectDetailModalProps {
   selectedProject: Project | null;
@@ -120,7 +135,10 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   sectionEditingEnabled = false,
 }) => {
   const uiTextOverrides = useUiTextOverrides();
+  const chatTemplates = useChatTemplates(profile);
   // ── state ───────────────────────────────────────────────────────────────
+  const [isDocumentationReminderOpen, setIsDocumentationReminderOpen] = useState(false);
+  const [documentationReminderDraft, setDocumentationReminderDraft] = useState(DOCUMENTATION_REMINDER_TEMPLATE);
   const [isEditingFinalLink, setIsEditingFinalLink] = useState(false);
   const [editingSection, setEditingSection] = useState<ProjectEditSection | null>(null);
   const [tempFinalLink, setTempFinalLink] = useState('');
@@ -438,6 +456,34 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
     onOpenSharePreview({ title: `Bagikan ${meetingType} — ${selectedProject.projectName}`, message, phone });
   };
 
+  const handleShareDocumentationReminder = () => {
+    if (!selectedProject) return;
+    const client = clients.find(item => item.id === selectedProject.clientId);
+    const phone = client?.whatsapp || client?.phone;
+    if (!phone) {
+      showNotification('Nomor WhatsApp pengantin tidak ditemukan.');
+      return;
+    }
+    const whatsappWindow = window.open(generateWhatsAppLink(phone, documentationReminderDraft), '_blank');
+    if (whatsappWindow) whatsappWindow.opener = null;
+    else showNotification('WhatsApp tidak dapat dibuka. Periksa pengaturan popup browser.');
+  };
+
+  const handleSaveDocumentationReminder = async () => {
+    try {
+      const existingTemplate = chatTemplates.templates.find(template => template.title === DOCUMENTATION_REMINDER_TITLE);
+      if (existingTemplate) {
+        await chatTemplates.updateTemplate(existingTemplate.id, { template: documentationReminderDraft });
+      } else {
+        await chatTemplates.addTemplate({ title: DOCUMENTATION_REMINDER_TITLE, template: documentationReminderDraft });
+      }
+      showNotification('Chat template pengingat dokumentasi berhasil disimpan.');
+      setIsDocumentationReminderOpen(false);
+    } catch (error) {
+      showNotification(error instanceof Error ? `Gagal menyimpan template: ${error.message}` : 'Gagal menyimpan chat template.');
+    }
+  };
+
   const handleStatusUpdate = async (newStatus: string) => {
     if (!selectedProject) return;
     const nextProgress = getProgressForStatus(newStatus, profile.projectStatusConfig);
@@ -705,6 +751,18 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                 <span>Edit</span>
               </button>
               <button
+                type="button"
+                onClick={() => {
+                  setDocumentationReminderDraft(DOCUMENTATION_REMINDER_TEMPLATE);
+                  setIsDocumentationReminderOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-white/30 bg-white/15 px-2.5 py-1.5 text-[11px] font-bold text-white transition-all hover:bg-white/25 active:scale-95 sm:px-3 sm:py-2 sm:text-xs"
+                title="Chat Template Pengingat Dokumentasi"
+              >
+                <MessageCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                <span>Chat Template</span>
+              </button>
+              <button
                 onClick={handleOpenBriefingModal}
                 className="inline-flex flex-shrink-0 items-center gap-1 rounded-xl border border-emerald-700 bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold text-white transition-all active:scale-95 sm:py-2 sm:text-xs"
                 title="Briefing Tim"
@@ -722,6 +780,45 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
           </div>
         </div>
       </div>
+
+      <Modal
+        isOpen={isDocumentationReminderOpen}
+        onClose={() => setIsDocumentationReminderOpen(false)}
+        title={DOCUMENTATION_REMINDER_TITLE}
+        size="lg"
+        footer={(
+          <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
+            <button
+              type="button"
+              onClick={handleSaveDocumentationReminder}
+              disabled={chatTemplates.loading}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-brand-border bg-brand-surface px-4 py-2 text-sm font-bold text-brand-text-primary transition-colors hover:bg-brand-input disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            >
+              <SaveIcon className="h-4 w-4" />
+              Simpan Chat Template
+            </button>
+            <button
+              type="button"
+              onClick={handleShareDocumentationReminder}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-700 sm:w-auto"
+            >
+              <SendIcon className="h-4 w-4" />
+              Bagikan via WhatsApp
+            </button>
+          </div>
+        )}
+      >
+        <label htmlFor="documentation-reminder-message" className="mb-2 block text-sm font-bold text-brand-text-primary">
+          Pesan untuk pengantin
+        </label>
+        <textarea
+          id="documentation-reminder-message"
+          value={documentationReminderDraft}
+          onChange={event => setDocumentationReminderDraft(event.target.value)}
+          rows={18}
+          className="w-full resize-y rounded-xl border border-brand-border bg-brand-input p-3 text-sm leading-relaxed text-brand-text-primary focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/30"
+        />
+      </Modal>
 
       {/* ══════════════════════════════════════════════════════════════════
           EDIT MODE

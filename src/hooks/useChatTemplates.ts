@@ -56,7 +56,7 @@ export function useChatTemplates(userProfile?: Profile) {
 
       try {
         setError(null);
-        const updated = await updateChatTemplateOffline(userProfile, templateId, updates);
+        const updated = await updateChatTemplateOffline({ ...userProfile, chatTemplates: templates }, templateId, updates);
         setTemplates(updated);
         return updated;
       } catch (err: any) {
@@ -65,7 +65,7 @@ export function useChatTemplates(userProfile?: Profile) {
         throw err;
       }
     },
-    [userProfile]
+    [userProfile, templates]
   );
 
   // Add template
@@ -83,7 +83,7 @@ export function useChatTemplates(userProfile?: Profile) {
 
       try {
         setError(null);
-        const updated = await addChatTemplateOffline(userProfile, newTemplate);
+        const updated = await addChatTemplateOffline({ ...userProfile, chatTemplates: templates }, newTemplate);
         setTemplates(updated);
         return updated;
       } catch (err: any) {
@@ -92,7 +92,7 @@ export function useChatTemplates(userProfile?: Profile) {
         throw err;
       }
     },
-    [userProfile]
+    [userProfile, templates]
   );
 
   // Delete template
