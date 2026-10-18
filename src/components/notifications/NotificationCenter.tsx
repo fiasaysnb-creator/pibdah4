@@ -224,35 +224,30 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         aria-hidden="true"
       />
 
-      {/* Main Notification Container (Desktop Popover / Mobile Slide-up Drawer) */}
+      {/* Main Notification Container (Desktop Popover / Mobile Top Dropdown) */}
       <div
         role="dialog"
         aria-label="Panel Notifikasi Vena"
         className="
           fixed sm:absolute
-          inset-x-0 bottom-0 sm:bottom-auto sm:top-full sm:right-0 sm:left-auto
+          inset-x-0 top-[calc(4rem_+_var(--safe-area-inset-top))] sm:bottom-auto sm:top-full sm:right-0 sm:left-auto
           mt-0 sm:mt-2
           w-full sm:w-[420px] max-w-[100vw] sm:max-w-none
-          max-h-[85vh] sm:max-h-[580px]
+          max-h-[calc(100dvh_-_4rem_-_var(--safe-area-inset-top))] sm:max-h-[580px]
           bg-white dark:bg-[#1E293B]
-          border-t sm:border border-slate-200/80 dark:border-slate-700/80
-          rounded-t-3xl sm:rounded-2xl
+          border-x border-b sm:border border-slate-200/80 dark:border-slate-700/80
+          rounded-b-2xl sm:rounded-2xl
           shadow-2xl shadow-slate-900/20
           z-[75] sm:z-[65]
           flex flex-col
           overflow-hidden
-          animate-in slide-in-from-bottom sm:slide-in-from-top-2 duration-200
+          animate-slide-down
         "
         style={{
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px))',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Mobile Swipe / Pull Handle */}
-        <div className="flex sm:hidden justify-center pt-3 pb-1">
-          <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
-        </div>
-
         {/* Header Panel */}
         <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-[#1E293B]/95 backdrop-blur-md flex-shrink-0">
           <div className="flex items-center justify-between mb-3">
