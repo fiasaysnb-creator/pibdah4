@@ -402,11 +402,8 @@ export const Clients: React.FC<ClientsProps> = ({
         if (!documentToView) return;
         if (documentToView.type === 'invoice') {
             const proj = documentToView.project;
-            const client = clients.find(c => c.id === proj.clientId);
-            if (client) {
-                setDocumentToView(null);
-                handleOpenModal('edit', client, proj);
-            }
+            setDocumentToView(null);
+            handleNavigation(ViewType.INVOICES, { type: 'openInvoice', id: proj.id });
         } else if (documentToView.type === 'receipt') {
             const tx = documentToView.transaction;
             handleOpenEditTransaction(tx);

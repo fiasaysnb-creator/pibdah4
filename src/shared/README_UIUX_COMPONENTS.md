@@ -2,7 +2,7 @@
 
 ## 📋 Overview
 
-Koleksi komponen React yang dirancang untuk meningkatkan user experience aplikasi Weddfin tanpa merubah fitur dan struktur yang ada.
+Koleksi komponen React yang dirancang untuk meningkatkan user experience aplikasi Vena Pictures tanpa merubah fitur dan struktur yang ada.
 
 ---
 

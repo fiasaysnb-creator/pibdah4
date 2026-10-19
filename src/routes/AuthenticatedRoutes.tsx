@@ -626,14 +626,21 @@ export const AuthenticatedRoutes: React.FC<AuthenticatedRoutesProps> = ({
             setProjects={setProjects}
             transactions={transactions}
             setTransactions={setTransactions}
+            cards={cards}
+            setCards={setCards}
+            pockets={pockets}
+            setPockets={setPockets}
             packages={packages}
             teamPaymentRecords={teamPaymentRecords}
             setTeamPaymentRecords={setTeamPaymentRecords}
             teamMembers={teamMembers}
             teamProjectPayments={teamProjectPayments}
+            setTeamProjectPayments={setTeamProjectPayments}
             userProfile={profile}
             showNotification={showNotification}
             handleNavigation={handleNavigation}
+            initialAction={initialAction}
+            setInitialAction={setInitialAction}
           />
         </Suspense>
       );

@@ -551,7 +551,7 @@ const PublicBookingForm: React.FC<PublicBookingFormProps> = ({
 
             // Create project in Supabase
             const createdProject = await createProject({
-                projectName: `${formData.clientName} (${selectedPackage.name})`,
+                projectName: `${formData.projectType} ${formData.clientName}`.trim(),
                 clientName: createdClient.name,
                 clientId: createdClient.id,
                 projectType: formData.projectType,

@@ -1,4 +1,4 @@
-# Laporan Analisis Label & Terminologi UI — Weddfin
+# Laporan Analisis Label & Terminologi UI — Vena Pictures
 
 **Tanggal Analisis:** Dilakukan terhadap codebase di `d:\honesty\src\`
 **Fokus:** Terminologi bisnis, label UI, dan teks yang tampil ke pengguna Indonesia
@@ -56,7 +56,7 @@ Dari analisis menyeluruh terhadap 100+ file TSX di seluruh `src/features/`, dite
 | 18 | `On Going` (label status progres) | **`Sedang Dikerjakan`** | `ClientPortal.tsx:552` | "On Going" adalah dua kata bahasa Inggris yang muncul di portal klien. Tidak familier bagi semua pengguna |
 | 19 | `Add-ons` (dalam ringkasan biaya portal) | **`Layanan Tambahan`** | `ClientPortal.tsx:583` | "Add-ons" adalah jargon teknis. "Layanan Tambahan" lebih deskriptif untuk klien |
 | 20 | `Moodboard / Brief` (label file) | **`Referensi Acara / Brief`** | `ClientPortal.tsx:885`, `FreelancerPortal.tsx:691`, `ProjectDetailModal.tsx:1393` | "Moodboard" tidak dimengerti semua klien. "Referensi Acara" lebih deskriptif. *Catatan: "Brief" bisa dipertahankan karena sudah common di industri pernikahan* |
-| 21 | `Sinkronisasi Cloud Weddfin` | **`Tersimpan di Cloud Weddfin`** | `ClientPortal.tsx:977` | "Sinkronisasi" terdengar teknis. "Tersimpan di Cloud" lebih mudah dipahami |
+| 21 | `Sinkronisasi Cloud Vena Pictures` | **`Tersimpan di Cloud Vena Pictures`** | `ClientPortal.tsx:977` | "Sinkronisasi" terdengar teknis. "Tersimpan di Cloud" lebih mudah dipahami |
 | 22 | `Tagihan & Invoice` (label menu sidebar) | **`Invoice & Tagihan`** | `Sidebar.tsx:104` | Tidak perlu dua kata bersinonim. Pilih satu: "Invoice" untuk konsistensi atau "Tagihan" saja. Jika ingin keduanya, urutkan yang lebih umum dulu ("Invoice" sudah universal) |
 | 23 | `Booking Jadwal` (label menu nav) | **`Booking`** atau **`Data Booking`** | `constants/index.tsx:265` | Redundan. "Jadwal" sudah terimplikasi dari "Booking". Di BottomNavBar sudah benar pakai "Booking" saja |
 | 24 | `Kwitansi` (teks tombol di portal klien) | **`Tanda Terima`** | `ClientPortal.tsx:1047` | "Kwitansi" adalah ejaan lama. Di tempat lain di file yang sama (`ClientPortal.tsx:1282,1336`) sudah menggunakan "Tanda Terima". Perlu dikonsistensikan |
@@ -120,7 +120,7 @@ Perubahan ini langsung dilihat oleh pengantin sebagai end user:
 11. **`Rekap Tagihan Detil` → `Rincian Tagihan`** — 2 file
 
 ### Prioritas Rendah (Kosmetik / Konsistensi)
-12. **`Sinkronisasi Cloud Weddfin` → `Tersimpan di Cloud Weddfin`** — 1 file
+12. **`Sinkronisasi Cloud Vena Pictures` → `Tersimpan di Cloud Vena Pictures`** — 1 file
 13. **`Booking Jadwal` → `Booking`** — 1 file (nav)
 14. **`Rekap Pengantin Belum Lunas` → `Pengantin dengan Sisa Pembayaran`** — 1 file
 15. **`Tagihan & Invoice` → `Invoice`** — 1 file (sidebar)
@@ -148,7 +148,7 @@ Perubahan ini langsung dilihat oleh pengantin sebagai end user:
 | 583 | `Add-ons` | `Layanan Tambahan` |
 | 602 | label "Sisa" (di card kecil) | `Sisa Pembayaran` |
 | 885 | `label: 'Moodboard / Brief'` | `label: 'Referensi Acara / Brief'` |
-| 977 | `Sinkronisasi Cloud Weddfin` | `Tersimpan di Cloud Weddfin` |
+| 977 | `Sinkronisasi Cloud Vena Pictures` | `Tersimpan di Cloud Vena Pictures` |
 | 1047 | `Kwitansi` (tombol) | `Tanda Terima` |
 
 ### `ClientDuesView.tsx` — `d:\honesty\src\features\clients\components\ClientDuesView.tsx`

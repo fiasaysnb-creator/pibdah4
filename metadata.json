@@ -1,6 +1,6 @@
 {
-  "name": "Weddfin",
-  "description": "weddfin — manajemen pengantin, keuangan, dan penjadwalan tim untuk bisnis wedding photography profesional.",
+  "name": "Vena Pictures",
+  "description": "Vena Pictures — manajemen pengantin, keuangan, dan penjadwalan tim untuk bisnis wedding photography profesional.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

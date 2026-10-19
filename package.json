@@ -1,9 +1,9 @@
 {
-  "name": "weddfin-dashboard",
+  "name": "vena-pictures-dashboard",
   "private": true,
   "version": "0.0.0",
   "author": "nopianhadi",
-  "description": "weddfin - dashboard for wedding business",
+  "description": "Vena Pictures - dashboard for wedding business",
   "type": "module",
   "sideEffects": false,
   "scripts": {

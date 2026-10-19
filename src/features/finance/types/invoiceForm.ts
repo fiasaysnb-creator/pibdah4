@@ -15,6 +15,11 @@ export interface InvoiceLineItem {
 export interface InvoiceFormData {
   id?: string;
   invoiceNumber?: string;
+  packageId?: string;
+  durationSelection?: string;
+  paymentDate?: string;
+  paymentDateTransactionId?: string;
+  invoiceSignature?: string;
 
   // Client info
   isNewClient: boolean;

@@ -465,7 +465,7 @@ const PublicPackages: React.FC<PublicPackagesProps> = ({ userProfile: initialUse
             }
 
             createdProject = await createProject({
-                projectName: `${formData.clientName} (${bookingModal.pkg.name})`,
+                projectName: `${bookingModal.pkg.category} ${formData.clientName}`.trim(),
                 clientName: createdClient.name,
                 clientId: createdClient.id,
                 projectType: bookingModal.pkg.category,

@@ -7,6 +7,7 @@ interface InvoiceDocumentProps {
   packages: Package[];
   client?: Client;
   issuedDate?: string;
+  invoiceNumber?: string;
   id?: string;
 }
 
@@ -16,6 +17,7 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({
   packages = [],
   client,
   issuedDate,
+  invoiceNumber,
   id = "invoice-document"
 }) => {
   const safeProfile = profile || ({} as Partial<Profile>);
@@ -125,7 +127,7 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({
           <div className="invoice-meta-panel text-right flex flex-col items-end shrink-0">
             <h2 className="invoice-title text-base sm:text-3xl font-black text-brand-accent tracking-tighter mb-0.5 sm:mb-1.5">INVOICE</h2>
             <div className="invoice-meta-badge bg-slate-200 px-1.5 py-0.5 sm:px-3 sm:py-1 rounded-sm text-[7.5px] sm:text-[11px] font-bold text-slate-700 mb-1 sm:mb-2 print:bg-white print:border print:border-slate-300">
-              ID: #INV-{project.id.slice(-8).toUpperCase()}
+              ID: #{invoiceNumber || `INV-${project.id.slice(-8).toUpperCase()}`}
             </div>
             <div className="invoice-meta-text text-[7.5px] sm:text-[11px] text-slate-500 text-right space-y-0 sm:space-y-0.5 print:text-black">
               <p>Diterbitkan: <span className="font-bold text-slate-700 print:text-black">{formatDate(issuedDate || new Date().toISOString().slice(0, 10))}</span></p>
@@ -261,7 +263,7 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({
                   <td className="px-1.5 py-1 sm:px-3 sm:py-2 text-right font-medium text-slate-800 text-[8px] sm:text-[12px] whitespace-nowrap print:text-black align-top">{formatCurrency(addon.price)}</td>
                 </tr>
               ))}
-              {project.transportCost && Number(project.transportCost) > 0 && (
+              {Number(project.transportCost) > 0 && (
                 <tr className="align-top bg-white">
                   <td className="px-1.5 py-1 sm:px-3 sm:py-2 text-center text-slate-800 font-medium border-r border-black align-top">{safeAdditionalPackages.length + safeAddOns.length + 2}</td>
                   <td className="px-1.5 py-1 sm:px-3 sm:py-2 border-r border-black align-top">

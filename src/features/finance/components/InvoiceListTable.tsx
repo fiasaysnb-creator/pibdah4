@@ -302,7 +302,7 @@ const InvoiceListTable: React.FC<InvoiceListTableProps> = ({
                             ? 'Edit invoice & rincian' 
                             : doc.kind === 'receipt' 
                             ? 'Edit tanda terima / transaksi'
-                            : 'Aksi Pembayaran tim tidak tersedia'
+                            : 'Edit nomor dan tanggal slip pembayaran tim'
                         }
                       >
                         <EditIcon />

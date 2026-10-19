@@ -92,7 +92,7 @@ Di panel kiri, lihat "Build Variants":
    Certificate:
    First and Last Name:    [Nama Anda]
    Organization Unit:      Photography
-   Organization:           weddfin
+   Organization:           Vena Pictures
    City or Locality:       [Kota Anda]
    State or Province:      [Provinsi Anda]
    Country Code:           ID
@@ -261,10 +261,10 @@ D:\aplikasi 2026 benar\vendor phtotogrpahy 20206\atter\android\app\release\app-r
 
 ## 🎉 Selamat!
 
-Jika sudah berhasil build dan install APK, aplikasi **weddfin** Anda sudah siap digunakan!
+Jika sudah berhasil build dan install APK, aplikasi **Vena Pictures** Anda sudah siap digunakan!
 
 **Aplikasi Info:**
-- 📱 App: weddfin
+- 📱 App: Vena Pictures
 - 📦 Package: com.weddfin.app
 - 🌐 Server: https://keuanganvendor.netlify.app
 - 🤖 Min Android: 6.0 (API 23)

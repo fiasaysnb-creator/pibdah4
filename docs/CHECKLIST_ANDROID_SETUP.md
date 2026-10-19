@@ -1,4 +1,4 @@
-# ✅ Checklist Setup Android - weddfin
+# ✅ Checklist Setup Android - Vena Pictures
 
 Gunakan checklist ini untuk memastikan semua langkah setup sudah dilakukan dengan benar.
 
@@ -227,7 +227,7 @@ Jika Gradle sync gagal:
 - [ ] App muncul di app drawer HP
 
 ### D. Test Aplikasi
-- [ ] Buka aplikasi weddfin di HP
+- [ ] Buka aplikasi Vena Pictures di HP
 - [ ] Aplikasi terbuka tanpa crash
 - [ ] Fitur-fitur berfungsi normal
 - [ ] Koneksi ke backend (Supabase) berfungsi

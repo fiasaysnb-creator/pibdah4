@@ -1,12 +1,12 @@
 # ========================================
-# Setup Android Project - weddfin
+# Setup Android Project - Vena Pictures
 # ========================================
 # Script ini membantu setup project Android
 # dan mempersiapkan build APK
 # ========================================
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "   Setup Android Project - weddfin" -ForegroundColor Cyan
+Write-Host "   Setup Android Project - Vena Pictures" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 

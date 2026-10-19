@@ -5,11 +5,15 @@ import {
   Transaction,
   Profile,
   Package,
-  ViewType,
   NavigationAction,
+  ViewType,
   TeamPaymentRecord,
   TeamMember,
   TeamProjectPayment,
+  Card,
+  FinancialPocket,
+  PaymentStatus,
+  TransactionType,
 } from '../../types';
 import { useInvoices, InvoiceDoc } from '../../features/finance/hooks/useInvoices';
 import InvoiceStatsBar from '../../features/finance/components/InvoiceStatsBar';
@@ -25,7 +29,8 @@ import {
   DocumentToView,
 } from '../../features/clients/hooks/useClientDocumentActions';
 import { updateProject as updateProjectInDb } from '../../services/projects';
-import { updateTransaction as updateTransactionInDb } from '../../services/transactions';
+import { updateTeamPaymentRecord as updateTeamPaymentRecordInDb } from '../../services/teamPaymentRecords';
+import { useFinance } from '../../features/finance/hooks/useFinance';
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
@@ -36,14 +41,21 @@ interface InvoicePageProps {
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   transactions: Transaction[];
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
+  cards: Card[];
+  setCards: React.Dispatch<React.SetStateAction<Card[]>>;
+  pockets: FinancialPocket[];
+  setPockets: React.Dispatch<React.SetStateAction<FinancialPocket[]>>;
   packages: Package[];
   teamPaymentRecords: TeamPaymentRecord[];
   setTeamPaymentRecords: React.Dispatch<React.SetStateAction<TeamPaymentRecord[]>>;
   teamMembers: TeamMember[];
   teamProjectPayments: TeamProjectPayment[];
+  setTeamProjectPayments: React.Dispatch<React.SetStateAction<TeamProjectPayment[]>>;
   userProfile: Profile;
   showNotification: (msg: string) => void;
   handleNavigation: (view: ViewType, action?: NavigationAction) => void;
+  initialAction?: NavigationAction | null;
+  setInitialAction?: (action: NavigationAction | null) => void;
 }
 
 // ─── Delete Confirm Modal ─────────────────────────────────────────────────
@@ -102,14 +114,21 @@ const InvoicePage: React.FC<InvoicePageProps> = ({
   setProjects,
   transactions,
   setTransactions,
+  cards,
+  setCards,
+  pockets,
+  setPockets,
   packages,
   teamPaymentRecords,
   setTeamPaymentRecords,
   teamMembers,
   teamProjectPayments,
+  setTeamProjectPayments,
   userProfile,
   showNotification,
   handleNavigation,
+  initialAction,
+  setInitialAction,
 }) => {
   // Share WA preview state
   const [sharePreview, setSharePreview] = useState<{
@@ -120,6 +139,31 @@ const InvoicePage: React.FC<InvoicePageProps> = ({
 
   // DocumentToView maps to ClientDocumentModal's expected format
   const [documentToView, setDocumentToView] = useState<DocumentToView | null>(null);
+
+  const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
+  const [receiptForm, setReceiptForm] = useState({
+    date: '',
+    description: '',
+    amount: '',
+    category: '',
+    method: '',
+  });
+  const [paymentRecordToEdit, setPaymentRecordToEdit] = useState<TeamPaymentRecord | null>(null);
+  const [paymentRecordForm, setPaymentRecordForm] = useState({ recordNumber: '', date: '' });
+
+  const { handleUpdateTransaction: persistTransactionEdit } = useFinance(
+    transactions,
+    setTransactions,
+    pockets,
+    setPockets,
+    cards,
+    setCards,
+    showNotification,
+    teamProjectPayments,
+    setTeamProjectPayments,
+    teamPaymentRecords,
+    setTeamPaymentRecords,
+  );
 
   // Client for the currently viewed document
   const [clientForDetail, setClientForDetail] = useState<Client | null>(null);
@@ -137,6 +181,93 @@ const InvoicePage: React.FC<InvoicePageProps> = ({
     setInvoiceToEdit(project);
     setIsInvoiceModalOpen(true);
   };
+
+  const handleEditReceipt = (transaction: Transaction) => {
+    setTransactionToEdit(transaction);
+    setReceiptForm({
+      date: transaction.date.slice(0, 10),
+      description: transaction.description || '',
+      amount: String(transaction.amount),
+      category: transaction.category || '',
+      method: transaction.method || 'Transfer Bank',
+    });
+  };
+
+  const handleSaveReceipt = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!transactionToEdit) return;
+
+    try {
+      const updated = await persistTransactionEdit(
+        transactionToEdit.id,
+        {
+          date: receiptForm.date,
+          description: receiptForm.description.trim(),
+          amount: Number(receiptForm.amount),
+          category: receiptForm.category.trim(),
+          method: receiptForm.method,
+        },
+        transactionToEdit,
+      );
+
+      if (updated.projectId && updated.type === TransactionType.INCOME) {
+        const project = projects.find((item) => item.id === updated.projectId);
+        if (project) {
+          const paidAmount = transactions
+            .map((item) => item.id === updated.id ? updated : item)
+            .filter((item) => item.projectId === updated.projectId && item.type === TransactionType.INCOME)
+            .reduce((total, item) => total + (Number(item.amount) || 0), 0);
+          const paymentStatus = paidAmount >= project.totalCost
+            ? PaymentStatus.LUNAS
+            : paidAmount > 0
+              ? PaymentStatus.DP_TERBAYAR
+              : PaymentStatus.BELUM_BAYAR;
+
+          try {
+            const savedProject = await updateProjectInDb(project.id, { amountPaid: paidAmount, paymentStatus });
+            setProjects((prev) => prev.map((item) => item.id === savedProject.id ? savedProject : item));
+          } catch (error) {
+            console.error('[InvoicePage] Failed to sync edited receipt with project:', error);
+            showNotification('Tanda terima tersimpan, tetapi total pembayaran invoice gagal disinkronkan.');
+          }
+        }
+      }
+
+      setTransactionToEdit(null);
+    } catch {
+      // The finance hook reports persistence failures.
+    }
+  };
+
+  const handleEditTeamPayment = (record: TeamPaymentRecord) => {
+    setPaymentRecordToEdit(record);
+    setPaymentRecordForm({ recordNumber: record.recordNumber, date: record.date.slice(0, 10) });
+  };
+
+  const handleSaveTeamPayment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!paymentRecordToEdit) return;
+
+    try {
+      const savedRecord = await updateTeamPaymentRecordInDb(paymentRecordToEdit.id, {
+        recordNumber: paymentRecordForm.recordNumber.trim(),
+        date: paymentRecordForm.date,
+      });
+      setTeamPaymentRecords((prev) => prev.map((record) => record.id === savedRecord.id ? savedRecord : record));
+      setPaymentRecordToEdit(null);
+      showNotification('Rincian slip pembayaran berhasil diperbarui.');
+    } catch (error) {
+      console.error('[InvoicePage] Failed to update team payment record:', error);
+      showNotification('Gagal memperbarui slip pembayaran. Coba lagi.');
+    }
+  };
+
+  React.useEffect(() => {
+    if (initialAction?.type !== 'openInvoice' || !initialAction.id) return;
+    const project = projects.find((item) => item.id === initialAction.id);
+    if (project) handleEditInvoice(project);
+    setInitialAction?.(null);
+  }, [initialAction, projects, setInitialAction]);
 
   const handleInvoiceSaved = (savedProject: Project, newTransaction?: Transaction) => {
     setProjects((prev) => {
@@ -158,7 +289,12 @@ const InvoicePage: React.FC<InvoicePageProps> = ({
     });
 
     if (newTransaction) {
-      setTransactions((prev) => [newTransaction, ...prev]);
+      setTransactions((prev) => {
+        const exists = prev.some((transaction) => transaction.id === newTransaction.id);
+        return exists
+          ? prev.map((transaction) => transaction.id === newTransaction.id ? newTransaction : transaction)
+          : [newTransaction, ...prev];
+      });
     }
 
     setIsInvoiceModalOpen(false);
@@ -284,9 +420,9 @@ const InvoicePage: React.FC<InvoicePageProps> = ({
     if (currentDoc.type === 'invoice') {
       handleEditInvoice(currentDoc.project);
     } else if (currentDoc.type === 'receipt') {
-      handleNavigation(ViewType.FINANCE, { type: 'openTransaction', id: currentDoc.transaction.id });
+      handleEditReceipt(currentDoc.transaction);
     } else if (currentDoc.type === 'slip-gaji') {
-      showNotification('Pembayaran tim tidak dapat diedit dari sini.');
+      handleEditTeamPayment(currentDoc.teamPaymentRecord);
     }
   };
 
@@ -350,9 +486,9 @@ const InvoicePage: React.FC<InvoicePageProps> = ({
               if (doc.kind === 'invoice' && doc.project) {
                 handleEditInvoice(doc.project);
               } else if (doc.kind === 'receipt' && doc.transaction) {
-                handleNavigation(ViewType.FINANCE, { type: 'openTransaction', id: doc.transaction.id });
-              } else if (doc.kind === 'slip-gaji') {
-                showNotification('Pembayaran tim tidak dapat diedit dari sini.');
+                handleEditReceipt(doc.transaction);
+              } else if (doc.kind === 'slip-gaji' && doc.teamPaymentRecord) {
+                handleEditTeamPayment(doc.teamPaymentRecord);
               }
             }}
             onDelete={setDeleteConfirm}
@@ -396,6 +532,71 @@ const InvoicePage: React.FC<InvoicePageProps> = ({
         showNotification={showNotification}
         onSuccess={handleInvoiceSaved}
       />
+
+      <Modal
+        isOpen={!!transactionToEdit}
+        onClose={() => setTransactionToEdit(null)}
+        title="Edit Tanda Terima"
+        size="lg"
+      >
+        <form onSubmit={handleSaveReceipt} className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="input-group">
+              <span className="input-label">Tanggal</span>
+              <input type="date" value={receiptForm.date} onChange={(event) => setReceiptForm((prev) => ({ ...prev, date: event.target.value }))} className="input-field" required />
+            </label>
+            <label className="input-group">
+              <span className="input-label">Jumlah</span>
+              <input type="number" min="0" step="1" value={receiptForm.amount} onChange={(event) => setReceiptForm((prev) => ({ ...prev, amount: event.target.value }))} className="input-field" required />
+            </label>
+          </div>
+          <label className="input-group">
+            <span className="input-label">Deskripsi</span>
+            <input type="text" value={receiptForm.description} onChange={(event) => setReceiptForm((prev) => ({ ...prev, description: event.target.value }))} className="input-field" required />
+          </label>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="input-group">
+              <span className="input-label">Kategori</span>
+              <input type="text" value={receiptForm.category} onChange={(event) => setReceiptForm((prev) => ({ ...prev, category: event.target.value }))} className="input-field" required />
+            </label>
+            <label className="input-group">
+              <span className="input-label">Metode pembayaran</span>
+              <select value={receiptForm.method} onChange={(event) => setReceiptForm((prev) => ({ ...prev, method: event.target.value }))} className="input-field" required>
+                <option value="Transfer Bank">Transfer Bank</option>
+                <option value="Tunai">Tunai</option>
+                <option value="E-Wallet">E-Wallet</option>
+                <option value="Kartu Kredit">Kartu Kredit</option>
+              </select>
+            </label>
+          </div>
+          <div className="flex justify-end gap-2 border-t border-brand-border pt-4">
+            <button type="button" onClick={() => setTransactionToEdit(null)} className="button-secondary">Batal</button>
+            <button type="submit" className="button-primary">Simpan Perubahan</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={!!paymentRecordToEdit}
+        onClose={() => setPaymentRecordToEdit(null)}
+        title="Edit Pembayaran Tim"
+        size="sm"
+      >
+        <form onSubmit={handleSaveTeamPayment} className="space-y-4">
+          <label className="input-group">
+            <span className="input-label">Nomor slip</span>
+            <input type="text" value={paymentRecordForm.recordNumber} onChange={(event) => setPaymentRecordForm((prev) => ({ ...prev, recordNumber: event.target.value }))} className="input-field" required />
+          </label>
+          <label className="input-group">
+            <span className="input-label">Tanggal pembayaran</span>
+            <input type="date" value={paymentRecordForm.date} onChange={(event) => setPaymentRecordForm((prev) => ({ ...prev, date: event.target.value }))} className="input-field" required />
+          </label>
+          <div className="flex justify-end gap-2 border-t border-brand-border pt-4">
+            <button type="button" onClick={() => setPaymentRecordToEdit(null)} className="button-secondary">Batal</button>
+            <button type="submit" className="button-primary">Simpan Perubahan</button>
+          </div>
+        </form>
+      </Modal>
 
       {/* ── Share WA Modal ──────────────────────────────────────────── */}
       {sharePreview && (

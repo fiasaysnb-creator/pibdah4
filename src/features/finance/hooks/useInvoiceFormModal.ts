@@ -4,7 +4,8 @@ import { Project, Client, Package, PaymentStatus, TransactionType, Transaction }
 import { InvoiceFormData, InvoiceLineItem } from '../types/invoiceForm';
 import { createProject, updateProject, UpdateProjectInput, CreateProjectInput } from '../../../services/projects';
 import { createClient } from '../../../services/clients';
-import { createTransaction } from '../../../services/transactions';
+import { createTransaction, updateTransaction } from '../../../services/transactions';
+import { getLatestInvoicePaymentDate } from '../utils/invoicePdf';
 
 interface UseInvoiceFormModalProps {
   isOpen: boolean;
@@ -54,6 +55,17 @@ export function useInvoiceFormModal({
 
       const safeAddOns = Array.isArray(editProj.addOns) ? editProj.addOns : [];
       const safeCustomCosts = Array.isArray(editProj.customCosts) ? editProj.customCosts : [];
+      const mainPackage = packages.find((pkg) => pkg.id === editProj.packageId)
+        || packages.find((pkg) => pkg.name === editProj.packageName);
+      const selectedOption = mainPackage?.durationOptions?.find(
+        (option) => option.label === editProj.durationSelection,
+      );
+      const packageDetails = [
+        ...(selectedOption?.digitalItems?.length ? selectedOption.digitalItems : mainPackage?.digitalItems || []),
+        ...(selectedOption?.physicalItems?.length ? selectedOption.physicalItems : mainPackage?.physicalItems || [])
+          .map((item) => typeof item === 'string' ? item : item?.name || '')
+          .filter(Boolean),
+      ];
 
       // Reconstruct line items from editProj
       const subtotal = (Number(editProj.totalCost) || 0) + (Number(editProj.discountAmount) || 0);
@@ -68,6 +80,7 @@ export function useInvoiceFormModal({
         quantity: 1,
         unitPrice: primaryItemPrice,
         totalPrice: primaryItemPrice,
+        packageDetails,
         sourceType: 'package',
       });
 
@@ -105,6 +118,12 @@ export function useInvoiceFormModal({
       // Fall back to project.amountPaid only when no transaction data is available.
       const txPaid = computeAmountPaidFromTransactions(editProj.id);
       const actualPaid = txPaid > 0 ? txPaid : (Number(editProj.amountPaid) || 0);
+      const projectIncomeTransactions = transactions
+        .filter((transaction) => transaction.projectId === editProj.id && transaction.type === TransactionType.INCOME)
+        .sort((left, right) => right.date.localeCompare(left.date));
+      const paymentDateTransaction = projectIncomeTransactions.find((transaction) =>
+        `${transaction.category} ${transaction.description}`.toLowerCase().includes('dp'),
+      ) || projectIncomeTransactions[0];
 
       // Recompute payment status based on actual paid vs invoice total
       const grandTotal = editProj.totalCost || 0;
@@ -120,6 +139,9 @@ export function useInvoiceFormModal({
       return {
         id: editProj.id,
         invoiceNumber: `INV-${editProj.id.slice(-8).toUpperCase()}`,
+        packageId: editProj.packageId || '',
+        durationSelection: editProj.durationSelection || '',
+        invoiceSignature: editProj.invoiceSignature || '',
         isNewClient: false,
         clientId: editProj.clientId || client?.id || '',
         clientName: editProj.clientName || client?.name || '',
@@ -128,7 +150,9 @@ export function useInvoiceFormModal({
         clientAddress: editProj.address || client?.address || '',
         title: editProj.projectName || '',
         projectType: editProj.projectType || 'Wedding',
-        invoiceDate: editProj.date ? editProj.date.split('T')[0] : getTodayIsoDate(),
+        invoiceDate: getLatestInvoicePaymentDate(editProj.id, transactions).slice(0, 10),
+        paymentDate: paymentDateTransaction?.date.slice(0, 10) || '',
+        paymentDateTransactionId: paymentDateTransaction?.id || '',
         eventDate: editProj.deadlineDate ? editProj.deadlineDate.split('T')[0] : (editProj.date ? editProj.date.split('T')[0] : getTodayIsoDate()),
         location: editProj.location || '',
         address: editProj.address || '',
@@ -158,6 +182,9 @@ export function useInvoiceFormModal({
       clientAddress: clientList[0]?.address || '',
       title: '',
       projectType: 'Wedding',
+      packageId: '',
+      durationSelection: '',
+      invoiceSignature: '',
       invoiceDate: getTodayIsoDate(),
       eventDate: getTodayIsoDate(),
       location: '',
@@ -398,8 +425,8 @@ export function useInvoiceFormModal({
         projectType: formData.projectType || projectToEdit?.projectType || 'Wedding',
         packageName: primaryPackageName,
         packageId: projectToEdit?.packageId,
-        date: formData.invoiceDate
-          ? formData.invoiceDate + 'T00:00:00+07:00'
+        date: (formData.eventDate || formData.invoiceDate)
+          ? (formData.eventDate || formData.invoiceDate) + 'T00:00:00+07:00'
           : null,
         deadlineDate: (formData.eventDate || formData.invoiceDate)
           ? (formData.eventDate || formData.invoiceDate) + 'T00:00:00+07:00'
@@ -437,6 +464,7 @@ export function useInvoiceFormModal({
 
       let savedProject: Project;
       let recordedTx: Transaction | undefined = undefined;
+      let updatedPaymentTransaction: Transaction | undefined;
 
       if (formData.id) {
         // ── EDIT MODE ──────────────────────────────────────────────────────
@@ -460,6 +488,9 @@ export function useInvoiceFormModal({
         projectDataPayload.amountPaid = actualPaid;
         projectDataPayload.paymentStatus = recalcStatus;
 
+        const paymentDateTransaction = transactions.find(
+          (transaction) => transaction.id === formData.paymentDateTransactionId,
+        );
         const updated = await updateProject(formData.id, projectDataPayload);
         savedProject = {
           ...projectToEdit,
@@ -469,6 +500,22 @@ export function useInvoiceFormModal({
           team: projectToEdit?.team || updated.team,
           weddingDayChecklist: projectToEdit?.weddingDayChecklist || updated.weddingDayChecklist,
         };
+
+        if (
+          paymentDateTransaction &&
+          formData.paymentDate &&
+          paymentDateTransaction.date.slice(0, 10) !== formData.paymentDate
+        ) {
+          updatedPaymentTransaction = await updateTransaction(paymentDateTransaction.id, {
+            date: formData.paymentDate,
+          });
+          queryClient.setQueryData<Transaction[]>(['transactions'], (current) =>
+            current?.map((transaction) => transaction.id === updatedPaymentTransaction?.id
+              ? updatedPaymentTransaction
+              : transaction
+            ).sort((left, right) => right.date.localeCompare(left.date)),
+          );
+        }
 
         // RULE 3, 10, 11: Do NOT create any transaction when saving an invoice edit.
         // Transaction creation only happens via a dedicated payment flow.
@@ -524,7 +571,7 @@ export function useInvoiceFormModal({
       // Derived totals refresh in the background; do not hold the save button open.
       void queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
 
-      onSuccess(savedProject, recordedTx);
+      onSuccess(savedProject, recordedTx || (formData.id ? updatedPaymentTransaction : undefined));
     } catch (err: any) {
       console.error('[useInvoiceFormModal] Error saving invoice:', err);
       setErrorMsg(err.message || 'Gagal menyimpan invoice. Silakan coba lagi.');

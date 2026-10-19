@@ -344,7 +344,8 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                   type="date"
                   value={formData.invoiceDate}
                   onChange={(e) => handleFieldChange('invoiceDate', e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-brand-border bg-brand-surface text-brand-text-primary text-xs focus:outline-none focus:ring-2 focus:ring-brand-accent/40 font-medium"
+                  disabled={!!formData.id}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-brand-border bg-brand-surface text-brand-text-primary text-xs focus:outline-none focus:ring-2 focus:ring-brand-accent/40 font-medium disabled:cursor-not-allowed disabled:bg-brand-bg disabled:text-brand-text-secondary"
                   required
                 />
               </div>
@@ -503,7 +504,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
               <span>
                 <strong>Pembayaran dikunci.</strong> Nilai &ldquo;Sudah Dibayar&rdquo; dihitung otomatis dari total transaksi pembayaran nyata untuk invoice ini.
-                Untuk menambah pembayaran, gunakan fitur <strong>Tambah Transaksi</strong> di menu Keuangan.
+                Ubah tanggal DP di bawah bila tanggal masuk berbeda. Untuk menambah pembayaran, gunakan fitur <strong>Tambah Transaksi</strong> di menu Keuangan.
               </span>
             </div>
           )}
@@ -539,6 +540,25 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                   </>
                 )}
               </div>
+
+              {isEditMode && (
+                <div className="space-y-1.5">
+                  <label htmlFor="invoice-payment-date" className="text-xs font-semibold text-brand-text-secondary">
+                    Edit / Tanggal DP Masuk
+                  </label>
+                  <input
+                    id="invoice-payment-date"
+                    type="date"
+                    value={formData.paymentDate || ''}
+                    onChange={(e) => handleFieldChange('paymentDate', e.target.value)}
+                    disabled={!formData.paymentDateTransactionId}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-brand-border bg-brand-surface text-brand-text-primary text-xs focus:outline-none focus:ring-2 focus:ring-brand-accent/40 font-medium disabled:cursor-not-allowed disabled:bg-brand-bg disabled:text-brand-text-secondary"
+                  />
+                  {!formData.paymentDateTransactionId && (
+                    <p className="text-[11px] text-brand-text-secondary">Belum ada transaksi pembayaran yang dapat disesuaikan.</p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-brand-text-secondary flex items-center gap-1.5">
@@ -688,6 +708,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
         isSubmitting={isSubmitting}
         formData={formData}
         profile={userProfile}
+        packages={packages}
         isEditMode={isEditMode}
       />
     </Modal>

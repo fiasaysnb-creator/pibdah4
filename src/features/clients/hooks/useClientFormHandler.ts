@@ -272,7 +272,15 @@ export const useClientFormHandler = ({
                     return { ...prev, durationSelection: value };
                 }
 
-                return { ...prev, [name]: value };
+                const updated = { ...prev, [name]: value };
+                if (modalMode === 'add' && (name === 'clientName' || name === 'projectType')) {
+                    const previousGeneratedName = `${prev.projectType} ${prev.clientName}`.trim();
+                    const projectNameWasGenerated = !prev.projectName.trim() || prev.projectName.trim() === previousGeneratedName;
+                    if (projectNameWasGenerated) {
+                        updated.projectName = `${updated.projectType} ${updated.clientName}`.trim();
+                    }
+                }
+                return updated;
             });
         }
     };

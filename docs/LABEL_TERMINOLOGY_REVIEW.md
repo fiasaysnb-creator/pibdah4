@@ -1,4 +1,4 @@
-# Review Label & Terminologi UI — Weddfin
+# Review Label & Terminologi UI — Vena Pictures
 
 > Dokumen ini berdasarkan pemeriksaan langsung ke source code pada Oktober 2026.  
 > Semua lokasi file sudah diverifikasi aktual (bukan estimasi).
@@ -87,7 +87,7 @@ Masalah utama: kata "Zoom Meeting" mengunci ke satu platform berbayar, sementara
 | 37 | `Add-ons` (label baris biaya di portal klien) | **`Layanan Tambahan`** | `ClientPortal.tsx` | 583 | Jargon teknis, tidak semua klien familiar |
 | 38 | `Kwitansi` (label tombol) | **`Tanda Terima`** | `ClientPortal.tsx` | 1047 | Inkonsisten — di baris 1282 dan 1336 file yang sama sudah pakai "Tanda Terima" |
 | 39 | `label: 'Moodboard / Brief'` (label link di portal klien) | **`label: 'Referensi Acara / Brief'`** | `ClientPortal.tsx` | 885 | "Moodboard" tidak dimengerti semua pengantin awam |
-| 40 | `Sinkronisasi Cloud Weddfin` (teks kecil di footer portal) | **`Tersimpan di Cloud Weddfin`** | `ClientPortal.tsx` | 977 | "Sinkronisasi" terdengar teknis dan menimbulkan kekhawatiran |
+| 40 | `Sinkronisasi Cloud Vena Pictures` (teks kecil di footer portal) | **`Tersimpan di Cloud Vena Pictures`** | `ClientPortal.tsx` | 977 | "Sinkronisasi" terdengar teknis dan menimbulkan kekhawatiran |
 | 41 | `Rekap Pengantin Belum Lunas` (judul panel) | **`Pengantin dengan Sisa Pembayaran`** | `ClientDuesView.tsx` | 25 | Lebih deskriptif dan tidak terkesan menghakimi |
 | 42 | `Tagih WA` (label tombol aksi) | **`Ingatkan via WA`** | `ClientDuesView.tsx` | 100 | "Tagih" terdengar agresif. "Ingatkan" lebih sopan |
 | 43 | `label: 'Booking Jadwal'` (menu nav sidebar) | **`label: 'Booking'`** | `constants/index.tsx` | 264 | Redundan — "Jadwal" sudah terimplikasi dari "Booking" |
@@ -148,7 +148,7 @@ Ini item yang memerlukan keputusan dari Anda sebelum diimplementasi:
 | 552 | `'On Going'` | `'Sedang Dikerjakan'` |
 | 583 | `Add-ons` | `Layanan Tambahan` |
 | 885 | `label: 'Moodboard / Brief'` | `label: 'Referensi Acara / Brief'` |
-| 977 | `Sinkronisasi Cloud Weddfin` | `Tersimpan di Cloud Weddfin` |
+| 977 | `Sinkronisasi Cloud Vena Pictures` | `Tersimpan di Cloud Vena Pictures` |
 | 1047 | `Kwitansi` | `Tanda Terima` |
 
 ### `src/features/projects/components/ProjectDetailModal.tsx`
@@ -283,7 +283,7 @@ Perubahan ini langsung terlihat oleh pengantin sebagai end-user:
 
 14. `Booking Jadwal` → `Booking` (nav sidebar)
 15. `Pengingat Tagihan Ramah` → `Pengingat Pembayaran Ramah`
-16. `Sinkronisasi Cloud Weddfin` → `Tersimpan di Cloud Weddfin`
+16. `Sinkronisasi Cloud Vena Pictures` → `Tersimpan di Cloud Vena Pictures`
 17. `Moodboard / Brief` → `Referensi Acara / Brief` (portal klien)
 18. `Sisa Tagihan` dalam template WA di constants
 
