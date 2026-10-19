@@ -199,7 +199,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                   <option value="">-- Pilih Pengantin --</option>
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name} {c.phone ? `(${c.phone})` : ''}
+                      {c.name}
                     </option>
                   ))}
                 </select>
