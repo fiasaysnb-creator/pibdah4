@@ -789,7 +789,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
       {/* ── HERO HEADER ─────────────────────────────────────────────────── */}
       <div
-        className="relative rounded-2xl overflow-hidden mb-5 shadow-lg shadow-blue-500/20 bg-cover bg-center"
+        className="relative rounded-2xl overflow-hidden mb-3 sm:mb-5 shadow-lg shadow-blue-500/20 bg-cover bg-center"
         style={{ backgroundImage: `url(${profile.publicPageConfig?.backgroundImages?.clientDetail || '/assets/images/backgrounds/detail-pengantin-4.jpg'})` }}
       >
         {/* Dark overlay to ensure text readability */}
@@ -799,9 +799,9 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
         <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/5 pointer-events-none" />
         <div className="absolute -bottom-6 -left-6 w-28 h-28 rounded-full bg-white/5 pointer-events-none" />
 
-        <div className="relative flex flex-col items-center gap-4 p-3.5 sm:flex-row sm:items-center sm:gap-5 sm:p-6">
+        <div className="relative flex flex-col items-center gap-2.5 p-2.5 sm:flex-row sm:items-center sm:gap-5 sm:p-6">
           {/* Avatar */}
-          <div className="w-24 h-24 sm:w-48 sm:h-48 rounded-2xl overflow-hidden bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-inner border border-white/30">
+          <div className="w-16 h-16 sm:w-48 sm:h-48 rounded-xl sm:rounded-2xl overflow-hidden bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-inner border border-white/30">
             {client.avatarUrl ? (
               <img src={client.avatarUrl} alt={`${client.name} avatar`} className="w-full h-full object-cover" />
             ) : (
@@ -810,10 +810,10 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
           </div>
 
           {/* Name + meta */}
-          <div className="flex w-full min-w-0 flex-1 flex-col items-center gap-3 text-center sm:items-start sm:text-left">
+          <div className="flex w-full min-w-0 flex-1 flex-col items-center gap-2 sm:gap-3 text-center sm:items-start sm:text-left">
             <div className="w-full">
-              <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest text-white/80 mb-0.5">{customizeUiText('client.detail.title', 'Detail Pengantin', uiTextOverrides)}</p>
-              <h2 className="text-base sm:text-2xl font-black text-white leading-tight break-words">{client.name}</h2>
+              <p className="text-[8px] sm:text-[10px] font-semibold uppercase tracking-widest text-white/80 mb-0.5">{customizeUiText('client.detail.title', 'Detail Pengantin', uiTextOverrides)}</p>
+              <h2 className="text-sm sm:text-2xl font-black text-white leading-tight break-words">{client.name}</h2>
               <div className="mt-1 flex flex-wrap justify-center gap-1.5 sm:justify-start sm:gap-2">
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-white/15 text-white text-[9px] sm:text-[10px] font-semibold border border-white/20">
                   Terdaftar {new Date(client.since).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -1102,7 +1102,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                       </div>
                     </div>
                     <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-shrink-0 sm:items-end">
-                      <div className="grid w-full min-w-0 grid-cols-2 gap-1 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+                      <div className="flex w-full min-w-0 flex-nowrap gap-1 sm:w-auto sm:flex-wrap sm:justify-end">
                         {remainingBalance > 0 ? (
                           <button
                             type="button"
@@ -1110,13 +1110,14 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                               ...prev,
                               [p.id]: prev[p.id] === 'payment' ? null : 'payment',
                             }))}
-                            className="inline-flex min-h-9 min-w-0 w-full items-center justify-center gap-1 rounded-lg bg-emerald-700 px-1.5 py-1 text-center text-[10px] font-bold leading-tight text-white transition-colors hover:bg-emerald-800 sm:w-auto sm:px-2.5 sm:text-[11px]"
+                            className="inline-flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-700 px-1 py-1 text-center text-[9px] font-bold leading-tight text-white transition-colors hover:bg-emerald-800 sm:flex-none sm:px-2.5 sm:text-[11px]"
                             aria-expanded={transactionFormOpen[p.id] === 'payment'}
                             aria-label="Catat pembayaran klien"
                             title="Catat pembayaran klien"
                           >
                             <Plus className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
-                            {transactionFormOpen[p.id] === 'payment' ? 'Tutup' : 'Pembayaran'}
+                            <span className="sm:hidden">{transactionFormOpen[p.id] === 'payment' ? 'Tutup' : 'Bayar'}</span>
+                            <span className="hidden sm:inline">{transactionFormOpen[p.id] === 'payment' ? 'Tutup' : 'Pembayaran'}</span>
                           </button>
                         ) : (
                           <span className="inline-flex min-h-9 min-w-0 w-full items-center justify-center rounded-lg bg-emerald-50 px-2 py-1.5 text-center text-[10px] font-bold leading-tight text-emerald-700 sm:w-auto sm:px-2.5">
@@ -1129,13 +1130,14 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                             ...prev,
                             [p.id]: prev[p.id] === 'charges' ? null : 'charges',
                           }))}
-                          className="inline-flex min-h-9 min-w-0 w-full items-center justify-center gap-1 rounded-lg border border-blue-700 bg-blue-600 px-1.5 py-1 text-center text-[10px] font-bold leading-tight text-white transition-colors hover:bg-blue-700 sm:w-auto sm:px-2.5 sm:text-[11px]"
+                          className="inline-flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-blue-700 bg-blue-600 px-1 py-1 text-center text-[9px] font-bold leading-tight text-white transition-colors hover:bg-blue-700 sm:flex-none sm:px-2.5 sm:text-[11px]"
                           aria-expanded={transactionFormOpen[p.id] === 'charges'}
                           aria-label="Tambah biaya atau paket ke tagihan"
                           title="Tambah biaya atau paket ke tagihan klien"
                         >
                           <Plus className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
-                          {transactionFormOpen[p.id] === 'charges' ? 'Tutup' : 'Tambah tagihan'}
+                            <span className="sm:hidden">{transactionFormOpen[p.id] === 'charges' ? 'Tutup' : 'Tagihan'}</span>
+                            <span className="hidden sm:inline">{transactionFormOpen[p.id] === 'charges' ? 'Tutup' : 'Tambah tagihan'}</span>
                         </button>
                         <button
                           type="button"
@@ -1155,13 +1157,14 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                               }));
                             }
                           }}
-                          className="col-span-2 inline-flex min-h-9 w-1/2 min-w-0 justify-self-center items-center justify-center gap-1 rounded-lg border border-red-700 bg-red-600 px-1.5 py-1 text-center text-[10px] font-bold leading-tight text-white transition-colors hover:bg-red-700 sm:col-span-1 sm:w-auto sm:justify-self-auto sm:px-2.5 sm:text-[11px]"
+                          className="inline-flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-red-700 bg-red-600 px-1 py-1 text-center text-[9px] font-bold leading-tight text-white transition-colors hover:bg-red-700 sm:flex-none sm:px-2.5 sm:text-[11px]"
                           aria-expanded={transactionFormOpen[p.id] === 'expense'}
                           aria-label="Catat pengeluaran acara"
                           title="Catat pengeluaran acara"
                         >
                           <TrendingDownIcon className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
-                          {transactionFormOpen[p.id] === 'expense' ? 'Tutup' : 'Pengeluaran'}
+                          <span className="sm:hidden">{transactionFormOpen[p.id] === 'expense' ? 'Tutup' : 'Biaya'}</span>
+                          <span className="hidden sm:inline">{transactionFormOpen[p.id] === 'expense' ? 'Tutup' : 'Pengeluaran'}</span>
                         </button>
                       </div>
                     </div>
@@ -1508,21 +1511,22 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                     <SectionTitle sub="Rincian tagihan dan riwayat pembayaran untuk acara ini.">
                       {customizeUiText('client.detail.section.transactions', 'Riwayat Transaksi', uiTextOverrides)}
                     </SectionTitle>
-                    <div className="grid grid-cols-2 gap-1 rounded-xl border border-brand-border bg-brand-bg p-1 sm:grid-cols-4">
+                    <div className="grid grid-cols-4 gap-1 rounded-xl border border-brand-border bg-brand-bg p-1">
                       {([
-                        { id: 'summary', label: 'Rincian' },
-                        { id: 'client', label: `Klien (${clientPaymentTransactions.length})` },
-                        { id: 'team', label: `Tim (${teamProjectPaymentsForEvent.length})` },
-                        { id: 'expenses', label: `Biaya acara (${eventExpenseTransactions.length})` },
+                        { id: 'summary', label: 'Rincian', mobileLabel: 'Rincian' },
+                        { id: 'client', label: `Klien (${clientPaymentTransactions.length})`, mobileLabel: `Klien ${clientPaymentTransactions.length}` },
+                        { id: 'team', label: `Tim (${teamProjectPaymentsForEvent.length})`, mobileLabel: `Tim ${teamProjectPaymentsForEvent.length}` },
+                        { id: 'expenses', label: `Biaya acara (${eventExpenseTransactions.length})`, mobileLabel: `Biaya ${eventExpenseTransactions.length}` },
                       ] as const).map(tab => (
                         <button
                           key={tab.id}
                           type="button"
                           onClick={() => setProjectPaymentHistoryTabs(prev => ({ ...prev, [p.id]: tab.id }))}
-                          className={`min-h-9 min-w-0 rounded-lg px-1.5 py-2 text-[10px] font-bold transition-colors sm:text-xs ${activePaymentHistoryTab === tab.id ? 'bg-brand-accent text-white shadow-sm' : 'text-brand-text-secondary hover:bg-white hover:text-brand-text-primary'}`}
+                          className={`min-h-9 min-w-0 whitespace-nowrap rounded-lg px-0.5 py-2 text-[9px] font-bold transition-colors sm:px-1.5 sm:text-xs ${activePaymentHistoryTab === tab.id ? 'bg-brand-accent text-white shadow-sm' : 'text-brand-text-secondary hover:bg-white hover:text-brand-text-primary'}`}
                           aria-pressed={activePaymentHistoryTab === tab.id}
                         >
-                          {tab.label}
+                          <span className="sm:hidden">{tab.mobileLabel}</span>
+                          <span className="hidden sm:inline">{tab.label}</span>
                         </button>
                       ))}
                     </div>
@@ -1532,7 +1536,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                   {activePaymentHistoryTab === 'summary' && (
                   <div className="bg-brand-surface rounded-2xl border border-brand-border shadow-sm overflow-hidden">
 
-                    <div className="p-4 sm:p-5 space-y-5">
+                    <div className="p-3 sm:p-5 space-y-3 sm:space-y-5">
 
                       {/* Cost breakdown */}
                       <details className="rounded-xl bg-slate-50 border border-slate-100 overflow-hidden">
@@ -1721,24 +1725,24 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                       </div>
 
                       {/* Action buttons */}
-                      <div className="client-detail-action-group flex items-center justify-end gap-2 pt-1">
+                      <div className="client-detail-action-group flex flex-nowrap items-center justify-end gap-1 sm:gap-2 pt-1">
                         {p.dpProofUrl && (
                           <a
                             href={p.dpProofUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-auto max-w-full button-secondary !py-2 !px-3 text-xs inline-flex items-center justify-center gap-1.5"
+                            className="w-auto max-w-full button-secondary !py-1.5 !px-2 sm:!py-2 sm:!px-3 text-[10px] sm:text-xs inline-flex items-center justify-center gap-1"
                           >
-                            <CreditCardIcon className="w-3.5 h-3.5 text-brand-accent" />
-                            Bukti DP
+                            <CreditCardIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-brand-accent" />
+                            <span className="sm:hidden">Bukti DP</span><span className="hidden sm:inline">Bukti DP</span>
                           </a>
                         )}
                         <button
                           onClick={() => onViewInvoice(p)}
-                          className="w-auto max-w-full button-primary !py-2 !px-3 text-xs inline-flex items-center justify-center gap-1.5"
+                          className="w-auto max-w-full button-primary !py-1.5 !px-2 sm:!py-2 sm:!px-3 text-[10px] sm:text-xs inline-flex items-center justify-center gap-1"
                         >
-                          <FileTextIcon className="w-3.5 h-3.5" />
-                          Invoice PDF
+                          <FileTextIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          <span className="sm:hidden">Invoice</span><span className="hidden sm:inline">Invoice PDF</span>
                         </button>
                         <button
                           onClick={() => {
@@ -1746,12 +1750,12 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                               onDeleteProject(p.id);
                             }
                           }}
-                          className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-[11px] font-bold text-red-700 transition-all hover:border-red-300 hover:bg-red-50 active:scale-95"
+                          className="inline-flex min-h-9 items-center justify-center gap-1 rounded-xl border border-red-200 px-2 py-1.5 text-[10px] sm:px-3 sm:py-2 sm:text-[11px] sm:gap-1.5 font-bold text-red-700 transition-all hover:border-red-300 hover:bg-red-50 active:scale-95"
                           title="Hapus Acara"
                           aria-label={`Hapus acara ${p.projectName}`}
                         >
-                          <Trash2Icon className="w-4 h-4" />
-                          <span>Hapus Acara</span>
+                          <Trash2Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          <span className="sm:hidden">Hapus</span><span className="hidden sm:inline">Hapus Acara</span>
                         </button>
                       </div>
                     </div>

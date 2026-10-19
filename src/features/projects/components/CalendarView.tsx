@@ -609,8 +609,12 @@ const MonthView: React.FC<MonthViewProps> = ({ currentDate, daysInMonth, eventsB
     const [dragOverDate, setDragOverDate] = useState<string | null>(null);
     const [draggingId, setDraggingId] = useState<string | null>(null);
     const [selectedDateEvents, setSelectedDateEvents] = useState<{ date: Date, events: Project[] } | null>(null);
+    const monthAgenda = daysInMonth
+        .filter(day => day.getMonth() === currentDate.getMonth() && day.getFullYear() === currentDate.getFullYear())
+        .flatMap(date => (eventsByDate.get(date.toDateString()) || []).map(event => ({ date, event })));
 
     return (
+        <>
         <div className="grid grid-cols-7 flex-none lg:flex-grow lg:h-full calendar-grid bg-brand-surface/30 relative">
             {isLoading && <CalendarSkeleton />}
             {weekdays.map(day => (<div key={day} className="text-center py-3 text-xs font-semibold text-brand-text-secondary border-b border-l border-brand-border/40 bg-white/50 backdrop-blur-sm">{day}</div>))}
@@ -620,8 +624,8 @@ const MonthView: React.FC<MonthViewProps> = ({ currentDate, daysInMonth, eventsB
                 const events = eventsByDate.get(day.toDateString()) || [];
                 const dateStr = formatLocalDate(day);
                 const isDragOver = dragOverDate === day.toDateString();
-                const visibleEvents = events.slice(0, 2);
-                const hasMore = events.length > 2;
+                const visibleEvents = events.slice(0, 3);
+                const hasMore = events.length > 3;
 
                 return (
                     <div
@@ -644,12 +648,12 @@ const MonthView: React.FC<MonthViewProps> = ({ currentDate, daysInMonth, eventsB
                             const id = e.dataTransfer.getData('eventId');
                             if (id && onEventDrop) onEventDrop(id, dateStr);
                         }}
-                        className={`relative border-b border-l border-brand-border/40 p-1.5 sm:p-2 flex flex-col h-20 sm:h-24 lg:h-32 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-accent ${isCurrentMonth ? 'bg-white/40' : 'bg-brand-bg/40 backdrop-blur-sm opacity-60'
+                        className={`relative border-b border-l border-brand-border/40 p-1 sm:p-2 flex flex-col h-20 sm:h-24 lg:h-32 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-accent ${isCurrentMonth ? 'bg-white/40' : 'bg-brand-bg/40 backdrop-blur-sm opacity-60'
                             } cursor-pointer transition-colors group ${isDragOver ? 'ring-2 ring-inset ring-brand-accent bg-brand-accent/10 scale-[1.02]' : 'hover:bg-white'
                             }`}
                     >
-                        <span className={`text-xs font-semibold self-start mb-1.5 w-6 h-6 flex items-center justify-center rounded-full transition-colors ${isCurrentMonth ? 'text-brand-text-light group-hover:bg-brand-input' : 'text-brand-text-secondary/50'} ${isToday ? '!bg-brand-accent text-white shadow-md' : ''}`}>{day.getDate()}</span>
-                        <div className="flex-grow space-y-1.5 overflow-hidden custom-scrollbar pr-0.5">
+                        <span className={`text-xs font-semibold self-start mb-0.5 sm:mb-1.5 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full transition-colors ${isCurrentMonth ? 'text-brand-text-light group-hover:bg-brand-input' : 'text-brand-text-secondary/50'} ${isToday ? '!bg-brand-accent text-white shadow-md' : ''}`}>{day.getDate()}</span>
+                        <div className="flex-grow space-y-0.5 sm:space-y-1.5 overflow-hidden custom-scrollbar pr-0.5">
                             {visibleEvents.map(event => {
                                 const bgColor = getEventColor(event, profile);
                                 const client = clients.find(item => item.id === event.clientId);
@@ -671,15 +675,15 @@ const MonthView: React.FC<MonthViewProps> = ({ currentDate, daysInMonth, eventsB
                                         onMouseEnter={(e) => { if (!draggingId) setHoveredEvent({ event, pos: { x: e.clientX, y: e.clientY } }); }}
                                         onMouseMove={(e) => { if (!draggingId) setHoveredEvent({ event, pos: { x: e.clientX, y: e.clientY } }); }}
                                         onMouseLeave={() => setHoveredEvent(null)}
-                                        className={`text-[10px] sm:text-xs p-1.5 rounded-lg text-white truncate leading-tight shadow-sm transition-all ${isInternal ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+                                        className={`text-[8px] sm:text-xs p-0.5 sm:p-1.5 rounded text-white truncate leading-none sm:leading-tight shadow-sm transition-all ${isInternal ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
                                             } ${isDragging ? 'opacity-40 scale-95' : 'hover:opacity-90 active:scale-[0.98]'
                                             }`}
                                         style={{ backgroundColor: bgColor }}
                                         title={isInternal ? 'Drag untuk pindahkan' : undefined}
                                     >
                                         <div className="flex items-center gap-1 min-w-0">
-                                            {!isInternal && <ClientAvatar client={client} name={event.clientName || 'Pengantin'} className="w-4 h-4" />}
-                                            <p className="font-semibold truncate tracking-tight">{event.projectName}</p>
+                                            {!isInternal && <ClientAvatar client={client} name={event.clientName || 'Pengantin'} className="hidden w-4 h-4 sm:flex" />}
+                                            <p className="min-w-0 flex-1 text-[8px] sm:text-xs font-semibold truncate tracking-tight">{event.projectName}</p>
                                         </div>
                                     </div>
                                 )
@@ -687,9 +691,9 @@ const MonthView: React.FC<MonthViewProps> = ({ currentDate, daysInMonth, eventsB
                             {hasMore && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); setSelectedDateEvents({ date: day, events }); }}
-                                    className="text-[10px] bg-brand-bg px-2 py-0.5 rounded text-brand-text-secondary hover:bg-brand-input w-full text-center"
+                                    className="text-[8px] sm:text-[10px] bg-brand-bg px-1 py-0.5 rounded text-brand-text-secondary hover:bg-brand-input w-full text-center leading-none sm:leading-normal"
                                 >
-                                    +{events.length - 2} lagi
+                                    +{events.length - 3} lagi
                                 </button>
                             )}
                         </div>
@@ -780,6 +784,51 @@ const MonthView: React.FC<MonthViewProps> = ({ currentDate, daysInMonth, eventsB
                 </BottomSheet>
             )}
         </div>
+        <section className="mx-3 my-4 overflow-hidden rounded-xl border border-brand-border/50 bg-brand-surface sm:mx-4">
+            <div className="flex items-center justify-between gap-3 border-b border-brand-border/50 px-3 py-3 sm:px-4">
+                <div>
+                    <h3 className="text-sm font-bold text-brand-text-primary">Agenda Bulan Ini</h3>
+                    <p className="mt-0.5 text-[11px] text-brand-text-secondary">{monthAgenda.length} agenda</p>
+                </div>
+            </div>
+            {monthAgenda.length === 0 ? (
+                <p className="px-4 py-5 text-center text-xs text-brand-text-secondary">Belum ada agenda pada bulan ini.</p>
+            ) : (
+                <div className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2 sm:p-4">
+                    {monthAgenda.map(({ date, event }) => (
+                        (() => {
+                            const eventColor = getEventColor(event, profile);
+                            return (
+                                <button
+                                    key={`${event.id}-${formatLocalDate(date)}`}
+                                    type="button"
+                                    onClick={() => onEventClick(event)}
+                                    title={`${event.projectName} · ${date.toLocaleDateString('id-ID')}`}
+                                    className="flex w-full min-w-0 items-center gap-2.5 rounded-lg border border-brand-border/50 bg-white p-2 text-left transition-colors hover:border-brand-accent/30 hover:bg-brand-bg/40 sm:gap-3 sm:p-3"
+                                    style={{ borderLeft: `3px solid ${eventColor}` }}
+                                >
+                                    <span
+                                        className="flex h-10 w-11 shrink-0 flex-col items-center justify-center rounded-md"
+                                        style={{ backgroundColor: `${eventColor}18`, color: eventColor }}
+                                    >
+                                        <span className="text-xs font-bold leading-tight">{date.getDate()}</span>
+                                        <span className="text-[9px] font-semibold uppercase leading-tight">{date.toLocaleDateString('id-ID', { weekday: 'short' })}</span>
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-xs font-bold text-brand-text-primary">{event.projectName}</span>
+                                        <span className="mt-1 block truncate text-[10px] text-brand-text-secondary">
+                                            {event.startTime || 'Sepanjang hari'}{event.endTime ? ` - ${event.endTime}` : ''}
+                                                {' · '}{event.location?.trim() || (event.clientId === 'INTERNAL' ? event.projectType : (event.clientName || 'Pengantin'))}
+                                        </span>
+                                    </span>
+                                </button>
+                            );
+                        })()
+                    ))}
+                </div>
+            )}
+        </section>
+        </>
     );
 };
 
@@ -1081,12 +1130,20 @@ interface YearViewProps {
     eventsByDate: Map<string, Project[]>;
     profile: Profile;
     clients: Client[];
-    onMonthClick: (month: number) => void;
+    onDayClick: (date: Date) => void;
     onEventClick: (event: Project) => void;
 }
 
-const YearView: React.FC<YearViewProps> = ({ selectedYear, eventsByDate, profile, clients, onMonthClick, onEventClick }) => {
+const YearView: React.FC<YearViewProps> = ({ selectedYear, eventsByDate, profile, clients, onDayClick, onEventClick }) => {
+    const [selectedDateEvents, setSelectedDateEvents] = useState<{ date: Date; events: Project[] } | null>(null);
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
     const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+    useEffect(() => {
+        setDateFrom('');
+        setDateTo('');
+    }, [selectedYear]);
 
     const getMonthEvents = (month: number) => {
         const events: Project[] = [];
@@ -1094,6 +1151,8 @@ const YearView: React.FC<YearViewProps> = ({ selectedYear, eventsByDate, profile
         const lastDay = new Date(selectedYear, month + 1, 0);
 
         for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+            const dateKey = formatLocalDate(d);
+            if ((dateFrom && dateKey < dateFrom) || (dateTo && dateKey > dateTo)) continue;
             const dayEvents = eventsByDate.get(d.toDateString()) || [];
             events.push(...dayEvents);
         }
@@ -1105,6 +1164,45 @@ const YearView: React.FC<YearViewProps> = ({ selectedYear, eventsByDate, profile
         <div className="p-4 md:p-6 lg:p-8 w-full max-w-7xl mx-auto custom-scrollbar overflow-y-auto h-full">
             <h2 className="text-2xl font-bold text-brand-text-light mb-6">Kalender Tahun {selectedYear}</h2>
 
+            <div className="mb-5 rounded-xl border border-brand-border/50 bg-brand-bg/40 p-3 sm:p-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                    <h3 className="text-xs font-bold text-brand-text-primary">Filter rentang tanggal</h3>
+                    {(dateFrom || dateTo) && (
+                        <button
+                            type="button"
+                            onClick={() => { setDateFrom(''); setDateTo(''); }}
+                            className="text-xs font-semibold text-brand-accent hover:underline"
+                        >
+                            Reset
+                        </button>
+                    )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:max-w-md">
+                    <label className="space-y-1 text-[10px] font-medium text-brand-text-secondary">
+                        Dari
+                        <input
+                            type="date"
+                            value={dateFrom}
+                            min={`${selectedYear}-01-01`}
+                            max={dateTo || `${selectedYear}-12-31`}
+                            onChange={event => setDateFrom(event.target.value)}
+                            className="input-field min-h-10 w-full px-2 py-2 text-xs"
+                        />
+                    </label>
+                    <label className="space-y-1 text-[10px] font-medium text-brand-text-secondary">
+                        Sampai
+                        <input
+                            type="date"
+                            value={dateTo}
+                            min={dateFrom || `${selectedYear}-01-01`}
+                            max={`${selectedYear}-12-31`}
+                            onChange={event => setDateTo(event.target.value)}
+                            className="input-field min-h-10 w-full px-2 py-2 text-xs"
+                        />
+                    </label>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {monthNames.map((monthName, monthIndex) => {
                     const monthEvents = getMonthEvents(monthIndex);
@@ -1113,8 +1211,7 @@ const YearView: React.FC<YearViewProps> = ({ selectedYear, eventsByDate, profile
                     return (
                         <div
                             key={monthIndex}
-                            onClick={() => onMonthClick(monthIndex)}
-                            className="bg-brand-surface rounded-2xl border border-brand-border/40 p-5 hover:border-brand-border hover:shadow-lg transition-all cursor-pointer group min-h-[280px] flex flex-col"
+                            className="bg-brand-surface rounded-2xl border border-brand-border/40 p-5 min-h-[280px] flex flex-col"
                         >
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="font-bold text-brand-text-light text-lg">{monthName}</h3>
@@ -1152,17 +1249,23 @@ const YearView: React.FC<YearViewProps> = ({ selectedYear, eventsByDate, profile
                                             const hasEvent = eventsByDate.has(day.toDateString());
 
                                             return (
-                                                <div
+                                                <button
                                                     key={i}
+                                                    type="button"
+                                                    aria-label={`Tanggal ${day.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`}
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        setSelectedDateEvents({ date: day, events: eventsByDate.get(day.toDateString()) || [] });
+                                                    }}
                                                     className={`w-6 h-6 mx-auto rounded-full text-[10px] font-medium flex items-center justify-center transition-colors
-                                                    ${!isCurrentMonth ? 'text-brand-text-secondary/20' :
-                                                            isToday ? 'bg-brand-accent text-white' :
-                                                                hasEvent ? 'bg-brand-accent/20 text-brand-accent' :
-                                                                    'text-brand-text-light hover:bg-brand-input'
+                                                    ${hasEvent ? 'bg-brand-accent text-white shadow-sm' :
+                                                            !isCurrentMonth ? 'bg-white text-brand-text-secondary/20' :
+                                                                isToday ? 'bg-white text-brand-text-light ring-1 ring-brand-border' :
+                                                                    'bg-white text-brand-text-light hover:bg-brand-input'
                                                         }`}
                                                 >
                                                     {day.getDate()}
-                                                </div>
+                                                </button>
                                             );
                                         });
                                     })()}
@@ -1171,25 +1274,22 @@ const YearView: React.FC<YearViewProps> = ({ selectedYear, eventsByDate, profile
 
                             {/* Preview events */}
                             {eventCount > 0 && (
-                                <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar mt-auto">
-                                    {monthEvents.slice(0, 4).map(event => {
+                                <div className="space-y-2 mt-auto">
+                                    {monthEvents.map(event => {
                                         const bgColor = getEventColor(event, profile);
+                                        const eventDate = event.date ? new Date(`${event.date.slice(0, 10)}T00:00:00`) : null;
                                         return (
                                             <div
                                                 key={event.id}
                                                 onClick={(e) => { e.stopPropagation(); onEventClick(event); }}
-                                                className="text-[11px] p-2 rounded text-white truncate cursor-pointer hover:opacity-90 transition-colors"
+                                                className="flex min-w-0 items-center gap-2 text-[9px] sm:text-[11px] p-1.5 sm:p-2 rounded text-white cursor-pointer hover:opacity-90 transition-colors"
                                                 style={{ backgroundColor: bgColor }}
                                             >
-                                                {event.projectName}
+                                                {eventDate && <span className="shrink-0 font-semibold">{eventDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>}
+                                                <span className="min-w-0 truncate">{event.projectName}</span>
                                             </div>
                                         );
                                     })}
-                                    {eventCount > 4 && (
-                                        <div className="text-[11px] text-brand-text-secondary text-center pt-1">
-                                            +{eventCount - 4} lagi
-                                        </div>
-                                    )}
                                 </div>
                             )}
 
@@ -1202,6 +1302,56 @@ const YearView: React.FC<YearViewProps> = ({ selectedYear, eventsByDate, profile
                     );
                 })}
             </div>
+            {selectedDateEvents && (
+                <BottomSheet
+                    isOpen={!!selectedDateEvents}
+                    onClose={() => setSelectedDateEvents(null)}
+                    title={selectedDateEvents.date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                >
+                    <div className="space-y-3 p-4">
+                        {selectedDateEvents.events.length === 0 ? (
+                            <div className="space-y-3 py-5 text-center">
+                                <p className="text-sm text-brand-text-secondary">Tidak ada acara pada tanggal ini.</p>
+                                <button
+                                    type="button"
+                                    className="button-primary"
+                                    onClick={() => {
+                                        const date = selectedDateEvents.date;
+                                        setSelectedDateEvents(null);
+                                        onDayClick(date);
+                                    }}
+                                >
+                                    Tambah acara
+                                </button>
+                            </div>
+                        ) : selectedDateEvents.events.map(event => (
+                            <button
+                                key={event.id}
+                                type="button"
+                                onClick={() => {
+                                    setSelectedDateEvents(null);
+                                    onEventClick(event);
+                                }}
+                                className="flex w-full items-center gap-3 rounded-xl border border-brand-border/40 bg-white/60 p-3 text-left hover:bg-white"
+                                style={{ borderLeft: `4px solid ${getEventColor(event, profile)}` }}
+                            >
+                                <ClientAvatar
+                                    client={event.clientId === 'INTERNAL' ? undefined : clients.find(client => client.id === event.clientId)}
+                                    name={event.clientId === 'INTERNAL' ? 'Internal' : (event.clientName || 'Pengantin')}
+                                    className="h-9 w-9 shrink-0 text-[10px]"
+                                />
+                                <span className="min-w-0 flex-1">
+                                    <span className="block break-words text-sm font-bold text-brand-text-light">{event.projectName}</span>
+                                    <span className="block text-xs text-brand-text-secondary">
+                                        {event.startTime || 'Sepanjang hari'}{event.endTime ? ` - ${event.endTime}` : ''}
+                                        {' · '}{event.clientId === 'INTERNAL' ? event.projectType : (event.clientName || 'Pengantin')}
+                                    </span>
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </BottomSheet>
+            )}
         </div>
     );
 };
@@ -2714,9 +2864,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projects, setProject
 
                             // Swipe Left (Next)
                             if (diffX > 50) {
-                                if (viewMode === 'Year') {
-                                    setSelectedYear(prev => prev + 1);
-                                } else if (viewMode === 'Day') {
+                                if (viewMode === 'Day') {
                                     setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1));
                                 } else if (viewMode === 'Week') {
                                     setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 7));
@@ -2726,9 +2874,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projects, setProject
                             }
                             // Swipe Right (Prev)
                             else if (diffX < -50) {
-                                if (viewMode === 'Year') {
-                                    setSelectedYear(prev => prev - 1);
-                                } else if (viewMode === 'Day') {
+                                if (viewMode === 'Day') {
                                     setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1));
                                 } else if (viewMode === 'Week') {
                                     setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 7));
@@ -2775,10 +2921,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projects, setProject
                                 eventsByDate={eventsByDate}
                                 profile={profile}
                                 clients={clients}
-                                onMonthClick={(month) => {
-                                    setCurrentDate(new Date(selectedYear, month, 1));
-                                    setViewMode('Month');
-                                }}
+                                onDayClick={handleOpenPanelForAdd}
                                 onEventClick={handleOpenPanelForEdit}
                             />
                         ) : viewMode === 'Team' ? (
