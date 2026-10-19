@@ -1102,7 +1102,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                       </div>
                     </div>
                     <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-shrink-0 sm:items-end">
-                      <div className="flex w-full min-w-0 flex-nowrap gap-1 sm:w-auto sm:flex-wrap sm:justify-end">
+                      <div className="flex w-full min-w-0 flex-wrap gap-1 sm:w-auto sm:flex-nowrap sm:justify-end">
                         {remainingBalance > 0 ? (
                           <button
                             type="button"
@@ -1120,7 +1120,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                             <span className="hidden sm:inline">{transactionFormOpen[p.id] === 'payment' ? 'Tutup' : 'Pembayaran'}</span>
                           </button>
                         ) : (
-                          <span className="inline-flex min-h-9 min-w-0 w-full items-center justify-center rounded-lg bg-emerald-50 px-2 py-1.5 text-center text-[10px] font-bold leading-tight text-emerald-700 sm:w-auto sm:px-2.5">
+                          <span className="inline-flex min-h-9 min-w-0 w-full basis-full items-center justify-center rounded-lg bg-emerald-50 px-2 py-1.5 text-center text-[10px] font-bold leading-tight text-emerald-700 sm:w-auto sm:basis-auto sm:px-2.5">
                             Pembayaran lunas
                           </span>
                         )}
@@ -1130,7 +1130,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                             ...prev,
                             [p.id]: prev[p.id] === 'charges' ? null : 'charges',
                           }))}
-                          className="inline-flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-blue-700 bg-blue-600 px-1 py-1 text-center text-[9px] font-bold leading-tight text-white transition-colors hover:bg-blue-700 sm:flex-none sm:px-2.5 sm:text-[11px]"
+                            className="inline-flex min-h-9 min-w-0 flex-1 whitespace-nowrap items-center justify-center gap-1 rounded-lg border border-blue-700 bg-blue-600 px-1 py-1 text-center text-[9px] font-bold leading-tight text-white transition-colors hover:bg-blue-700 sm:flex-none sm:px-2.5 sm:text-[11px]"
                           aria-expanded={transactionFormOpen[p.id] === 'charges'}
                           aria-label="Tambah biaya atau paket ke tagihan"
                           title="Tambah biaya atau paket ke tagihan klien"
@@ -1157,7 +1157,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                               }));
                             }
                           }}
-                          className="inline-flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-red-700 bg-red-600 px-1 py-1 text-center text-[9px] font-bold leading-tight text-white transition-colors hover:bg-red-700 sm:flex-none sm:px-2.5 sm:text-[11px]"
+                          className="inline-flex min-h-9 min-w-0 flex-1 whitespace-nowrap items-center justify-center gap-1 rounded-lg border border-red-700 bg-red-600 px-1 py-1 text-center text-[9px] font-bold leading-tight text-white transition-colors hover:bg-red-700 sm:flex-none sm:px-2.5 sm:text-[11px]"
                           aria-expanded={transactionFormOpen[p.id] === 'expense'}
                           aria-label="Catat pengeluaran acara"
                           title="Catat pengeluaran acara"
