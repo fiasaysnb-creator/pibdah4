@@ -5,7 +5,7 @@ import {
     generateReceiptWhatsAppMessage
 } from '../utils/clientWhatsAppTemplates';
 import { toPublicNameSlug } from '../../../utils/publicRouting';
-import { downloadInvoicePdf } from '../../finance/utils/invoicePdf';
+import { downloadInvoicePdf, getLatestInvoicePaymentDate } from '../../finance/utils/invoicePdf';
 import { downloadReceiptPdf } from '../utils/receiptPdf';
 import { downloadPaymentSlipPdf } from '../../team/utils/paymentSlipPdf';
 
@@ -32,6 +32,7 @@ interface UseClientDocumentActionsParams {
     clientForDetail: Client | null;
     userProfile: Profile;
     projects: Project[];
+    transactions: Transaction[];
     packages?: Package[];
     teamMembers?: TeamMember[];
     teamProjectPayments?: TeamProjectPayment[];
@@ -48,6 +49,7 @@ export const useClientDocumentActions = ({
     clientForDetail,
     userProfile,
     projects,
+    transactions,
     packages = [],
     teamMembers = [],
     teamProjectPayments = [],
@@ -93,6 +95,7 @@ export const useClientDocumentActions = ({
                     profile: userProfile,
                     packages,
                     client: clientForDetail,
+                    issuedDate: getLatestInvoicePaymentDate(proj.id, transactions),
                 });
             } catch (error) {
                 console.error('[ClientDocumentActions] Invoice PDF export failed:', error);
@@ -156,6 +159,7 @@ export const useClientDocumentActions = ({
                     profile: userProfile,
                     packages,
                     client: clientForDetail ?? buildFallbackClient(documentToView.project),
+                    issuedDate: getLatestInvoicePaymentDate(documentToView.project.id, transactions),
                 });
             } else if (documentToView.type === 'receipt') {
                 const tx = documentToView.transaction;

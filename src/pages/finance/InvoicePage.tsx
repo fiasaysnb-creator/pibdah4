@@ -214,6 +214,7 @@ const InvoicePage: React.FC<InvoicePageProps> = ({
     clientForDetail,
     userProfile,
     projects,
+    transactions,
     packages,
     teamMembers,
     teamProjectPayments,

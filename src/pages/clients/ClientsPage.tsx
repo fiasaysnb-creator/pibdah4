@@ -195,6 +195,7 @@ export const Clients: React.FC<ClientsProps> = ({
         clientForDetail,
         userProfile,
         projects,
+        transactions,
         packages,
         teamMembers,
         teamProjectPayments,

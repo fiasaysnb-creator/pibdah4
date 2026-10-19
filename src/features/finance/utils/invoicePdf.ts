@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { Client, Package, PaymentStatus, PhysicalItem, Profile, Project } from '../../../types';
+import { Client, Package, PaymentStatus, PhysicalItem, Profile, Project, Transaction, TransactionType } from '../../../types';
 import {
   COLORS,
   CONTENT_BOTTOM,
@@ -38,7 +38,14 @@ export interface InvoicePdfInput {
   profile: Profile;
   packages?: Package[];
   client?: Client | null;
+  issuedDate?: string;
 }
+
+export const getLatestInvoicePaymentDate = (projectId: string, transactions: Transaction[] = []): string =>
+  transactions
+    .filter(transaction => transaction.projectId === projectId && transaction.type === TransactionType.INCOME)
+    .sort((left, right) => right.date.localeCompare(left.date))[0]?.date
+  || new Date().toISOString().slice(0, 10);
 
 export const buildInvoiceFileName = (project: Project): string => {
   const name = (project.projectName || project.clientName || 'Invoice').replace(
@@ -50,6 +57,7 @@ export const buildInvoiceFileName = (project: Project): string => {
 
 export const buildInvoicePdf = async (input: InvoicePdfInput): Promise<jsPDF> => {
   const { project, packages = [], client } = input;
+  const issuedDate = input.issuedDate || getLatestInvoicePaymentDate(project.id);
   const profile = input.profile || ({} as Profile);
 
   const accent = hexToRgb(profile.brandColor) || DEFAULT_ACCENT;
@@ -212,7 +220,7 @@ export const buildInvoicePdf = async (input: InvoicePdfInput): Promise<jsPDF> =>
     rightY += lineHeight(7.5, 1.35);
   };
 
-  metaLine('Diterbitkan: ', formatDate(project.date), COLORS.text);
+  metaLine('Diterbitkan: ', formatDate(issuedDate), COLORS.text);
   metaLine(
     'Status: ',
     String(project.paymentStatus || '').toUpperCase(),
@@ -259,9 +267,14 @@ export const buildInvoicePdf = async (input: InvoicePdfInput): Promise<jsPDF> =>
 
   // Kanan: nama proyek + lokasi/tipe/alamat.
   let rightMetaY = billingY;
+  const eventDateLabel = formatDate(project.date);
+  const projectNameWithoutPrefix = (project.projectName || '').replace(/^Acara Pernikahan\s+/i, '').trim();
+  const displayProjectName = eventDateLabel !== 'Tanpa Tanggal' && projectNameWithoutPrefix.endsWith(eventDateLabel)
+    ? projectNameWithoutPrefix.slice(0, -eventDateLabel.length).replace(/[\s,–—-]+$/, '').trim()
+    : projectNameWithoutPrefix;
   setFont(10, 'bold');
   ink(COLORS.text);
-  doc.text(sanitize(project.projectName || '-'), rightColX, rightMetaY + 10 * PT_TO_MM);
+  doc.text(sanitize(displayProjectName || project.projectName || '-'), rightColX, rightMetaY + 10 * PT_TO_MM);
   rightMetaY += lineHeight(10, 1.25) + 0.6;
 
   const kvInline = (label: string, value: string, x: number, yTop: number, maxW: number): number => {
@@ -280,6 +293,7 @@ export const buildInvoicePdf = async (input: InvoicePdfInput): Promise<jsPDF> =>
     return cursor;
   };
 
+  rightMetaY = kvInline('Tanggal Acara: ', eventDateLabel, rightColX, rightMetaY, colW);
   const subColW = colW / 2;
   const kvBottom = Math.max(
     kvInline('Lokasi: ', project.location || '-', rightColX, rightMetaY, subColW - 2),

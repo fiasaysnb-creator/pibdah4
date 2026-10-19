@@ -21,7 +21,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import { toPublicNameSlug } from '../../../utils/publicRouting';
 import HelpBox from '../../../shared/ui/HelpBox';
 import InvoiceDocument from '../../finance/components/InvoiceDocument';
-import { downloadInvoicePdf } from '../../finance/utils/invoicePdf';
+import { downloadInvoicePdf, getLatestInvoicePaymentDate } from '../../finance/utils/invoicePdf';
 import { downloadReceiptPdf } from '../utils/receiptPdf';
 import PackageTermsDisplay from '../../packages/components/PackageTermsDisplay';
 import { getPackageTerms } from '../../packages/packageTerms';
@@ -1236,6 +1236,7 @@ const DocumentViewerModal: React.FC<{
           profile,
           packages,
           client,
+          issuedDate: getLatestInvoicePaymentDate(viewingDocument.project.id, transactions),
         });
         return;
       }
@@ -1259,7 +1260,7 @@ const DocumentViewerModal: React.FC<{
     if (!viewingDocument) return null;
     const { type, project, data } = viewingDocument;
     if (type === 'invoice') {
-      return <InvoiceDocument id="invoice-document" project={project} profile={profile} packages={packages} client={client} />;
+      return <InvoiceDocument id="invoice-document" project={project} profile={profile} packages={packages} client={client} issuedDate={getLatestInvoicePaymentDate(project.id, transactions)} />;
     }
     const tx = data as Transaction;
     const proj = tx.projectId ? (projects || []).find((p: Project) => p.id === tx.projectId) : null;

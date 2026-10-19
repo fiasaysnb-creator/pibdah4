@@ -48,6 +48,12 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({
     }
   };
 
+  const eventDateLabel = formatDate(project.date);
+  const projectNameWithoutPrefix = (project.projectName || '').replace(/^Acara Pernikahan\s+/i, '').trim();
+  const displayProjectName = eventDateLabel !== 'Tanpa Tanggal' && projectNameWithoutPrefix.endsWith(eventDateLabel)
+    ? projectNameWithoutPrefix.slice(0, -eventDateLabel.length).replace(/[\s,–—-]+$/, '').trim()
+    : projectNameWithoutPrefix;
+
   const safeAddOns = Array.isArray(project.addOns) ? project.addOns : [];
   const safeAdditionalPackages = Array.isArray(project.additionalPackages) ? project.additionalPackages : [];
   const safeCustomCosts = Array.isArray(project.customCosts) ? project.customCosts : [];
@@ -148,9 +154,9 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({
           <div>
             <h4 className="invoice-section-label text-[7px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 sm:mb-2 print:text-slate-500">Detail Layanan</h4>
             <div className="space-y-0.5 sm:space-y-1">
-              <p className="invoice-party-name text-[10px] sm:text-base font-bold text-slate-800 print:text-black">{project.projectName}</p>
+              <p className="invoice-party-name truncate text-[10px] sm:text-base font-bold text-slate-800 print:text-black" title={displayProjectName || project.projectName}>{displayProjectName || project.projectName}</p>
               <div className="invoice-party-meta grid grid-cols-2 gap-x-1.5 sm:gap-x-3 gap-y-0.5 sm:gap-y-1 text-[7.5px] sm:text-[11px] text-slate-600 print:text-black">
-                <p><span className="text-slate-400 font-medium">Tanggal Acara:</span> {formatDate(project.date)}</p>
+                <p className="col-span-2 whitespace-nowrap"><span className="text-slate-400 font-medium">Tanggal Acara:</span> {eventDateLabel}</p>
                 <p><span className="text-slate-400 font-medium">Lokasi:</span> {project.location}</p>
                 <p><span className="text-slate-400 font-medium">Tipe:</span> {project.projectType}</p>
                 {project.address && <p className="col-span-2"><span className="text-slate-400 font-medium">Alamat:</span> {project.address}</p>}
