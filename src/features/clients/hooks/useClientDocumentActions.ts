@@ -4,7 +4,6 @@ import {
     generateInvoiceWhatsAppMessage,
     generateReceiptWhatsAppMessage
 } from '../utils/clientWhatsAppTemplates';
-import { toPublicNameSlug } from '../../../utils/publicRouting';
 import { downloadInvoicePdf, getLatestInvoicePaymentDate } from '../../finance/utils/invoicePdf';
 import { downloadReceiptPdf } from '../utils/receiptPdf';
 import { downloadPaymentSlipPdf } from '../../team/utils/paymentSlipPdf';
@@ -105,7 +104,7 @@ export const useClientDocumentActions = ({
 
             // 2. Build public invoice link
             const basePath = window.location.pathname.replace(/index\.html$/, '');
-            const publicInvoiceUrl = `${window.location.origin}${basePath}#/portal/invoice/${toPublicNameSlug(proj.projectName)}`;
+            const publicInvoiceUrl = `${window.location.origin}${basePath}#/portal/invoice/${proj.id}`;
 
             // 3. Build WhatsApp template with PDF link
             const text = generateInvoiceWhatsAppMessage(clientForDetail.name, companyName, proj, publicInvoiceUrl);

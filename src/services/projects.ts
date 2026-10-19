@@ -593,6 +593,20 @@ export async function getProjectWithRelations(
       }
       resolvedProjects = [...matches.values()];
     }
+    if (!resolvedProjects?.length) {
+      const clientPatterns = patterns ?? [projectId];
+      const clientMatches = new Map<string, any>();
+      for (const pattern of clientPatterns) {
+        const query = supabase.from(PROJECTS).select('*');
+        const { data: candidates, error: clientPatternError } = patterns === null
+          ? await query.eq('client_name', pattern).limit(2)
+          : await query.ilike('client_name', pattern).limit(2);
+        if (clientPatternError) throw clientPatternError;
+        for (const candidate of candidates || []) clientMatches.set(candidate.id, candidate);
+        if (clientMatches.size > 1) return null;
+      }
+      resolvedProjects = [...clientMatches.values()];
+    }
     if (resolvedProjects?.length !== 1) return null;
     data = resolvedProjects[0];
     projectId = data.id;
