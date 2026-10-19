@@ -358,6 +358,18 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({
         </div>
       </div>
 
+      {[...(project.dpProofUrl ? [{ url: project.dpProofUrl, label: 'Bukti Transfer DP' }] : []), ...(project.paymentProofs || []).map((proof, index) => ({
+        url: proof.url,
+        label: `Bukti Pembayaran ${index + 1}${proof.amount ? ` - ${formatCurrency(proof.amount)}` : ''}`,
+      }))].map((proof, index) => (
+        <section key={proof.url} className={`invoice-proof-appendix mx-auto w-full max-w-[800px] border-t border-slate-200 bg-white p-4 sm:p-6 print:border-0 ${index > 0 || project.dpProofUrl ? 'print:break-before-page' : ''}`}>
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-700 print:text-black">{proof.label}</h3>
+          <a href={proof.url} target="_blank" rel="noopener noreferrer" className="block">
+            <img src={proof.url} alt={proof.label} className="mx-auto max-h-[900px] max-w-full object-contain" crossOrigin="anonymous" />
+          </a>
+        </section>
+      ))}
+
       <style dangerouslySetInnerHTML={{
         __html: `
         /* Explicitly style and protect the invoice document from outside index.css pollution */

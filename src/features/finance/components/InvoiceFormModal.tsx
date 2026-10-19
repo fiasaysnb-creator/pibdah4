@@ -20,7 +20,10 @@ import {
   Eye,
   Lock,
   Info,
+  Upload,
+  Trash2,
 } from 'lucide-react';
+import { uploadDpProof } from '../../../services/storage';
 
 interface InvoiceFormModalProps {
   isOpen: boolean;
@@ -70,6 +73,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
   onSuccess,
 }) => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [uploadingProofKey, setUploadingProofKey] = useState<string | null>(null);
 
   const {
     formData,
@@ -100,6 +104,46 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
     : 'Buat Invoice Manual Baru';
 
   const balanceDue = Math.max(0, formData.grandTotal - formData.amountPaid);
+
+  const handleReplaceProof = async (key: string, file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showNotification('Pilih file gambar untuk bukti transfer.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showNotification('Ukuran bukti transfer maksimal 10 MB.');
+      return;
+    }
+
+    setUploadingProofKey(key);
+    try {
+      const url = await uploadDpProof(file);
+      if (key === 'dp') {
+        handleFieldChange('dpProofUrl', url);
+      } else {
+        const index = Number(key.replace('payment-', ''));
+        handleFieldChange('paymentProofs', formData.paymentProofs.map((proof, proofIndex) =>
+          proofIndex === index ? { ...proof, url } : proof,
+        ));
+      }
+      showNotification('Bukti transfer berhasil diunggah. Simpan perubahan invoice untuk menerapkannya.');
+    } catch (error) {
+      console.error('[InvoiceFormModal] Payment proof upload failed:', error);
+      showNotification('Gagal mengunggah bukti transfer. Coba lagi.');
+    } finally {
+      setUploadingProofKey(null);
+    }
+  };
+
+  const handleDeleteProof = (key: string) => {
+    if (key === 'dp') {
+      handleFieldChange('dpProofUrl', '');
+      return;
+    }
+    const index = Number(key.replace('payment-', ''));
+    handleFieldChange('paymentProofs', formData.paymentProofs.filter((_, proofIndex) => proofIndex !== index));
+  };
 
   const handleOpenPreview = () => {
     const hasClient = formData.isNewClient
@@ -589,6 +633,65 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                 )}
               </div>
             </div>
+
+            {isEditMode && (
+              <div className="space-y-3 border-t border-brand-border pt-4">
+                <div>
+                  <h5 className="text-xs font-bold text-brand-text-primary">Lampiran Bukti Transfer</h5>
+                  <p className="mt-1 text-[11px] text-brand-text-secondary">Ganti atau hapus bukti satu per satu. Perubahan diterapkan setelah invoice disimpan.</p>
+                </div>
+                {formData.dpProofUrl || formData.paymentProofs.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3">
+                    {formData.dpProofUrl && (
+                      <div className="flex items-center gap-3 rounded-xl border border-brand-border p-3">
+                        <a href={formData.dpProofUrl} target="_blank" rel="noopener noreferrer" title="Lihat bukti transfer DP">
+                          <img src={formData.dpProofUrl} alt="Bukti transfer DP" className="h-16 w-20 rounded-lg border border-brand-border object-cover" />
+                        </a>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words text-xs font-semibold text-brand-text-primary">Bukti Transfer DP</p>
+                          <div className="mt-2 flex items-center gap-2">
+                            <label htmlFor="replace-dp-proof" title="Unggah ulang bukti DP" className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-brand-border text-brand-accent hover:bg-brand-bg">
+                              <Upload className="h-4 w-4" />
+                            </label>
+                            <input id="replace-dp-proof" type="file" accept="image/*" disabled={uploadingProofKey === 'dp'} onChange={event => { void handleReplaceProof('dp', event.target.files?.[0]); event.currentTarget.value = ''; }} className="sr-only" />
+                            <button type="button" onClick={() => handleDeleteProof('dp')} title="Hapus bukti DP" aria-label="Hapus bukti DP" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                            {uploadingProofKey === 'dp' && <span className="text-[10px] text-brand-text-secondary">Mengunggah...</span>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {formData.paymentProofs.map((proof, index) => {
+                      const key = `payment-${index}`;
+                      return (
+                        <div key={`${proof.url}-${index}`} className="flex items-center gap-3 rounded-xl border border-brand-border p-3">
+                          <a href={proof.url} target="_blank" rel="noopener noreferrer" title="Lihat bukti pembayaran">
+                            <img src={proof.url} alt={`Bukti pembayaran ${index + 1}`} className="h-16 w-20 rounded-lg border border-brand-border object-cover" />
+                          </a>
+                          <div className="min-w-0 flex-1">
+                            <p className="break-words text-xs font-semibold text-brand-text-primary">Bukti Pembayaran {index + 1}</p>
+                            <p className="break-words text-[10px] text-brand-text-secondary">{formatCurrency(proof.amount)} · {proof.date}</p>
+                            <div className="mt-2 flex items-center gap-2">
+                              <label htmlFor={`replace-proof-${index}`} title="Unggah ulang bukti pembayaran" className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-brand-border text-brand-accent hover:bg-brand-bg">
+                                <Upload className="h-4 w-4" />
+                              </label>
+                              <input id={`replace-proof-${index}`} type="file" accept="image/*" disabled={uploadingProofKey === key} onChange={event => { void handleReplaceProof(key, event.target.files?.[0]); event.currentTarget.value = ''; }} className="sr-only" />
+                              <button type="button" onClick={() => handleDeleteProof(key)} title="Hapus bukti pembayaran" aria-label={`Hapus bukti pembayaran ${index + 1}`} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                              {uploadingProofKey === key && <span className="text-[10px] text-brand-text-secondary">Mengunggah...</span>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-brand-border px-3 py-4 text-center text-xs text-brand-text-secondary">Belum ada bukti transfer pada invoice ini.</p>
+                )}
+              </div>
+            )}
 
             {/* Financial Summary Card */}
             <div className="p-4 rounded-xl bg-brand-bg/60 border border-brand-border space-y-2.5 text-xs">

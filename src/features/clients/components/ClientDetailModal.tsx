@@ -18,6 +18,7 @@ import { createTransaction as createTransactionRow } from '../../../services/tra
 import { updatePocket as updatePocketRow } from '../../../services/pockets';
 import { updateTeamProjectPayments as updateTeamProjectPaymentsRow } from '../../../services/teamProjectPayments';
 import { createTeamPaymentRecord } from '../../../services/teamPaymentRecords';
+import { uploadDpProof } from '../../../services/storage';
 import { formatCurrency, normalizeTerminology } from '../utils/clientHelpers';
 import { useExtraChargeTemplates } from '../../../hooks/useExtraChargeTemplates';
 import ManageTemplatesModal from './ManageTemplatesModal';
@@ -40,7 +41,7 @@ interface ClientDetailModalProps {
   onViewReceipt: (transaction: Transaction) => void;
   onViewInvoice: (project: Project) => void;
   handleNavigation: (view: ViewType, action?: NavigationAction) => void;
-  onRecordPayment: (projectId: string, amount: number, destinationCardId: string) => void;
+  onRecordPayment: (projectId: string, amount: number, destinationCardId: string, proofUrl?: string) => void | Promise<void>;
   cards: Card[];
   onSharePortal: (client: Client) => void;
   onDeleteProject: (projectId: string) => void;
@@ -245,6 +246,8 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
     projects.some(project => project.clientId === client.id) ? 'events' : 'info',
   );
   const [newPayments, setNewPayments] = useState<{ [key: string]: { amount: string; destinationCardId: string } }>({});
+  const [paymentProofFiles, setPaymentProofFiles] = useState<Record<string, File | null>>({});
+  const [savingPaymentProjectId, setSavingPaymentProjectId] = useState<string | null>(null);
   const [editingTeamPaymentId, setEditingTeamPaymentId] = useState<string | null>(null);
   const [teamPaymentEditDraft, setTeamPaymentEditDraft] = useState({ role: '', fee: '' });
   const [savingTeamPaymentId, setSavingTeamPaymentId] = useState<string | null>(null);
@@ -301,7 +304,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
     setNewPayments(prev => ({ ...prev, [projectId]: { ...current, [field]: value } }));
   };
 
-  const handleNewPaymentSubmit = (projectId: string) => {
+  const handleNewPaymentSubmit = async (projectId: string) => {
     const paymentData = newPayments[projectId];
     const project = clientProjects.find(p => p.id === projectId);
     if (paymentData && Number(paymentData.amount) > 0 && paymentData.destinationCardId && project) {
@@ -310,8 +313,19 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
         alert('Jumlah pembayaran melebihi sisa pembayaran.');
         return;
       }
-      onRecordPayment(projectId, amount, paymentData.destinationCardId);
-      setNewPayments(prev => ({ ...prev, [projectId]: { amount: '', destinationCardId: '' } }));
+      setSavingPaymentProjectId(projectId);
+      try {
+        const proofFile = paymentProofFiles[projectId];
+        const proofUrl = proofFile ? await uploadDpProof(proofFile) : undefined;
+        await onRecordPayment(projectId, amount, paymentData.destinationCardId, proofUrl);
+        setNewPayments(prev => ({ ...prev, [projectId]: { amount: '', destinationCardId: '' } }));
+        setPaymentProofFiles(prev => ({ ...prev, [projectId]: null }));
+      } catch (error) {
+        console.error('[ClientDetailModal] Failed to upload payment proof:', error);
+        showNotification('Gagal mengunggah bukti pembayaran. Pembayaran belum dicatat.');
+      } finally {
+        setSavingPaymentProjectId(null);
+      }
     } else {
       showNotification('Harap isi jumlah dan tujuan pembayaran dengan benar.');
     }
@@ -1218,13 +1232,25 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                               ))}
                             </select>
                           </div>
+                          <div className="sm:col-span-10 space-y-1.5">
+                            <label htmlFor={`payment-proof-${p.id}`} className="text-xs font-semibold text-brand-text-light">Bukti Transfer (Opsional)</label>
+                            <input
+                              id={`payment-proof-${p.id}`}
+                              type="file"
+                              accept="image/*"
+                              onChange={event => setPaymentProofFiles(prev => ({ ...prev, [p.id]: event.target.files?.[0] || null }))}
+                              className="w-full h-[42px] px-3 py-2 text-xs bg-white border border-gray-300 rounded-xl text-gray-700 file:mr-3 file:border-0 file:bg-gray-100 file:px-2 file:py-1 file:text-xs file:font-semibold"
+                            />
+                          </div>
                           <div className="sm:col-span-2">
                             <button
-                              onClick={() => handleNewPaymentSubmit(p.id)}
+                              type="button"
+                              onClick={() => void handleNewPaymentSubmit(p.id)}
+                              disabled={savingPaymentProjectId === p.id}
                               className="w-full h-[42px] bg-gray-950 hover:bg-gray-800 text-white !py-0 flex items-center justify-center gap-1.5 text-xs font-bold rounded-xl shadow-sm transition-all active:scale-95"
                             >
                               <CheckIcon className="w-3.5 h-3.5" />
-                              Catat
+                              {savingPaymentProjectId === p.id ? 'Mengunggah...' : 'Catat'}
                             </button>
                           </div>
                         </div>

@@ -67,10 +67,18 @@ export const buildInvoicePdf = async (input: InvoicePdfInput): Promise<jsPDF> =>
   const doc = createPdfDoc('portrait');
   await embedPdfFonts(doc);
 
-  // Muat logo & tanda tangan secara paralel supaya ekspor tetap cepat.
-  const [logo, signature] = await Promise.all([
+  // Muat logo, tanda tangan, dan seluruh bukti pembayaran secara paralel.
+  const proofAttachments = [
+    ...(project.dpProofUrl ? [{ url: project.dpProofUrl, label: 'BUKTI TRANSFER DP' }] : []),
+    ...(project.paymentProofs || []).map((proof, index) => ({
+      url: proof.url,
+      label: `BUKTI PEMBAYARAN ${index + 1}${proof.amount ? ` - ${formatCurrency(proof.amount)}` : ''}`,
+    })),
+  ];
+  const [logo, signature, ...paymentProofs] = await Promise.all([
     loadImageAsset(profile.logoBase64),
     loadImageAsset(project.invoiceSignature || profile.signatureBase64, { grayscale: true }),
+    ...proofAttachments.map(proof => loadImageAsset(proof.url)),
   ]);
 
   // ── Perhitungan data (identik dengan InvoiceDocument) ──────────────────
@@ -685,6 +693,38 @@ export const buildInvoicePdf = async (input: InvoicePdfInput): Promise<jsPDF> =>
   ink(COLORS.muted);
   doc.text(sanitize(profile.companyName || ''), sigCenterX, sigY + 6.5 * PT_TO_MM, {
     align: 'center',
+  });
+
+  paymentProofs.forEach((paymentProof, index) => {
+    if (!paymentProof) return;
+    doc.addPage();
+    setFont(14, 'bold');
+    ink(accent);
+    doc.text(sanitize(proofAttachments[index].label), CONTENT_LEFT, MARGIN_TOP + 6);
+
+    const proofMaxW = CONTENT_W;
+    const proofMaxH = CONTENT_BOTTOM - MARGIN_TOP - 18;
+    const ratio = paymentProof.width / paymentProof.height;
+    let proofW = proofMaxW;
+    let proofH = proofW / ratio;
+    if (proofH > proofMaxH) {
+      proofH = proofMaxH;
+      proofW = proofH * ratio;
+    }
+    try {
+      doc.addImage(
+        paymentProof.dataUrl,
+        'PNG',
+        CONTENT_LEFT + (CONTENT_W - proofW) / 2,
+        MARGIN_TOP + 14,
+        proofW,
+        proofH,
+        undefined,
+        'FAST',
+      );
+    } catch {
+      // Abaikan lampiran bila gambar bukti tidak dapat dirender.
+    }
   });
 
   return doc;

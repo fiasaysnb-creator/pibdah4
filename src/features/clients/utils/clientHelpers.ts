@@ -65,6 +65,8 @@ export const initialFormState = {
     unitPrice: undefined as number | undefined,
     dp: '',
     dpDestinationCardId: '',
+    dpProofFile: null as File | null,
+    dpProofUrl: '',
     notes: '',
     accommodation: '',
     driveLink: '',

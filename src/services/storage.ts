@@ -58,12 +58,12 @@ export async function compressImage(
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if (!ctx) {
-          resolve(file);
+          reject(new Error('Browser tidak mendukung kompresi gambar.'));
           return;
         }
 
         const qualities = maxSizeBytes
-          ? [...new Set([quality, Math.max(0.4, quality - 0.15), Math.max(0.4, quality - 0.3)])]
+          ? [...new Set([quality, quality - 0.15, quality - 0.3, 0.35].map(value => Math.max(0.25, Math.min(1, value))))]
           : [quality];
         const encode = (qualityStep: number) => new Promise<Blob | null>((resolveBlob) => {
           canvas.toBlob(resolveBlob, 'image/jpeg', qualityStep);
@@ -78,7 +78,7 @@ export async function compressImage(
           let currentWidth = width;
           let currentHeight = height;
 
-          for (let resizeAttempt = 0; resizeAttempt < 8; resizeAttempt++) {
+          for (let resizeAttempt = 0; resizeAttempt < 10; resizeAttempt++) {
             canvas.width = currentWidth;
             canvas.height = currentHeight;
             ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
@@ -86,7 +86,7 @@ export async function compressImage(
             for (const qualityStep of qualities) {
               const blob = await encode(qualityStep);
               if (!blob) {
-                resolve(file);
+                reject(new Error('Gagal mengompres gambar bukti transfer.'));
                 return;
               }
 
@@ -98,8 +98,8 @@ export async function compressImage(
             }
 
             const longestEdge = Math.max(currentWidth, currentHeight);
-            if (!maxSizeBytes || longestEdge <= 640) break;
-            const scale = Math.max(640 / longestEdge, 0.85);
+            if (!maxSizeBytes || longestEdge <= 480) break;
+            const scale = Math.max(480 / longestEdge, 0.75);
             currentWidth = Math.max(1, Math.round(currentWidth * scale));
             currentHeight = Math.max(1, Math.round(currentHeight * scale));
           }

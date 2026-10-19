@@ -39,6 +39,22 @@ const ClientForm: React.FC<ClientFormProps> = ({
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
     const [avatarUploadError, setAvatarUploadError] = useState('');
 
+    const handleDpProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.currentTarget.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            setFormData(prev => ({ ...prev, dpProofFile: null }));
+            e.currentTarget.value = '';
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            setFormData(prev => ({ ...prev, dpProofFile: null }));
+            e.currentTarget.value = '';
+            return;
+        }
+        setFormData(prev => ({ ...prev, dpProofFile: file }));
+    };
+
     const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const input = e.currentTarget;
         const file = input.files?.[0];
@@ -644,6 +660,24 @@ const ClientForm: React.FC<ClientFormProps> = ({
                                 placeholder=" "
                             />
                         </div>
+                        {Number(formData.dp) > 0 && (
+                            <div className="space-y-2">
+                                <span className="block text-xs text-[#5A6A85]">Bukti Transfer DP (Opsional)</span>
+                                <label htmlFor="dp-proof-upload" className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-[#D5DCE6] bg-white px-4 py-2 text-xs font-semibold text-[#2A3547] transition-colors hover:bg-[#F4F6F9]">
+                                    <Upload className="h-4 w-4" />
+                                    {formData.dpProofFile || formData.dpProofUrl ? 'Ganti Bukti Transfer' : 'Upload Bukti Transfer'}
+                                </label>
+                                <input id="dp-proof-upload" type="file" accept="image/*" onChange={handleDpProofChange} className="sr-only" />
+                                <p className="text-[10px] text-[#5A6A85]">JPG, PNG, atau WebP. Maksimal 10 MB.</p>
+                                {formData.dpProofFile && <p className="break-all text-[11px] font-medium text-[#2A3547]">{formData.dpProofFile.name}</p>}
+                                {formData.dpProofUrl && !formData.dpProofFile && (
+                                    <a href={formData.dpProofUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[11px] font-semibold text-brand-accent underline underline-offset-2">
+                                        <img src={formData.dpProofUrl} alt="Pratinjau bukti transfer DP" className="h-12 w-16 rounded-md border border-[#EAEFF4] object-cover" />
+                                        Lihat bukti transfer saat ini
+                                    </a>
+                                )}
+                            </div>
+                        )}
                         {Number(formData.dp) > 0 && (
                             <div className="space-y-2">
                                 <label htmlFor="dpDestinationCardId" className="text-xs text-[#5A6A85]">Kartu Tujuan</label>

@@ -17,6 +17,7 @@ import { createClient as createClientRow, updateClient as updateClientRow } from
 import { createProject as createProjectRow, updateProject as updateProjectRow } from '../../../services/projects';
 import { createTransaction as createTransactionRow, updateTransaction as updateTransactionRow, updateCardBalance } from '../../../services/transactions';
 import { findCardIdByMeta } from '../../../services/cards';
+import { uploadDpProof } from '../../../services/storage';
 import { ensureOnlineOrNotify, initialFormState, ClientFormData, CustomFormItem } from '../utils/clientHelpers';
 import { DocumentToView } from './useClientDocumentActions';
 
@@ -175,6 +176,7 @@ export const useClientFormHandler = ({
                 homeAddress: freshClient.homeAddress || '',
                 dp: freshProject?.amountPaid !== undefined && freshProject?.amountPaid !== null ? String(freshProject.amountPaid) : '',
                 dpDestinationCardId: initialCardId,
+                dpProofUrl: freshProject?.dpProofUrl || '',
                 notes: freshProject?.notes || '',
                 accommodation: freshProject?.accommodation || '',
                 driveLink: freshProject?.driveLink || '',
@@ -371,6 +373,16 @@ export const useClientFormHandler = ({
 
             const dpAmount = Number(formData.dp) || 0;
             const remainingPayment = totalProject - dpAmount;
+            let dpProofUrl: string | undefined;
+            if (formData.dpProofFile) {
+                try {
+                    dpProofUrl = await uploadDpProof(formData.dpProofFile);
+                } catch (error) {
+                    console.error('[ClientForm] DP proof upload failed:', error);
+                    showNotification('Gagal mengunggah bukti transfer DP. Acara belum disimpan.');
+                    return;
+                }
+            }
 
             // Create project in Supabase
             try {
@@ -403,6 +415,7 @@ export const useClientFormHandler = ({
                     printingCost: undefined,
                     transportCost: undefined,
                     completedDigitalItems: [],
+                    dpProofUrl,
                     addOns: allProjectAddOns,
                     additionalPackages: additionalPackageRecords,
                 });
@@ -504,6 +517,17 @@ export const useClientFormHandler = ({
             let existingProject = selectedProject
                 ? (projects.find(p => p.id === selectedProject.id) || selectedProject)
                 : (projects.find(p => p.clientId === existingClient.id) || null);
+
+            let dpProofUrl = existingProject?.dpProofUrl || formData.dpProofUrl || undefined;
+            if (formData.dpProofFile) {
+                try {
+                    dpProofUrl = await uploadDpProof(formData.dpProofFile);
+                } catch (error) {
+                    console.error('[ClientForm] DP proof upload failed:', error);
+                    showNotification('Gagal mengunggah bukti transfer DP. Perubahan acara belum disimpan.');
+                    return;
+                }
+            }
 
             // 2. Prepare merged Client: preserve all untouched fields, apply only modified fields
             const updatedClientPayload: Client = {
@@ -644,6 +668,7 @@ export const useClientFormHandler = ({
                         totalCost: totalProject,
                         amountPaid: newAmountPaid,
                         paymentStatus: newPaymentStatus,
+                        dpProofUrl,
                         durationSelection: formData.durationSelection || undefined,
                         unitPrice: formData.unitPrice !== undefined ? Number(formData.unitPrice) : undefined,
                         notes: formData.notes || undefined,
@@ -760,6 +785,7 @@ export const useClientFormHandler = ({
                     totalCost: totalProject,
                     amountPaid: newAmountPaid,
                     paymentStatus: newPaymentStatus,
+                    dpProofUrl,
                     durationSelection: formData.durationSelection || (existingProject as any).durationSelection,
                     unitPrice: formData.unitPrice !== undefined ? Number(formData.unitPrice) : (existingProject as any).unitPrice,
                     notes: formData.notes !== undefined ? formData.notes : existingProject.notes,
@@ -784,6 +810,7 @@ export const useClientFormHandler = ({
                         totalCost: updatedProjectPayload.totalCost,
                         amountPaid: updatedProjectPayload.amountPaid,
                         paymentStatus: updatedProjectPayload.paymentStatus,
+                        dpProofUrl: updatedProjectPayload.dpProofUrl,
                         durationSelection: updatedProjectPayload.durationSelection || undefined,
                         unitPrice: updatedProjectPayload.unitPrice !== undefined ? Number(updatedProjectPayload.unitPrice) : undefined,
                         notes: updatedProjectPayload.notes || undefined,

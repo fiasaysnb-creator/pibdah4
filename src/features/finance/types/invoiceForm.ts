@@ -53,6 +53,8 @@ export interface InvoiceFormData {
   // Payment
   amountPaid: number;
   paymentStatus: PaymentStatus;
+  dpProofUrl?: string;
+  paymentProofs: { url: string; amount: number; date: string }[];
 
   // Notes
   notes: string;

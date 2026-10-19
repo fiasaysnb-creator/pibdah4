@@ -151,7 +151,7 @@ export const useClientPaymentOperations = ({
         }
     };
 
-    const handleRecordPayment = async (projectId: string, amount: number, destinationCardId: string) => {
+    const handleRecordPayment = async (projectId: string, amount: number, destinationCardId: string, proofUrl?: string) => {
         const project = projects.find(p => p.id === projectId);
         if (!project) return;
 
@@ -205,14 +205,18 @@ export const useClientPaymentOperations = ({
             if (currentProject) {
                 const newAmountPaid = currentProject.amountPaid + amount;
                 const remaining = currentProject.totalCost - newAmountPaid;
+                const paymentProofs = proofUrl
+                    ? [...(currentProject.paymentProofs || []), { url: proofUrl, amount, date: new Date().toISOString().slice(0, 10) }]
+                    : currentProject.paymentProofs || [];
                 const updated = await updateProjectRow(project.id, {
                     amountPaid: newAmountPaid,
                     paymentStatus: remaining <= 0 ? PaymentStatus.LUNAS : PaymentStatus.DP_TERBAYAR,
+                    ...(proofUrl ? { paymentProofs } : {}),
                 });
                 setProjects(prev =>
                     prev.map(p =>
                         p.id === updated.id
-                            ? { ...p, amountPaid: updated.amountPaid, paymentStatus: updated.paymentStatus }
+                            ? { ...p, amountPaid: updated.amountPaid, paymentStatus: updated.paymentStatus, paymentProofs: updated.paymentProofs }
                             : p
                     )
                 );
@@ -227,6 +231,7 @@ export const useClientPaymentOperations = ({
                         return {
                             ...p,
                             amountPaid: newAmountPaid,
+                            ...(proofUrl ? { paymentProofs: [...(p.paymentProofs || []), { url: proofUrl, amount, date: new Date().toISOString().slice(0, 10) }] } : {}),
                             paymentStatus: remaining <= 0 ? PaymentStatus.LUNAS : PaymentStatus.DP_TERBAYAR
                         };
                     }

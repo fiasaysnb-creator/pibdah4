@@ -168,6 +168,8 @@ export function useInvoiceFormModal({
         // In edit mode: amountPaid is READ-ONLY — derived from transactions, not editable
         amountPaid: actualPaid,
         paymentStatus: actualPaymentStatus,
+        dpProofUrl: editProj.dpProofUrl || '',
+        paymentProofs: editProj.paymentProofs || [],
         notes: editProj.notes || '',
       };
     }
@@ -206,6 +208,8 @@ export function useInvoiceFormModal({
       grandTotal: 0,
       amountPaid: 0,
       paymentStatus: PaymentStatus.BELUM_BAYAR,
+      dpProofUrl: '',
+      paymentProofs: [],
       notes: 'Pembayaran DP minimal 30% dari total biaya. Pelunasan paling lambat H-3 sebelum tanggal acara.',
     };
   }
@@ -455,6 +459,8 @@ export function useInvoiceFormModal({
         totalCost: formData.grandTotal,
         amountPaid: formData.amountPaid,
         paymentStatus: formData.paymentStatus,
+        dpProofUrl: formData.dpProofUrl || undefined,
+        paymentProofs: formData.paymentProofs,
         discountAmount: Number(formData.discountAmount) || 0,
         transportCost: Number(formData.transportCost) || 0,
         customCosts: customCosts,

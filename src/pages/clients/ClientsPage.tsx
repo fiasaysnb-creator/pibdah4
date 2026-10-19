@@ -81,7 +81,7 @@ interface ClientsProps {
     setPromoCodes: React.Dispatch<React.SetStateAction<PromoCode[]>>;
     onSignInvoice: (projectId: string, signatureDataUrl: string) => void;
     onSignTransaction: (transactionId: string, signatureDataUrl: string) => void;
-    onRecordPayment: (projectId: string, amount: number, destinationCardId: string) => Promise<void>;
+    onRecordPayment: (projectId: string, amount: number, destinationCardId: string, proofUrl?: string) => Promise<void>;
     addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'isRead'>) => void;
     totals: {
         projects: number;

@@ -453,6 +453,7 @@ export interface Project {
   discountAmount?: number;
   shippingDetails?: string;
   dpProofUrl?: string;
+  paymentProofs?: { url: string; amount: number; date: string }[];
   printingDetails?: PrintingItem[];
   printingCost?: number;
   transportCost?: number;

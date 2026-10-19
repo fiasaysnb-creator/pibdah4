@@ -33,6 +33,7 @@ export type CreateProjectInput = {
   transportCost?: number;
   completedDigitalItems?: string[];
   dpProofUrl?: string;
+  paymentProofs?: { url: string; amount: number; date: string }[];
   addOns: { id: string; name: string; price: number }[];
   additionalPackages?: { id: string; name: string; price: number }[];
   durationSelection?: string;
@@ -46,7 +47,7 @@ export type UpdateProjectInput = Partial<CreateProjectInput> & Partial<Pick<Proj
   | 'printingDetails' | 'customCosts' | 'transportPaid' | 'transportNote' | 'printingCardId' | 'transportCardId'
   | 'shippingDetails' | 'activeSubStatuses' | 'customSubStatuses' | 'confirmedSubStatuses' | 'clientSubStatusNotes'
   | 'subStatusConfirmationSentAt' | 'invoiceSignature' | 'isEditingConfirmedByClient' | 'isPrintingConfirmedByClient'
-  | 'isDeliveryConfirmedByClient' | 'durationSelection' | 'statusHistory' | 'address' | 'googleMapsLink'
+  | 'isDeliveryConfirmedByClient' | 'durationSelection' | 'statusHistory' | 'address' | 'googleMapsLink' | 'paymentProofs'
 >> & { addOns?: { id: string; name: string; price: number }[] };
 
 export function normalizeProject(row: any): Project {
@@ -89,6 +90,7 @@ export function normalizeProject(row: any): Project {
     transportCardId: row.transport_card_id || undefined,
     completedDigitalItems: row.completed_digital_items || [],
     dpProofUrl: row.dp_proof_url || undefined,
+    paymentProofs: Array.isArray(row.payment_proofs) ? row.payment_proofs : [],
     shippingDetails: row.shipping_details || undefined,
     activeSubStatuses: row.active_sub_statuses || undefined,
     customSubStatuses: row.custom_sub_statuses || undefined,
@@ -305,6 +307,7 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
     ...(input.transportCardId !== undefined ? { transport_card_id: input.transportCardId || null } : {}),
     ...(input.completedDigitalItems !== undefined ? { completed_digital_items: input.completedDigitalItems } : {}),
     ...(input.dpProofUrl !== undefined ? { dp_proof_url: input.dpProofUrl || null } : {}),
+    ...(input.paymentProofs !== undefined ? { payment_proofs: input.paymentProofs } : {}),
     ...(promoCodeId !== undefined ? { promo_code_id: promoCodeId || null } : {}),
     ...(input.shippingDetails !== undefined ? { shipping_details: input.shippingDetails || null } : {}),
     ...(input.activeSubStatuses !== undefined ? { active_sub_statuses: input.activeSubStatuses } : {}),

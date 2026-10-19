@@ -89,6 +89,8 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     totalCost: formData.grandTotal,
     amountPaid: formData.amountPaid,
     paymentStatus: formData.paymentStatus,
+    dpProofUrl: formData.dpProofUrl || undefined,
+    paymentProofs: formData.paymentProofs,
     team: [],
     discountAmount: formData.discountAmount,
     transportCost: formData.transportCost,
