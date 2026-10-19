@@ -1,8 +1,9 @@
 import React, { lazy, Suspense, useState, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  Client, Project, PaymentStatus, Package, AddOn, TransactionType,
+  Client, Project, PaymentStatus, Package, AddOn, TransactionType, CardType,
   Transaction, Card, ViewType, NavigationAction, Profile, TeamMember,
-  TeamProjectPayment, FinancialPocket,
+  TeamProjectPayment, TeamPaymentRecord, FinancialPocket,
 } from '../../../types';
 import Modal from '../../../shared/ui/Modal';
 import RupiahInput from '../../../shared/form/RupiahInput';
@@ -13,6 +14,10 @@ import {
 } from '../../../constants';
 import { Sparkles, Zap, Plus, Settings, Gift, ChevronDown } from 'lucide-react';
 import { updateProject as updateProjectRow } from '../../../services/projects';
+import { createTransaction as createTransactionRow } from '../../../services/transactions';
+import { updatePocket as updatePocketRow } from '../../../services/pockets';
+import { updateTeamProjectPayments as updateTeamProjectPaymentsRow } from '../../../services/teamProjectPayments';
+import { createTeamPaymentRecord } from '../../../services/teamPaymentRecords';
 import { formatCurrency, normalizeTerminology } from '../utils/clientHelpers';
 import { useExtraChargeTemplates } from '../../../hooks/useExtraChargeTemplates';
 import ManageTemplatesModal from './ManageTemplatesModal';
@@ -46,6 +51,7 @@ interface ClientDetailModalProps {
   teamMembers: TeamMember[];
   teamProjectPayments: TeamProjectPayment[];
   setTeamProjectPayments: React.Dispatch<React.SetStateAction<TeamProjectPayment[]>>;
+  teamPaymentRecords?: TeamPaymentRecord[];
   pockets: FinancialPocket[];
   setPockets: React.Dispatch<React.SetStateAction<FinancialPocket[]>>;
 }
@@ -136,6 +142,93 @@ const SectionTitle: React.FC<{ children: React.ReactNode; sub?: string }> = ({ c
   </div>
 );
 
+const TransactionHistoryGroup: React.FC<{
+  title: string;
+  totalLabel: string;
+  transactions: Transaction[];
+  tone: 'income' | 'expense';
+  onViewReceipt: (transaction: Transaction) => void;
+}> = ({ title, totalLabel, transactions, tone, onViewReceipt }) => {
+  const total = transactions.reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
+  const amountClass = tone === 'income' ? 'text-emerald-700' : 'text-red-700';
+  const badgeClass = tone === 'income'
+    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    : 'bg-red-50 text-red-700 border-red-200';
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-brand-border bg-brand-surface">
+      <div className="flex items-center justify-between gap-3 border-b border-brand-border bg-brand-bg/60 px-3 py-2.5">
+        <div>
+          <h5 className="text-xs font-bold text-brand-text-primary sm:text-sm">{title}</h5>
+          <p className="text-[10px] text-brand-text-secondary">{transactions.length} transaksi</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[9px] font-semibold text-brand-text-secondary">{totalLabel}</p>
+          <p className={`text-xs font-black sm:text-sm ${amountClass}`}>{formatCurrency(total)}</p>
+        </div>
+      </div>
+
+      {transactions.length === 0 ? (
+        <p className="px-3 py-5 text-center text-xs text-brand-text-secondary">Belum ada {title.toLowerCase()}.</p>
+      ) : (
+        <>
+          <div className="divide-y divide-brand-border md:hidden">
+            {transactions.map(transaction => (
+              <div key={transaction.id} className="flex items-start justify-between gap-3 p-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="truncate text-xs font-semibold text-brand-text-primary">{normalizeTerminology(transaction.description)}</p>
+                    <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold ${badgeClass}`}>
+                      {tone === 'income' ? 'Masuk' : 'Keluar'}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[10px] text-brand-text-secondary">{new Date(transaction.date).toLocaleDateString('id-ID')}</p>
+                  <p className="mt-0.5 text-[10px] text-brand-text-secondary">{normalizeTerminology(transaction.category || '-')}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className={`text-xs font-black ${amountClass}`}>{formatCurrency(transaction.amount)}</p>
+                  <button type="button" onClick={() => onViewReceipt(transaction)} className="mt-1 text-[10px] font-semibold text-brand-accent hover:underline">
+                    Lihat bukti
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-brand-bg/40">
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-brand-text-secondary">Tanggal</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-brand-text-secondary">Deskripsi</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-brand-text-secondary">Kategori</th>
+                  <th className="px-3 py-2.5 text-right text-xs font-semibold text-brand-text-secondary">Jumlah</th>
+                  <th className="px-3 py-2.5 text-center text-xs font-semibold text-brand-text-secondary">Bukti</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-brand-border">
+                {transactions.map(transaction => (
+                  <tr key={transaction.id} className="hover:bg-brand-bg/40">
+                    <td className="whitespace-nowrap px-3 py-2.5 text-xs text-brand-text-secondary">{new Date(transaction.date).toLocaleDateString('id-ID')}</td>
+                    <td className="px-3 py-2.5 text-xs text-brand-text-primary">{normalizeTerminology(transaction.description)}</td>
+                    <td className="px-3 py-2.5 text-xs text-brand-text-secondary">{normalizeTerminology(transaction.category || '-')}</td>
+                    <td className={`whitespace-nowrap px-3 py-2.5 text-right text-xs font-bold ${amountClass}`}>{formatCurrency(transaction.amount)}</td>
+                    <td className="px-3 py-2.5 text-center">
+                      <button type="button" onClick={() => onViewReceipt(transaction)} className="rounded-lg p-1.5 text-brand-text-secondary hover:bg-brand-accent/10 hover:text-brand-accent" title="Lihat bukti transaksi" aria-label={`Lihat bukti transaksi ${transaction.description}`}>
+                        <FileTextIcon className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
+  );
+};
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
@@ -144,21 +237,36 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   onViewReceipt, onViewInvoice, handleNavigation,
   onRecordPayment, cards, onSharePortal, onDeleteProject,
   showNotification, setProjects, setTransactions, setCards,
-  teamMembers, teamProjectPayments, setTeamProjectPayments, pockets, setPockets,
+  teamMembers, teamProjectPayments, setTeamProjectPayments, teamPaymentRecords = [], pockets, setPockets,
 }) => {
   const uiTextOverrides = useUiTextOverrides();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'info' | 'events' | 'payments'>(() =>
     projects.some(project => project.clientId === client.id) ? 'events' : 'info',
   );
   const [newPayments, setNewPayments] = useState<{ [key: string]: { amount: string; destinationCardId: string } }>({});
+  const [editingTeamPaymentId, setEditingTeamPaymentId] = useState<string | null>(null);
+  const [teamPaymentEditDraft, setTeamPaymentEditDraft] = useState({ role: '', fee: '' });
+  const [savingTeamPaymentId, setSavingTeamPaymentId] = useState<string | null>(null);
+  const [teamPaymentToPay, setTeamPaymentToPay] = useState<TeamProjectPayment | null>(null);
+  const [teamPaymentSourceId, setTeamPaymentSourceId] = useState('');
+  const [isPayingTeamPayment, setIsPayingTeamPayment] = useState(false);
+  const [projectPaymentHistoryTabs, setProjectPaymentHistoryTabs] = useState<Record<string, 'summary' | 'client' | 'team' | 'expenses'>>({});
   const [newCharge, setNewCharge] = useState<{ [key: string]: { name: string; amount: string } }>({});
-  const [transactionFormOpen, setTransactionFormOpen] = useState<Record<string, boolean>>({});
+  const [transactionFormOpen, setTransactionFormOpen] = useState<Record<string, 'payment' | 'expense' | 'charges' | null>>({});
+  const [newExpense, setNewExpense] = useState<Record<string, {
+    date: string;
+    description: string;
+    amount: string;
+    category: string;
+    sourceId: string;
+  }>>({});
+  const [savingExpenseProjectId, setSavingExpenseProjectId] = useState<string | null>(null);
   const [projectOverrides, setProjectOverrides] = useState<{ [projectId: string]: Partial<Project> }>({});
   const [editingChargeId, setEditingChargeId] = useState<string | null>(null);
   const [editChargeData, setEditChargeData] = useState({ name: '', amount: '' });
   const [selectedAddPkg, setSelectedAddPkg] = useState<{ [projectId: string]: string }>({});
   const [showManageTemplates, setShowManageTemplates] = useState(false);
-  const [collapsedStates, setCollapsedStates] = useState<{ [projectId: string]: { payment: boolean, charge: boolean } }>({});
   const { templates } = useExtraChargeTemplates();
 
   // Group templates by category
@@ -206,6 +314,268 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
       setNewPayments(prev => ({ ...prev, [projectId]: { amount: '', destinationCardId: '' } }));
     } else {
       showNotification('Harap isi jumlah dan tujuan pembayaran dengan benar.');
+    }
+  };
+
+  const handleUpdateTeamPayment = async (payment: TeamProjectPayment) => {
+    const fee = Number(teamPaymentEditDraft.fee);
+    if (!Number.isFinite(fee) || fee < 0) {
+      showNotification('Fee harus berupa angka nol atau lebih.');
+      return;
+    }
+
+    setSavingTeamPaymentId(payment.id);
+    try {
+      const [savedPayment] = await updateTeamProjectPaymentsRow([{
+        ...payment,
+        fee,
+        role: teamPaymentEditDraft.role.trim() || undefined,
+      }]);
+      const updatedPayment = savedPayment || {
+        ...payment,
+        fee,
+        role: teamPaymentEditDraft.role.trim() || undefined,
+      };
+      setTeamProjectPayments(prev => prev.map(item => item.id === payment.id ? updatedPayment : item));
+      setEditingTeamPaymentId(null);
+      showNotification(`Fee ${payment.teamMemberName} berhasil diperbarui.`);
+    } catch (error) {
+      console.error('[ClientDetailModal] Failed to update team assignment fee:', error);
+      showNotification('Fee tim gagal diperbarui. Coba lagi.');
+    } finally {
+      setSavingTeamPaymentId(null);
+    }
+  };
+
+  const handlePayTeamPayment = async () => {
+    if (!teamPaymentToPay) return;
+    const currentPayment = teamProjectPayments.find(item => item.id === teamPaymentToPay.id);
+    const project = clientProjects.find(item => item.id === teamPaymentToPay.projectId);
+    if (!currentPayment || currentPayment.status !== 'Unpaid' || !project) {
+      showNotification('Fee sudah berubah atau acara tidak ditemukan. Muat ulang detail acara.');
+      setTeamPaymentToPay(null);
+      return;
+    }
+
+    const pocket = teamPaymentSourceId.startsWith('pocket-')
+      ? pockets.find(item => item.id === teamPaymentSourceId.slice('pocket-'.length))
+      : undefined;
+    const cardId = pocket?.sourceCardId || (teamPaymentSourceId.startsWith('card-')
+      ? teamPaymentSourceId.slice('card-'.length)
+      : undefined);
+    const card = cards.find(item => item.id === cardId);
+    if (!pocket && !teamPaymentSourceId.startsWith('card-')) {
+      showNotification('Pilih sumber dana yang valid.');
+      return;
+    }
+    if (teamPaymentSourceId.startsWith('pocket-') && (!pocket || pocket.amount < currentPayment.fee)) {
+      showNotification('Saldo kantong tidak mencukupi untuk pembayaran ini.');
+      return;
+    }
+    if (teamPaymentSourceId.startsWith('card-') && !card) {
+      showNotification('Kartu sumber dana tidak ditemukan.');
+      return;
+    }
+    if (pocket?.sourceCardId && !card) {
+      showNotification('Kartu sumber untuk kantong ini tidak ditemukan.');
+      return;
+    }
+    if (card && card.balance < currentPayment.fee) {
+      showNotification(`Saldo kartu ${card.bankName} tidak mencukupi.`);
+      return;
+    }
+
+    const paymentDate = new Date().toISOString().slice(0, 10);
+    let pocketDeducted = false;
+    let paymentMarkedPaid = false;
+    setIsPayingTeamPayment(true);
+    try {
+      if (pocket) {
+        await updatePocketRow(pocket.id, { amount: pocket.amount - currentPayment.fee });
+        pocketDeducted = true;
+      }
+
+      const [savedPayment] = await updateTeamProjectPaymentsRow([{ ...currentPayment, status: 'Paid' }]);
+      paymentMarkedPaid = true;
+      const transaction = await createTransactionRow({
+        date: paymentDate,
+        description: `Gaji Freelance - ${currentPayment.teamMemberName} (${project.projectName})`,
+        amount: currentPayment.fee,
+        type: TransactionType.EXPENSE,
+        projectId: project.id,
+        category: 'Gaji Tim / Vendor',
+        method: card?.cardType === CardType.TUNAI ? 'Tunai' : pocket ? 'Sistem' : 'Kartu',
+        pocketId: pocket?.id,
+        cardId,
+      });
+
+      setTeamProjectPayments(prev => prev.map(item => item.id === currentPayment.id
+        ? (savedPayment || { ...currentPayment, status: 'Paid' })
+        : item));
+      setTransactions(prev => [transaction, ...prev.filter(item => item.id !== transaction.id)]
+        .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()));
+      if (card) {
+        setCards(prev => prev.map(item => item.id === card.id
+          ? { ...item, balance: item.balance - currentPayment.fee }
+          : item));
+      }
+      if (pocket) {
+        setPockets(prev => prev.map(item => item.id === pocket.id
+          ? { ...item, amount: item.amount - currentPayment.fee }
+          : item));
+      }
+
+      let slipSaved = true;
+      try {
+        await createTeamPaymentRecord({
+          recordNumber: `PAY-FR-${currentPayment.teamMemberId.slice(-4)}-${Date.now()}`,
+          teamMemberId: currentPayment.teamMemberId,
+          date: paymentDate,
+          projectPaymentIds: [currentPayment.id],
+          totalAmount: currentPayment.fee,
+        });
+      } catch (error) {
+        slipSaved = false;
+        console.error('[ClientDetailModal] Failed to create team payment slip:', error);
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['teamProjectPayments'] }),
+        queryClient.invalidateQueries({ queryKey: ['transactions'] }),
+        queryClient.invalidateQueries({ queryKey: ['teamPaymentRecords'] }),
+      ]);
+      setTeamPaymentToPay(null);
+      setTeamPaymentSourceId('');
+      showNotification(slipSaved
+        ? `Pembayaran ${currentPayment.teamMemberName} berhasil dicatat.`
+        : 'Pembayaran berhasil dicatat, tetapi slip gagal dibuat. Jangan ulangi pembayaran ini.');
+    } catch (error) {
+      console.error('[ClientDetailModal] Failed to pay team assignment:', error);
+      if (paymentMarkedPaid) {
+        try {
+          await updateTeamProjectPaymentsRow([currentPayment]);
+        } catch (rollbackError) {
+          console.error('[ClientDetailModal] Failed to restore unpaid team payment:', rollbackError);
+        }
+      }
+      if (pocketDeducted && pocket) {
+        try {
+          await updatePocketRow(pocket.id, { amount: pocket.amount });
+        } catch (rollbackError) {
+          console.error('[ClientDetailModal] Failed to restore pocket balance:', rollbackError);
+        }
+      }
+      showNotification('Pembayaran gagal dicatat. Periksa sumber dana lalu coba lagi.');
+    } finally {
+      setIsPayingTeamPayment(false);
+    }
+  };
+
+  const handleNewExpenseChange = (
+    projectId: string,
+    field: 'date' | 'description' | 'amount' | 'category' | 'sourceId',
+    value: string,
+  ) => {
+    const current = newExpense[projectId] || {
+      date: new Date().toISOString().slice(0, 10),
+      description: '',
+      amount: '',
+      category: profile.expenseCategories[0] || 'Biaya Acara',
+      sourceId: '',
+    };
+    setNewExpense(prev => ({ ...prev, [projectId]: { ...current, [field]: value } }));
+  };
+
+  const handleNewExpenseSubmit = async (projectId: string) => {
+    const project = clientProjects.find(item => item.id === projectId);
+    const draft = newExpense[projectId];
+    const amount = Number(draft?.amount);
+    const selectedPocket = draft?.sourceId.startsWith('pocket-')
+      ? pockets.find(item => item.id === draft.sourceId.slice('pocket-'.length))
+      : undefined;
+    const selectedCard = draft?.sourceId.startsWith('card-')
+      ? cards.find(item => item.id === draft.sourceId.slice('card-'.length))
+      : selectedPocket?.sourceCardId
+        ? cards.find(item => item.id === selectedPocket.sourceCardId)
+        : undefined;
+
+    if (!project || !draft || !draft.date || !draft.description.trim() || !draft.category || !Number.isFinite(amount) || amount <= 0) {
+      showNotification('Lengkapi tanggal, deskripsi, kategori, dan jumlah pengeluaran.');
+      return;
+    }
+    if (!selectedCard && !selectedPocket) {
+      showNotification('Pilih sumber dana yang tersedia.');
+      return;
+    }
+    if (selectedPocket && selectedPocket.amount < amount) {
+      showNotification(`Saldo kantong ${selectedPocket.name} tidak mencukupi.`);
+      return;
+    }
+    if (selectedPocket?.sourceCardId && !selectedCard) {
+      showNotification('Kartu sumber untuk kantong ini tidak ditemukan.');
+      return;
+    }
+    if (selectedCard && selectedCard.balance < amount) {
+      showNotification(`Saldo ${selectedCard.bankName} tidak mencukupi.`);
+      return;
+    }
+
+    setSavingExpenseProjectId(projectId);
+    let pocketBalanceUpdated = false;
+    try {
+      if (selectedPocket) {
+        await updatePocketRow(selectedPocket.id, { amount: selectedPocket.amount - amount });
+        pocketBalanceUpdated = true;
+      }
+
+      const createdTransaction = await createTransactionRow({
+        date: draft.date,
+        description: draft.description.trim(),
+        amount,
+        type: TransactionType.EXPENSE,
+        projectId: project.id,
+        category: draft.category,
+        method: selectedCard?.cardType === CardType.TUNAI ? 'Tunai' : selectedPocket ? 'Sistem' : 'Kartu',
+        cardId: selectedCard?.id,
+        pocketId: selectedPocket?.id,
+      });
+
+      setTransactions(prev => [createdTransaction, ...prev.filter(item => item.id !== createdTransaction.id)]
+        .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()));
+      if (selectedCard) {
+        setCards(prev => prev.map(card => card.id === selectedCard.id
+          ? { ...card, balance: card.balance - amount }
+          : card));
+      }
+      if (selectedPocket) {
+        setPockets(prev => prev.map(pocket => pocket.id === selectedPocket.id
+          ? { ...pocket, amount: pocket.amount - amount }
+          : pocket));
+      }
+      setNewExpense(prev => ({
+        ...prev,
+        [projectId]: {
+          date: new Date().toISOString().slice(0, 10),
+          description: '',
+          amount: '',
+          category: profile.expenseCategories[0] || 'Biaya Acara',
+          sourceId: '',
+        },
+      }));
+      setTransactionFormOpen(prev => ({ ...prev, [projectId]: null }));
+      showNotification('Pengeluaran acara berhasil dicatat.');
+    } catch (error) {
+      console.error('[ClientDetailModal] Failed to record project expense:', error);
+      if (pocketBalanceUpdated && selectedPocket) {
+        try {
+          await updatePocketRow(selectedPocket.id, { amount: selectedPocket.amount });
+        } catch (rollbackError) {
+          console.error('[ClientDetailModal] Failed to restore pocket balance:', rollbackError);
+        }
+      }
+      showNotification('Pengeluaran gagal dicatat. Periksa sumber dana lalu coba lagi.');
+    } finally {
+      setSavingExpenseProjectId(null);
     }
   };
 
@@ -627,6 +997,8 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
               teamMembers={teamMembers}
               teamProjectPayments={teamProjectPayments}
               setTeamProjectPayments={setTeamProjectPayments}
+              teamPaymentRecords={teamPaymentRecords}
+              paymentInvoiceProjects={projects}
               transactions={transactions}
               setTransactions={setTransactions}
               initialAction={null}
@@ -671,6 +1043,33 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
             {clientProjects.map((p, projectIndex) => {
               const transactionsForProject = clientTransactions.filter(t => t.projectId === p.id);
+              const clientPaymentTransactions = transactionsForProject.filter(t => t.type === TransactionType.INCOME);
+              const teamProjectPaymentsForEvent = teamProjectPayments
+                .filter(payment => payment.projectId === p.id)
+                .sort((left, right) => left.teamMemberName.localeCompare(right.teamMemberName));
+              const teamPaymentTransactions = transactionsForProject.filter(t =>
+                t.type === TransactionType.EXPENSE && t.category?.toLowerCase().includes('gaji tim / vendor'),
+              );
+              const eventExpenseTransactions = transactionsForProject.filter(t =>
+                t.type === TransactionType.EXPENSE && !t.category?.toLowerCase().includes('gaji tim / vendor'),
+              );
+              const teamPaymentHistoryRows = (() => {
+                const matchedTransactionIds = new Set<string>();
+                return teamProjectPaymentsForEvent.map(payment => {
+                  const paymentRecord = teamPaymentRecords.find(record => record.projectPaymentIds.includes(payment.id));
+                  const paymentTransaction = teamPaymentTransactions.find(transaction =>
+                    !matchedTransactionIds.has(transaction.id) &&
+                    transaction.description.toLowerCase().includes(payment.teamMemberName.toLowerCase()),
+                  );
+                  if (paymentTransaction) matchedTransactionIds.add(paymentTransaction.id);
+                  return { payment, paymentRecord, paymentTransaction };
+                });
+              })();
+              const totalTeamFees = teamProjectPaymentsForEvent.reduce((sum, payment) => sum + payment.fee, 0);
+              const paidTeamFees = teamProjectPaymentsForEvent
+                .filter(payment => payment.status === 'Paid')
+                .reduce((sum, payment) => sum + payment.fee, 0);
+              const activePaymentHistoryTab = projectPaymentHistoryTabs[p.id] || 'summary';
               const remainingBalance = p.totalCost - p.amountPaid;
               const displayProjectName = (p.projectName || '').replace(/^Acara Pernikahan\s+/i, '').trim();
               const pkg = packages.find(pkg => pkg.id === p.packageId || (p.packageName && pkg.name.trim().toLowerCase() === p.packageName.trim().toLowerCase())) || null;
@@ -713,25 +1112,62 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                     </div>
                     <div className="flex flex-shrink-0 flex-col items-end gap-2">
                       {getStatusBadge(p.paymentStatus)}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const shouldOpen = !transactionFormOpen[p.id];
-                          setTransactionFormOpen(prev => ({ ...prev, [p.id]: shouldOpen }));
-                          setCollapsedStates(prev => ({
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        {remainingBalance > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => setTransactionFormOpen(prev => ({
+                              ...prev,
+                              [p.id]: prev[p.id] === 'payment' ? null : 'payment',
+                            }))}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-emerald-800"
+                            aria-expanded={transactionFormOpen[p.id] === 'payment'}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            {transactionFormOpen[p.id] === 'payment' ? 'Tutup pembayaran' : 'Catat pembayaran'}
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[10px] font-bold text-emerald-700">
+                            Pembayaran lunas
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setTransactionFormOpen(prev => ({
                             ...prev,
-                            [p.id]: {
-                              payment: shouldOpen && remainingBalance > 0,
-                              charge: shouldOpen && remainingBalance <= 0,
-                            },
-                          }));
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-accent px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-brand-accent/90"
-                        aria-expanded={!!transactionFormOpen[p.id]}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        {transactionFormOpen[p.id] ? 'Tutup form' : 'Tambah transaksi'}
-                      </button>
+                            [p.id]: prev[p.id] === 'charges' ? null : 'charges',
+                          }))}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-blue-700 bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-blue-700"
+                          aria-expanded={transactionFormOpen[p.id] === 'charges'}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          {transactionFormOpen[p.id] === 'charges' ? 'Tutup biaya' : 'Tambah biaya / paket'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const shouldOpen = transactionFormOpen[p.id] !== 'expense';
+                            setTransactionFormOpen(prev => ({ ...prev, [p.id]: shouldOpen ? 'expense' : null }));
+                            if (shouldOpen) {
+                              setNewExpense(prev => prev[p.id] ? prev : ({
+                                ...prev,
+                                [p.id]: {
+                                  date: new Date().toISOString().slice(0, 10),
+                                  description: '',
+                                  amount: '',
+                                  category: profile.expenseCategories[0] || 'Biaya Acara',
+                                  sourceId: '',
+                                },
+                              }));
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-red-700 bg-red-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-red-700"
+                          aria-expanded={transactionFormOpen[p.id] === 'expense'}
+                        >
+                          <TrendingDownIcon className="h-3.5 w-3.5" />
+                          {transactionFormOpen[p.id] === 'expense' ? 'Tutup pengeluaran' : 'Catat Pengeluaran'}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -742,6 +1178,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                   {transactionFormOpen[p.id] && <div className="mb-4 bg-white rounded-xl border border-gray-300 shadow-sm overflow-hidden p-4 space-y-6">
 
                     {/* ── CATAT PEMBAYARAN MASUK (PELUNASAN / DP) ──────── */}
+                    {transactionFormOpen[p.id] === 'payment' && <>
                     <div>
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="text-sm font-bold text-gray-950">Catat Pembayaran Masuk</h4>
@@ -811,10 +1248,114 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                         </div>
                       )}
                     </div>
+                    </>}
 
-                    <hr className="border-gray-200" />
+                    {transactionFormOpen[p.id] === 'expense' && (
+                      <form
+                        onSubmit={event => {
+                          event.preventDefault();
+                          void handleNewExpenseSubmit(p.id);
+                        }}
+                        className="space-y-3"
+                      >
+                        <div>
+                          <h4 className="text-sm font-bold text-gray-950">Catat Pengeluaran Acara</h4>
+                          <p className="mt-0.5 text-xs text-gray-600">Transaksi ini masuk ke laporan pengeluaran dan tidak mengubah tagihan klien.</p>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <label className="space-y-1 text-xs font-semibold text-brand-text-light">
+                            Tanggal
+                            <input
+                              type="date"
+                              required
+                              value={newExpense[p.id]?.date || ''}
+                              onChange={event => handleNewExpenseChange(p.id, 'date', event.target.value)}
+                              className="h-[42px] w-full rounded-xl border border-gray-300 bg-white px-3 text-xs font-medium text-gray-950 focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                            />
+                          </label>
+                          <label className="space-y-1 text-xs font-semibold text-brand-text-light">
+                            Jumlah (Rp)
+                            <RupiahInput
+                              value={newExpense[p.id]?.amount || ''}
+                              onChange={value => handleNewExpenseChange(p.id, 'amount', value)}
+                              className="h-[42px] w-full rounded-xl border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-950 focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                              placeholder="0"
+                            />
+                          </label>
+                        </div>
+                        <label className="block space-y-1 text-xs font-semibold text-brand-text-light">
+                          Deskripsi
+                          <input
+                            type="text"
+                            required
+                            value={newExpense[p.id]?.description || ''}
+                            onChange={event => handleNewExpenseChange(p.id, 'description', event.target.value)}
+                            className="h-[42px] w-full rounded-xl border border-gray-300 bg-white px-3 text-xs font-medium text-gray-950 focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                            placeholder="Contoh: Transportasi kru"
+                          />
+                        </label>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <label className="space-y-1 text-xs font-semibold text-brand-text-light">
+                            Kategori
+                            <select
+                              required
+                              value={newExpense[p.id]?.category || ''}
+                              onChange={event => handleNewExpenseChange(p.id, 'category', event.target.value)}
+                              className="h-[42px] w-full rounded-xl border border-gray-300 bg-white px-3 text-xs font-medium text-gray-950 focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                            >
+                              {(profile.expenseCategories.length ? profile.expenseCategories : ['Biaya Acara']).map(category => (
+                                <option key={category} value={category}>{category}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="space-y-1 text-xs font-semibold text-brand-text-light">
+                            Sumber dana
+                            <select
+                              required
+                              value={newExpense[p.id]?.sourceId || ''}
+                              onChange={event => handleNewExpenseChange(p.id, 'sourceId', event.target.value)}
+                              className="h-[42px] w-full rounded-xl border border-gray-300 bg-white px-3 text-xs font-medium text-gray-950 focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                            >
+                              <option value="">Pilih sumber dana...</option>
+                              <optgroup label="Kartu / Kas">
+                                {cards.map(card => (
+                                  <option key={card.id} value={`card-${card.id}`}>
+                                    {card.cardHolderName} · {card.bankName} {card.cardType !== CardType.TUNAI ? `**** ${card.lastFourDigits}` : '(Tunai)'} · {formatCurrency(card.balance)}
+                                  </option>
+                                ))}
+                              </optgroup>
+                              <optgroup label="Kantong">
+                                {pockets.map(pocket => (
+                                  <option key={pocket.id} value={`pocket-${pocket.id}`}>
+                                    {pocket.name} · {formatCurrency(pocket.amount)}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            </select>
+                          </label>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setTransactionFormOpen(prev => ({ ...prev, [p.id]: null }))}
+                            className="min-h-10 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={savingExpenseProjectId === p.id}
+                            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white hover:bg-red-800 disabled:cursor-wait disabled:opacity-60"
+                          >
+                            <TrendingDownIcon className="h-3.5 w-3.5" />
+                            {savingExpenseProjectId === p.id ? 'Menyimpan...' : 'Simpan Pengeluaran'}
+                          </button>
+                        </div>
+                      </form>
+                    )}
 
                     {/* ── INPUT BIAYA TAMBAHAN / BONUS ─────────────────── */}
+                    {transactionFormOpen[p.id] === 'charges' && <>
                     <div>
                       <div className="flex justify-between items-center mb-3">
                         <h4 className="text-sm font-bold text-gray-950">Tambah Biaya Tambahan / Package</h4>
@@ -950,11 +1491,37 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                         </div>
                       </div>
                     </div>
+                    </>}
 
                   </div>}
                   {/* END INPUT SECTION */}
 
+                  <div className="mt-4 space-y-3">
+                    <SectionTitle sub="Rincian tagihan dan riwayat pembayaran untuk acara ini.">
+                      {customizeUiText('client.detail.section.transactions', 'Riwayat Transaksi', uiTextOverrides)}
+                    </SectionTitle>
+                    <div className="grid grid-cols-2 gap-1 rounded-xl border border-brand-border bg-brand-bg p-1 sm:grid-cols-4">
+                      {([
+                        { id: 'summary', label: 'Rincian' },
+                        { id: 'client', label: `Klien (${clientPaymentTransactions.length})` },
+                        { id: 'team', label: `Tim (${teamProjectPaymentsForEvent.length})` },
+                        { id: 'expenses', label: `Biaya acara (${eventExpenseTransactions.length})` },
+                      ] as const).map(tab => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setProjectPaymentHistoryTabs(prev => ({ ...prev, [p.id]: tab.id }))}
+                          className={`min-h-9 min-w-0 rounded-lg px-1.5 py-2 text-[10px] font-bold transition-colors sm:text-xs ${activePaymentHistoryTab === tab.id ? 'bg-brand-accent text-white shadow-sm' : 'text-brand-text-secondary hover:bg-white hover:text-brand-text-primary'}`}
+                          aria-pressed={activePaymentHistoryTab === tab.id}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* ── PROJECT CARD ──────────────────────────────────── */}
+                  {activePaymentHistoryTab === 'summary' && (
                   <div className="bg-brand-surface rounded-2xl border border-brand-border shadow-sm overflow-hidden">
 
                     <div className="p-4 sm:p-5 space-y-5">
@@ -1166,110 +1733,176 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                           Invoice PDF
                         </button>
                         <button
-                          onClick={() => { if (window.confirm('Apakah Anda yakin ingin menghapus acara ini?')) onDeleteProject(p.id); }}
-                          className="w-9 !py-2 rounded-xl border border-[#EAEFF4] text-[#5A6A85] hover:text-red-600 hover:border-red-600/20 hover:bg-red-600/10 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
+                          onClick={() => {
+                            if (window.confirm(`Hapus acara “${p.projectName}”? Data acara ini akan dihapus dan tindakan ini tidak dapat dibatalkan.`)) {
+                              onDeleteProject(p.id);
+                            }
+                          }}
+                          className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-[11px] font-bold text-red-700 transition-all hover:border-red-300 hover:bg-red-50 active:scale-95"
                           title="Hapus Acara"
+                          aria-label={`Hapus acara ${p.projectName}`}
                         >
                           <Trash2Icon className="w-4 h-4" />
+                          <span>Hapus Acara</span>
                         </button>
                       </div>
                     </div>
                   </div>
+                  )}
 
                   {/* ── TRANSACTION HISTORY ───────────────────────────── */}
-                  <div className="mt-4">
-                    <SectionTitle sub="Riwayat pembayaran dan biaya untuk acara ini">
-                      {customizeUiText('client.detail.section.transactions', 'Riwayat Transaksi', uiTextOverrides)}
-                    </SectionTitle>
-
-                    {/* Mobile transaction cards */}
-                    <div className="md:hidden space-y-2">
-                      {transactionsForProject.length > 0 ? transactionsForProject.map(t => {
-                        const isTransport =
-                          (t.category?.toLowerCase().includes('transport')) ||
-                          (t.description?.toLowerCase().includes('transport'));
-                        return (
-                          <div key={t.id} className="rounded-xl bg-brand-surface border border-brand-border p-3 shadow-sm flex items-start justify-between active:scale-[0.98] transition-transform">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                <p className="text-xs font-semibold text-brand-text-light truncate">{normalizeTerminology(t.description)}</p>
-                                {isTransport && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full solid-blue text-white">Transport</span>}
-                              </div>
-                              <p className="text-[10px] text-brand-text-secondary">{new Date(t.date).toLocaleDateString('id-ID')}</p>
-                              <p className="text-[10px] text-brand-text-secondary opacity-70 mt-0.5">{normalizeTerminology(t.category || '-')}</p>
-                            </div>
-                            <div className="text-right ml-3 flex-shrink-0">
-                              <p className={`text-sm font-black mb-1.5 ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-red-500'}`}>
-                                {formatCurrency(t.amount)}
-                              </p>
-                              <button onClick={() => onViewReceipt(t)} className="button-secondary !text-[10px] !px-2.5 !py-1 active:scale-95">Bukti</button>
-                            </div>
+                  <div className="mt-3 space-y-3">
+                    {activePaymentHistoryTab === 'client' && (
+                      <TransactionHistoryGroup
+                        title="Pembayaran Klien"
+                        totalLabel="Pembayaran tercatat"
+                        transactions={clientPaymentTransactions}
+                        tone="income"
+                        onViewReceipt={onViewReceipt}
+                      />
+                    )}
+                    {activePaymentHistoryTab === 'team' && (
+                      <section className="overflow-hidden rounded-xl border border-brand-border bg-brand-surface">
+                        <div className="flex items-center justify-between gap-3 border-b border-brand-border bg-brand-bg/60 px-3 py-2.5">
+                          <div>
+                            <h5 className="text-xs font-bold text-brand-text-primary sm:text-sm">Pembayaran Tim</h5>
+                            <p className="text-[10px] text-brand-text-secondary">{teamProjectPaymentsForEvent.length} penugasan</p>
                           </div>
-                        );
-                      }) : (
-                        <div className="text-center py-8 bg-brand-surface rounded-2xl border border-brand-border border-dashed">
-                          <p className="text-xs text-brand-text-secondary">Belum ada transaksi untuk acara ini.</p>
+                          <div className="text-right">
+                            <p className="text-[9px] font-semibold text-brand-text-secondary">Terbayar / Total fee</p>
+                            <p className="text-xs font-black text-emerald-700 sm:text-sm">{formatCurrency(paidTeamFees)} / {formatCurrency(totalTeamFees)}</p>
+                          </div>
                         </div>
-                      )}
-                    </div>
-
-                    {/* Desktop transaction table */}
-                    <div className="hidden md:block rounded-2xl border border-brand-border overflow-hidden shadow-sm">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-brand-bg">
-                            <th className="px-3 py-3 text-center font-semibold text-brand-text-secondary w-10 text-xs">#</th>
-                            <th className="px-3 py-3 text-left  font-semibold text-brand-text-secondary text-xs">Tanggal</th>
-                            <th className="px-3 py-3 text-left  font-semibold text-brand-text-secondary text-xs">Deskripsi</th>
-                            <th className="px-3 py-3 text-left  font-semibold text-brand-text-secondary text-xs">Kategori</th>
-                            <th className="px-3 py-3 text-right font-semibold text-brand-text-secondary text-xs">Jumlah</th>
-                            <th className="px-3 py-3 text-center font-semibold text-brand-text-secondary text-xs w-12">Aksi</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-brand-border">
-                          {transactionsForProject.length > 0 ? transactionsForProject.map((t, index) => {
-                            const isTransport =
-                              (t.category?.toLowerCase().includes('transport')) ||
-                              (t.description?.toLowerCase().includes('transport'));
-                            return (
-                              <tr key={t.id} className="hover:bg-brand-bg/60 transition-colors">
-                                <td className="px-3 py-3 text-center text-xs text-brand-text-secondary font-medium">{index + 1}</td>
-                                <td className="px-3 py-3 text-xs text-brand-text-secondary whitespace-nowrap">
-                                  {new Date(t.date).toLocaleDateString('id-ID')}
-                                </td>
-                                <td className="px-3 py-3">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-xs text-brand-text-light">{normalizeTerminology(t.description)}</span>
-                                    {isTransport && (
-                                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full solid-blue text-white whitespace-nowrap">Transport</span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-3 py-3 text-[10px] text-brand-text-secondary">{normalizeTerminology(t.category || '-')}</td>
-                                <td className={`px-3 py-3 text-right text-xs font-bold ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-red-500'}`}>
-                                  {formatCurrency(t.amount)}
-                                </td>
-                                <td className="px-3 py-3 text-center">
-                                  <button
-                                    onClick={() => onViewReceipt(t)}
-                                    className="p-1.5 rounded-lg text-brand-text-secondary hover:text-brand-accent hover:bg-brand-accent/10 transition-all"
-                                    title="Lihat Bukti"
+                        {teamPaymentHistoryRows.length === 0 ? (
+                          <p className="px-3 py-5 text-center text-xs text-brand-text-secondary">Belum ada penugasan tim untuk acara ini.</p>
+                        ) : (
+                          <div className="divide-y divide-brand-border">
+                            {teamPaymentHistoryRows.map(({ payment, paymentRecord, paymentTransaction }) => (
+                              <div key={payment.id} className="p-3">
+                                {editingTeamPaymentId === payment.id ? (
+                                  <form
+                                    onSubmit={event => {
+                                      event.preventDefault();
+                                      void handleUpdateTeamPayment(payment);
+                                    }}
+                                    className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[1fr_1fr_auto]"
                                   >
-                                    <FileTextIcon className="w-4 h-4" />
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          }) : (
-                            <tr>
-                              <td colSpan={6} className="text-center py-8 text-xs text-brand-text-secondary">
-                                Belum ada transaksi untuk acara ini.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                                    <label className="space-y-1 text-[10px] font-semibold text-brand-text-secondary">
+                                      Anggota / Peran
+                                      <input
+                                        type="text"
+                                        value={teamPaymentEditDraft.role}
+                                        onChange={event => setTeamPaymentEditDraft(prev => ({ ...prev, role: event.target.value }))}
+                                        className="h-9 w-full rounded-lg border border-brand-border bg-white px-2 text-xs text-brand-text-primary"
+                                        placeholder="Tim / Vendor"
+                                      />
+                                    </label>
+                                    <label className="space-y-1 text-[10px] font-semibold text-brand-text-secondary">
+                                      Fee (Rp)
+                                      <RupiahInput
+                                        value={teamPaymentEditDraft.fee}
+                                        onChange={value => setTeamPaymentEditDraft(prev => ({ ...prev, fee: value }))}
+                                        className="h-9 w-full rounded-lg border border-brand-border bg-white px-2 text-xs font-semibold text-brand-text-primary"
+                                        placeholder="0"
+                                      />
+                                    </label>
+                                    <div className="flex justify-end gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingTeamPaymentId(null)}
+                                        className="min-h-9 rounded-lg border border-brand-border px-2.5 text-[10px] font-semibold text-brand-text-secondary hover:bg-brand-bg"
+                                      >
+                                        Batal
+                                      </button>
+                                      <button
+                                        type="submit"
+                                        disabled={savingTeamPaymentId === payment.id}
+                                        className="min-h-9 rounded-lg bg-blue-600 px-2.5 text-[10px] font-bold text-white hover:bg-blue-700 disabled:opacity-60"
+                                      >
+                                        {savingTeamPaymentId === payment.id ? 'Menyimpan...' : 'Update'}
+                                      </button>
+                                    </div>
+                                  </form>
+                                ) : (
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-semibold text-brand-text-primary">{payment.teamMemberName}</p>
+                                      <p className="mt-0.5 text-[10px] text-brand-text-secondary">
+                                        {payment.role || 'Tim / Vendor'} · {payment.status === 'Paid'
+                                          ? `Dibayar ${new Date(paymentRecord?.date || paymentTransaction?.date || payment.date).toLocaleDateString('id-ID')}`
+                                          : 'Belum dibayar'}
+                                      </p>
+                                      {paymentRecord && <p className="mt-0.5 text-[10px] text-brand-text-secondary">Slip {paymentRecord.recordNumber}</p>}
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${payment.status === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>
+                                        {payment.status === 'Paid' ? 'Lunas' : 'Belum lunas'}
+                                      </span>
+                                      <span className="text-right text-xs font-bold text-brand-text-primary">{formatCurrency(payment.fee)}</span>
+                                      {payment.status === 'Unpaid' ? (
+                                        <div className="flex items-center gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setEditingTeamPaymentId(payment.id);
+                                              setTeamPaymentEditDraft({ role: payment.role || '', fee: String(payment.fee) });
+                                            }}
+                                            className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 text-[10px] font-bold text-blue-700 hover:bg-blue-100"
+                                            aria-label={`Edit fee ${payment.teamMemberName}`}
+                                          >
+                                            <PencilIcon className="h-3 w-3" /> Edit
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setTeamPaymentToPay(payment);
+                                              setTeamPaymentSourceId('');
+                                            }}
+                                            className="inline-flex min-h-8 items-center gap-1 rounded-lg bg-emerald-700 px-2 text-[10px] font-bold text-white hover:bg-emerald-800"
+                                            aria-label={`Bayar fee ${payment.teamMemberName}`}
+                                          >
+                                            <CreditCardIcon className="h-3 w-3" /> Bayar
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          disabled
+                                          title="Fee terkunci karena pembayaran dan slip sudah tercatat."
+                                          className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-200 px-2 text-[10px] font-semibold text-slate-400"
+                                        >
+                                          <PencilIcon className="h-3 w-3" /> Edit
+                                        </button>
+                                      )}
+                                      {paymentTransaction && (
+                                        <button
+                                          type="button"
+                                          onClick={() => onViewReceipt(paymentTransaction)}
+                                          className="rounded-lg p-1.5 text-brand-text-secondary hover:bg-brand-accent/10 hover:text-brand-accent"
+                                          title="Lihat bukti pembayaran tim"
+                                          aria-label={`Lihat bukti pembayaran ${payment.teamMemberName}`}
+                                        >
+                                          <FileTextIcon className="h-4 w-4" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+                    )}
+                    {activePaymentHistoryTab === 'expenses' && (
+                      <TransactionHistoryGroup
+                        title="Biaya Acara"
+                        totalLabel="Total biaya operasional"
+                        transactions={eventExpenseTransactions}
+                        tone="expense"
+                        onViewReceipt={onViewReceipt}
+                      />
+                    )}
                   </div>
 
                 </div>
@@ -1281,6 +1914,79 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
         {showManageTemplates && (
           <ManageTemplatesModal onClose={() => setShowManageTemplates(false)} />
         )}
+        <Modal
+          isOpen={teamPaymentToPay !== null}
+          onClose={() => {
+            if (!isPayingTeamPayment) {
+              setTeamPaymentToPay(null);
+              setTeamPaymentSourceId('');
+            }
+          }}
+          title="Bayar Fee Tim / Vendor"
+          size="md"
+        >
+          {teamPaymentToPay && (
+            <form
+              onSubmit={event => {
+                event.preventDefault();
+                void handlePayTeamPayment();
+              }}
+              className="space-y-4"
+            >
+              <div className="rounded-xl border border-brand-border bg-brand-bg p-3">
+                <p className="text-xs font-semibold text-brand-text-secondary">
+                  {teamPaymentToPay.teamMemberName} · {clientProjects.find(project => project.id === teamPaymentToPay.projectId)?.projectName}
+                </p>
+                <p className="mt-1 text-lg font-extrabold text-brand-text-primary">{formatCurrency(teamPaymentToPay.fee)}</p>
+              </div>
+              <label className="block space-y-1.5 text-xs font-bold text-brand-text-primary">
+                Sumber dana
+                <select
+                  required
+                  value={teamPaymentSourceId}
+                  onChange={event => setTeamPaymentSourceId(event.target.value)}
+                  className="h-11 w-full rounded-xl border border-brand-border bg-white px-3 text-sm font-medium text-brand-text-primary focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/30"
+                >
+                  <option value="">Pilih sumber dana...</option>
+                  <optgroup label="Kartu / Kas">
+                    {cards.map(card => (
+                      <option key={card.id} value={`card-${card.id}`}>
+                        {card.cardHolderName} · {card.bankName} {card.cardType !== CardType.TUNAI ? `**** ${card.lastFourDigits}` : '(Tunai)'} · {formatCurrency(card.balance)}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Kantong">
+                    {pockets.map(pocket => (
+                      <option key={pocket.id} value={`pocket-${pocket.id}`}>
+                        {pocket.name} · {formatCurrency(pocket.amount)}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </label>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={isPayingTeamPayment}
+                  onClick={() => {
+                    setTeamPaymentToPay(null);
+                    setTeamPaymentSourceId('');
+                  }}
+                  className="min-h-10 rounded-xl border border-brand-border bg-white px-4 py-2 text-sm font-bold text-brand-text-primary hover:bg-brand-bg disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={!teamPaymentSourceId || isPayingTeamPayment}
+                  className="min-h-10 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isPayingTeamPayment ? 'Memproses...' : 'Bayar Sekarang'}
+                </button>
+              </div>
+            </form>
+          )}
+        </Modal>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import SignaturePad from '../../../shared/ui/SignaturePad';
 import InvoiceDocument from '../../finance/components/InvoiceDocument';
 import ClientReceiptDocument from './ClientReceiptDocument';
 import { PencilIcon, DownloadIcon, WhatsappIcon } from '../../../constants';
-import { Client, Project, Package, Profile, Transaction, TeamMember, TeamProjectPayment } from '../../../types';
+import { Client, Project, Package, Profile, Transaction, TransactionType, TeamMember, TeamProjectPayment } from '../../../types';
 import { DocumentToView } from '../hooks/useClientDocumentActions';
 import { PaymentSlipDocument } from '../../team/components/PaymentSlipDocument';
 
@@ -15,6 +15,7 @@ interface ClientDocumentModalProps {
     userProfile: Profile;
     packages: Package[];
     projects: Project[];
+    transactions?: Transaction[];
     isSignatureModalOpen: boolean;
     setIsSignatureModalOpen: (isOpen: boolean) => void;
     onSaveSignature: (sig: string) => void;
@@ -33,6 +34,7 @@ export const ClientDocumentModal: React.FC<ClientDocumentModalProps> = ({
     userProfile,
     packages,
     projects,
+    transactions = [],
     isSignatureModalOpen,
     setIsSignatureModalOpen,
     onSaveSignature,
@@ -58,6 +60,9 @@ export const ClientDocumentModal: React.FC<ClientDocumentModalProps> = ({
                 email: '',
                 address: project.address || '',
             } as Client;
+            const latestPaymentDate = transactions
+                .filter(transaction => transaction.projectId === project.id && transaction.type === TransactionType.INCOME)
+                .sort((left, right) => right.date.localeCompare(left.date))[0]?.date;
 
             return (
                 <InvoiceDocument
@@ -66,6 +71,7 @@ export const ClientDocumentModal: React.FC<ClientDocumentModalProps> = ({
                     profile={userProfile}
                     packages={packages}
                     client={effectiveClient}
+                    issuedDate={latestPaymentDate || new Date().toISOString().slice(0, 10)}
                 />
             );
         } else if (documentToView.type === 'receipt') {

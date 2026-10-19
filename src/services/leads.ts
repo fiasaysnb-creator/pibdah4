@@ -34,13 +34,34 @@ export async function deleteLead(id: string): Promise<void> {
   if (error) throw error;
 }
 
+function normalizeLeadStatus(status: unknown): LeadStatus {
+  const value = typeof status === 'string' ? status.trim() : '';
+  switch (value.toLowerCase().replace(/[_-]+/g, ' ')) {
+    case 'discussion':
+    case 'sedang diskusi':
+      return LeadStatus.DISCUSSION;
+    case 'follow up':
+    case 'followup':
+    case 'menunggu follow up':
+      return LeadStatus.FOLLOW_UP;
+    case 'converted':
+    case 'dikonversi':
+      return LeadStatus.CONVERTED;
+    case 'rejected':
+    case 'ditolak':
+      return LeadStatus.REJECTED;
+    default:
+      return value as LeadStatus;
+  }
+}
+
 export function normalizeLead(row: any): Lead {
   return {
     id: row.id,
     name: row.name,
     contactChannel: row.contact_channel as ContactChannel,
     location: row.location ?? '',
-    status: row.status as LeadStatus,
+    status: normalizeLeadStatus(row.status),
     date: row.date,
     notes: row.notes ?? undefined,
     whatsapp: row.whatsapp ?? undefined,

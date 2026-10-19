@@ -1,15 +1,19 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
     Project,
     TeamMember,
     Client,
     Package,
     TeamProjectPayment,
+    TeamPaymentRecord,
     Transaction,
     Profile,
     NavigationAction,
     Card,
-    FinancialPocket
+    FinancialPocket,
+    CardType,
+    TransactionType,
 } from '../../types';
 
 import Modal from '../../shared/ui/Modal';
@@ -33,6 +37,10 @@ import { useProjectEditMode } from '../../features/projects/hooks/useProjectEdit
 import { useProjectOperations } from '../../features/projects/hooks/useProjectOperations';
 import { calculateProjectsModalStats } from '../../features/projects/utils/projectCalculations';
 import { getProjectWithRelations } from '../../services/projects';
+import { createTransaction } from '../../services/transactions';
+import { updatePocket as updatePocketRow } from '../../services/pockets';
+import { updateTeamProjectPayments as updateTeamProjectPaymentsApi } from '../../services/teamProjectPayments';
+import { createTeamPaymentRecord } from '../../services/teamPaymentRecords';
 
 export interface ProjectsProps {
     projects: Project[];
@@ -42,6 +50,8 @@ export interface ProjectsProps {
     teamMembers: TeamMember[];
     teamProjectPayments: TeamProjectPayment[];
     setTeamProjectPayments: React.Dispatch<React.SetStateAction<TeamProjectPayment[]>>;
+    teamPaymentRecords?: TeamPaymentRecord[];
+    paymentInvoiceProjects?: Project[];
     transactions: Transaction[];
     setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
     initialAction: NavigationAction | null;
@@ -83,6 +93,8 @@ export const Projects: React.FC<ProjectsProps> = ({
     teamMembers,
     teamProjectPayments,
     setTeamProjectPayments,
+    teamPaymentRecords = [],
+    paymentInvoiceProjects,
     transactions,
     setTransactions,
     initialAction,
@@ -97,6 +109,7 @@ export const Projects: React.FC<ProjectsProps> = ({
     handleNavigation,
     embeddedForClient = false,
 }) => {
+    const queryClient = useQueryClient();
     // Communication & Preview States
     const [chatModalData, setChatModalData] = useState<{ project: Project; client: Client } | null>(null);
     const [sharePreview, setSharePreview] = useState<SharePreviewData>(null);
@@ -290,6 +303,123 @@ export const Projects: React.FC<ProjectsProps> = ({
             }
         })();
     }, [setProjects]);
+
+    const handlePayTeamAssignment = useCallback(async (payment: TeamProjectPayment, sourceId: string) => {
+        const currentPayment = teamProjectPayments.find(item => item.id === payment.id);
+        const member = teamMembers.find(item => item.id === payment.teamMemberId);
+        const project = projects.find(item => item.id === payment.projectId);
+        if (!currentPayment || currentPayment.status !== 'Unpaid' || !member || !project) {
+            showNotification('Fee sudah berubah atau data penugasan tidak ditemukan. Muat ulang detail acara.');
+            return;
+        }
+
+        const pocket = sourceId.startsWith('pocket-')
+            ? pockets.find(item => item.id === sourceId.slice('pocket-'.length))
+            : undefined;
+        const cardId = pocket?.sourceCardId || (sourceId.startsWith('card-') ? sourceId.slice('card-'.length) : undefined);
+        const card = cards.find(item => item.id === cardId);
+        if (sourceId.startsWith('pocket-') && (!pocket || pocket.amount < currentPayment.fee)) {
+            showNotification('Saldo kantong tidak mencukupi untuk pembayaran ini.');
+            return;
+        }
+        if (sourceId.startsWith('card-') && !card) {
+            showNotification('Kartu sumber dana tidak ditemukan.');
+            return;
+        }
+        if (card && card.balance < currentPayment.fee) {
+            showNotification(`Saldo kartu ${card.bankName} tidak mencukupi.`);
+            return;
+        }
+        if (!pocket && !sourceId.startsWith('card-')) {
+            showNotification('Pilih sumber dana yang valid.');
+            return;
+        }
+
+        const paymentDate = new Date().toISOString().slice(0, 10);
+        let pocketDeducted = false;
+        let paymentMarkedPaid = false;
+        try {
+            if (pocket) {
+                await updatePocketRow(pocket.id, { amount: pocket.amount - currentPayment.fee });
+                pocketDeducted = true;
+            }
+
+            const persistedPayments = await updateTeamProjectPaymentsApi([{
+                ...currentPayment,
+                status: 'Paid',
+            }]);
+            paymentMarkedPaid = true;
+
+            const transaction = await createTransaction({
+                date: paymentDate,
+                description: `Gaji Freelance - ${member.name} (${project.projectName})`,
+                amount: currentPayment.fee,
+                type: TransactionType.EXPENSE,
+                projectId: project.id,
+                category: 'Gaji Tim / Vendor',
+                method: card?.cardType === CardType.TUNAI ? 'Tunai' : pocket ? 'Sistem' : 'Kartu',
+                pocketId: pocket?.id,
+                cardId,
+            });
+
+            const savedPayment = persistedPayments.find(item => item.id === currentPayment.id);
+            if (savedPayment) {
+                setTeamProjectPayments(prev => prev.map(item => item.id === savedPayment.id ? savedPayment : item));
+            }
+            setTransactions(prev => [transaction, ...prev.filter(item => item.id !== transaction.id)]);
+            if (card) {
+                setCards(prev => prev.map(item => item.id === card.id
+                    ? { ...item, balance: item.balance - currentPayment.fee }
+                    : item));
+            }
+            if (pocket) {
+                setPockets(prev => prev.map(item => item.id === pocket.id
+                    ? { ...item, amount: item.amount - currentPayment.fee }
+                    : item));
+            }
+        } catch (error) {
+            console.error('[Projects] Failed to pay team assignment:', error);
+            if (paymentMarkedPaid) {
+                try {
+                    await updateTeamProjectPaymentsApi([currentPayment]);
+                } catch (rollbackError) {
+                    console.error('[Projects] Failed to restore unpaid status:', rollbackError);
+                }
+            }
+            if (pocketDeducted && pocket) {
+                try {
+                    await updatePocketRow(pocket.id, { amount: pocket.amount });
+                } catch (rollbackError) {
+                    console.error('[Projects] Failed to restore pocket balance:', rollbackError);
+                }
+            }
+            showNotification('Pembayaran gagal disimpan. Status fee dan saldo kantong dikembalikan.');
+            return;
+        }
+
+        let slipSaved = true;
+        try {
+            await createTeamPaymentRecord({
+                recordNumber: `PAY-FR-${member.id.slice(-4)}-${Date.now()}`,
+                teamMemberId: member.id,
+                date: paymentDate,
+                projectPaymentIds: [currentPayment.id],
+                totalAmount: currentPayment.fee,
+            });
+        } catch (error) {
+            slipSaved = false;
+            console.error('[Projects] Failed to create team payment slip:', error);
+        }
+
+        await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['teamProjectPayments'] }),
+            queryClient.invalidateQueries({ queryKey: ['transactions'] }),
+            queryClient.invalidateQueries({ queryKey: ['teamPaymentRecords'] }),
+        ]);
+        showNotification(slipSaved
+            ? `Pembayaran ${member.name} sebesar ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(currentPayment.fee)} berhasil dicatat.`
+            : 'Pembayaran berhasil dicatat, tetapi slip gagal disimpan. Jangan ulangi pembayaran ini.');
+    }, [teamProjectPayments, teamMembers, projects, pockets, cards, setTeamProjectPayments, setTransactions, setCards, setPockets, showNotification, queryClient]);
 
     useEffect(() => {
         if (
@@ -629,7 +759,11 @@ export const Projects: React.FC<ProjectsProps> = ({
                         packages={packages}
                         transactions={transactions}
                         teamProjectPayments={teamProjectPayments}
+                        teamPaymentRecords={teamPaymentRecords}
+                        paymentInvoiceProjects={paymentInvoiceProjects ?? projects}
                         cards={cards}
+                        pockets={pockets}
+                        onPayTeamAssignment={handlePayTeamAssignment}
                         onOpenSharePreview={(data) => setSharePreview({ title: data.title, message: data.message, phone: data.phone })}
                         onNavigateToClient={(clientId) => {
                             setIsDetailModalOpen(false);
@@ -679,7 +813,11 @@ export const Projects: React.FC<ProjectsProps> = ({
                     packages={packages}
                     transactions={transactions}
                     teamProjectPayments={teamProjectPayments}
+                    teamPaymentRecords={teamPaymentRecords}
+                    paymentInvoiceProjects={paymentInvoiceProjects ?? projects}
                     cards={cards}
+                    pockets={pockets}
+                    onPayTeamAssignment={handlePayTeamAssignment}
                     onOpenSharePreview={(data) => setSharePreview({ title: data.title, message: data.message, phone: data.phone })}
                     onNavigateToClient={(clientId) => {
                         setIsDetailModalOpen(false);

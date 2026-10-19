@@ -531,8 +531,8 @@ const LeadCard: React.FC<{
                                             color: isCurrent ? '#ffffff' : conf.color,
                                             borderColor: conf.border,
                                             borderWidth: 1,
-                                            ringColor: conf.color,
-                                        }}
+                                            '--tw-ring-color': conf.color,
+                                        } as React.CSSProperties & { '--tw-ring-color': string }}
                                         title={isCurrent ? `Status saat ini: ${conf.title}` : `Pindahkan ke ${conf.title}`}
                                     >
                                         {isCurrent ? (

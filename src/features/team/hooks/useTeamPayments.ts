@@ -46,7 +46,8 @@ import { updatePocket as updatePocketRow } from '../../../services/pockets';
 import { formatCurrency } from '../utils/teamUtils';
 import PaymentSlipDocument from '../components/PaymentSlipDocument';
 import { generatePDFBlob } from '../../../shared/utils/pdfUtils';
-import { downloadPaymentSlipPdf } from '../utils/paymentSlipPdf';
+import { buildPaymentSlipFileName, buildPaymentSlipPdf, downloadPaymentSlipPdf } from '../utils/paymentSlipPdf';
+import { generateWhatsAppLink } from '../../../utils/whatsapp';
 
 interface UseTeamPaymentsParams {
     selectedMember: TeamMember | null;
@@ -502,6 +503,70 @@ export const useTeamPayments = ({
         }
     }, [paymentSlipToView, teamMembers, teamProjectPayments, projects, userProfile]);
 
+    const handleSharePaymentSlip = useCallback(async () => {
+        if (!paymentSlipToView) return;
+
+        const member = teamMembers.find(item => item.id === paymentSlipToView.teamMemberId);
+        const fileName = buildPaymentSlipFileName(paymentSlipToView);
+        const placeholderFile = typeof File !== 'undefined'
+            ? new File([''], fileName, { type: 'application/pdf' })
+            : null;
+        const supportsFileSharing = !!placeholderFile &&
+            typeof navigator !== 'undefined' &&
+            !!navigator.share &&
+            !!navigator.canShare?.({ files: [placeholderFile] });
+        const whatsappWindow = supportsFileSharing ? null : window.open('about:blank', '_blank');
+
+        try {
+            const pdf = await buildPaymentSlipPdf({
+                record: paymentSlipToView,
+                teamMembers,
+                teamProjectPayments,
+                projects,
+                profile: userProfile,
+            });
+            const blob = pdf.output('blob');
+            const file = new File([blob], fileName, { type: 'application/pdf' });
+            const message = [
+                `Bukti pembayaran tim untuk ${member?.name || 'Tim / Vendor'}`,
+                `Invoice: ${paymentSlipToView.recordNumber}`,
+                `Total: ${formatCurrency(paymentSlipToView.totalAmount)}`,
+                `Tanggal: ${paymentSlipToView.date}`,
+            ].join('\n');
+
+            if (supportsFileSharing && navigator.canShare?.({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Bukti & Invoice Pembayaran Tim',
+                        text: message,
+                    });
+                    return;
+                } catch (shareError) {
+                    if (shareError instanceof DOMException && shareError.name === 'AbortError') return;
+                    console.warn('[useTeamPayments] File sharing unavailable; falling back to WhatsApp link.', shareError);
+                }
+            }
+
+            pdf.save(fileName);
+            const whatsappUrl = generateWhatsAppLink(
+                member?.phone,
+                `${message}\nPDF sudah diunduh. Silakan lampirkan file PDF ini di chat WhatsApp.`,
+            );
+            if (whatsappUrl === '#') {
+                whatsappWindow?.close();
+                showNotification('PDF berhasil diunduh, tetapi nomor WhatsApp anggota belum tersedia.');
+                return;
+            }
+            if (whatsappWindow) whatsappWindow.location.href = whatsappUrl;
+            else window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+        } catch (error) {
+            whatsappWindow?.close();
+            console.error('[useTeamPayments] Failed to prepare payment slip for sharing:', error);
+            showNotification('Gagal menyiapkan PDF bukti pembayaran. Coba lagi.');
+        }
+    }, [paymentSlipToView, teamMembers, teamProjectPayments, projects, userProfile, showNotification]);
+
     // ── renderPaymentSlipBody ────────────────────────────────────────────────
     const renderPaymentSlipBody = useCallback(
         (record: TeamPaymentRecord) => {
@@ -549,6 +614,7 @@ export const useTeamPayments = ({
         handlePay,
         handleSaveSignature,
         handleDownloadPDF,
+        handleSharePaymentSlip,
         renderPaymentSlipBody,
     };
 };

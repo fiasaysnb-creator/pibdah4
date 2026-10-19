@@ -22,6 +22,7 @@ import {
     ClientStatus,
     TeamMember,
     TeamProjectPayment,
+    TeamPaymentRecord,
     Contract,
 } from '../../types';
 import Modal from '../../shared/ui/Modal';
@@ -72,6 +73,7 @@ interface ClientsProps {
     teamMembers: TeamMember[];
     teamProjectPayments: TeamProjectPayment[];
     setTeamProjectPayments: React.Dispatch<React.SetStateAction<TeamProjectPayment[]>>;
+    teamPaymentRecords?: TeamPaymentRecord[];
     contracts?: Contract[];
     handleNavigation: (view: ViewType, action: NavigationAction) => void;
     clientFeedback: ClientFeedback[];
@@ -116,6 +118,7 @@ export const Clients: React.FC<ClientsProps> = ({
     teamMembers,
     teamProjectPayments,
     setTeamProjectPayments,
+    teamPaymentRecords = [],
     contracts,
     handleNavigation,
     promoCodes,
@@ -618,6 +621,7 @@ export const Clients: React.FC<ClientsProps> = ({
                     teamMembers={teamMembers}
                     teamProjectPayments={teamProjectPayments}
                     setTeamProjectPayments={setTeamProjectPayments}
+                    teamPaymentRecords={teamPaymentRecords}
                     pockets={pockets}
                     setPockets={setPockets}
                 />
@@ -631,6 +635,7 @@ export const Clients: React.FC<ClientsProps> = ({
                 userProfile={userProfile}
                 packages={packages}
                 projects={projects}
+                transactions={transactions}
                 isSignatureModalOpen={isSignatureModalOpen}
                 setIsSignatureModalOpen={setIsSignatureModalOpen}
                 onSaveSignature={handleSaveSignature}

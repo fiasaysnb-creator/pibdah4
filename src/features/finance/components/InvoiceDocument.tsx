@@ -6,6 +6,7 @@ interface InvoiceDocumentProps {
   profile: Profile;
   packages: Package[];
   client?: Client;
+  issuedDate?: string;
   id?: string;
 }
 
@@ -14,6 +15,7 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({
   profile,
   packages = [],
   client,
+  issuedDate,
   id = "invoice-document"
 }) => {
   const safeProfile = profile || ({} as Partial<Profile>);
@@ -120,7 +122,7 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({
               ID: #INV-{project.id.slice(-8).toUpperCase()}
             </div>
             <div className="invoice-meta-text text-[7.5px] sm:text-[11px] text-slate-500 text-right space-y-0 sm:space-y-0.5 print:text-black">
-              <p>Diterbitkan: <span className="font-bold text-slate-700 print:text-black">{formatDate(project.date)}</span></p>
+              <p>Diterbitkan: <span className="font-bold text-slate-700 print:text-black">{formatDate(issuedDate || new Date().toISOString().slice(0, 10))}</span></p>
               <p>Status: <span className={`font-bold ${project.paymentStatus === PaymentStatus.LUNAS ? 'text-green-600' : 'text-orange-600'} print:text-black uppercase`}>{project.paymentStatus}</span></p>
             </div>
           </div>
@@ -148,6 +150,7 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({
             <div className="space-y-0.5 sm:space-y-1">
               <p className="invoice-party-name text-[10px] sm:text-base font-bold text-slate-800 print:text-black">{project.projectName}</p>
               <div className="invoice-party-meta grid grid-cols-2 gap-x-1.5 sm:gap-x-3 gap-y-0.5 sm:gap-y-1 text-[7.5px] sm:text-[11px] text-slate-600 print:text-black">
+                <p><span className="text-slate-400 font-medium">Tanggal Acara:</span> {formatDate(project.date)}</p>
                 <p><span className="text-slate-400 font-medium">Lokasi:</span> {project.location}</p>
                 <p><span className="text-slate-400 font-medium">Tipe:</span> {project.projectType}</p>
                 {project.address && <p className="col-span-2"><span className="text-slate-400 font-medium">Alamat:</span> {project.address}</p>}

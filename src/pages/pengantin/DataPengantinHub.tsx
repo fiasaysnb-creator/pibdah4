@@ -14,6 +14,7 @@ import {
     Project,
     PromoCode,
     TeamProjectPayment,
+    TeamPaymentRecord,
     TeamMember,
     Transaction,
     ViewType,
@@ -30,6 +31,7 @@ interface DataPengantinHubProps {
     setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
     teamProjectPayments: TeamProjectPayment[];
     setTeamProjectPayments: React.Dispatch<React.SetStateAction<TeamProjectPayment[]>>;
+    teamPaymentRecords?: TeamPaymentRecord[];
     leads: Lead[];
     teamMembers: TeamMember[];
     transactions: Transaction[];

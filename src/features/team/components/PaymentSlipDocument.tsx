@@ -58,7 +58,7 @@ export const PaymentSlipDocument: React.FC<PaymentSlipDocumentProps> = ({
                         </div>
                     </div>
                     <div className="text-left sm:text-right">
-                        <h2 className="text-2xl font-black text-brand-accent tracking-tighter mb-1">Pembayaran tim</h2>
+                        <h2 className="text-2xl font-black text-brand-accent tracking-tighter mb-1">Bukti &amp; Invoice</h2>
                         <div className="inline-block bg-slate-100 px-2 py-0.5 rounded text-[10px] font-bold text-slate-600 mb-2">
                             #{record.recordNumber}
                         </div>

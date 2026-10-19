@@ -153,6 +153,10 @@ export const generatePDFBlob = async (
     const html2pdfModule: any = await import('html2pdf.js');
     const html2pdf = html2pdfModule.default || html2pdfModule;
     const worker = html2pdf().from(element).set(opt);
-    const blob: Blob = await worker.output('blob');
-    return blob;
+    try {
+        const blob: Blob = await worker.output('blob');
+        return blob;
+    } finally {
+        worker.prop?.overlay?.remove();
+    }
 };

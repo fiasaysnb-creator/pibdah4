@@ -104,6 +104,7 @@ const SimplifiedDataContext = createContext<SimplifiedDataContextType | undefine
 function makeCacheSetter<T>(
   queryClient: ReturnType<typeof useQueryClient>,
   queryKey: string,
+  invalidateAfterWrite = false,
 ): React.Dispatch<React.SetStateAction<T[]>> {
   return (action: React.SetStateAction<T[]>) => {
     queryClient.setQueryData<T[]>([queryKey], (old) => {
@@ -112,6 +113,9 @@ function makeCacheSetter<T>(
         ? (action as (p: T[]) => T[])(prev)
         : action;
     });
+    if (invalidateAfterWrite) {
+      void queryClient.invalidateQueries({ queryKey: [queryKey], refetchType: 'none' });
+    }
   };
 }
 
@@ -154,8 +158,8 @@ export const SimplifiedDataProvider: React.FC<{ children: React.ReactNode }> = (
   const isError = !!error;
 
   // ─── Cache setters (functional; replace previous stub no-ops) ──────────
-  const setClients = useCallback(makeCacheSetter<Client>(queryClient, 'clients'), [queryClient]);
-  const setProjects = useCallback(makeCacheSetter<Project>(queryClient, 'projects'), [queryClient]);
+  const setClients = useCallback(makeCacheSetter<Client>(queryClient, 'clients', isLightPublic), [queryClient, isLightPublic]);
+  const setProjects = useCallback(makeCacheSetter<Project>(queryClient, 'projects', isLightPublic), [queryClient, isLightPublic]);
   const setTeamMembers = useCallback(makeCacheSetter<TeamMember>(queryClient, 'teamMembers'), [queryClient]);
   const setTransactions = useCallback(makeCacheSetter<Transaction>(queryClient, 'transactions'), [queryClient]);
   const setLeads = useCallback(makeCacheSetter<Lead>(queryClient, 'leads'), [queryClient]);

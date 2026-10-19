@@ -300,6 +300,7 @@ function App() {
                       projects: !data.loading.projects,
                       teamMembers: !data.loading.teamMembers,
                       transactions: !data.loading.transactions,
+                      leads: data.leads !== undefined,
                     },
                     loadTotals: data.refetchDashboardStats,
                     loadClientFeedback: data.refetchClientFeedback,

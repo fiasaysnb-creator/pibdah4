@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Lead, Client, Project, Package, ViewType, NavigationAction, Profile, BookingStatus } from '../../types';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Lead, LeadStatus, ContactChannel, Client, Project, Package, ViewType, NavigationAction, Profile, BookingStatus } from '../../types';
 import { ModernStatCard } from '../../components/modernize/ModernStatCard';
 import { MobileCollapsibleSection, MobileExpandableExtra } from '../../components/ui/MobileProgressiveDisclosure';
 import { SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
@@ -9,6 +9,7 @@ import { UsersIcon, DollarSignIcon, PackageIcon, EyeIcon, MessageSquareIcon, Cal
 import { cleanPhoneNumber, CHAT_TEMPLATES } from '../../constants';
 import { formatIdNumber } from '../../utils/currency';
 import { updateProject, deleteProject } from '../../services/projects';
+import { createLead as createLeadRow, updateLead as updateLeadRow } from '../../services/leads';
 import { upsertProfile } from '../../services/profile';
 import { useChatTemplates } from '../../hooks/useChatTemplates';
 
@@ -244,6 +245,9 @@ const WhatsappTemplateModal: React.FC<WhatsappTemplateModalProps> = ({ project, 
 
 interface BookingProps {
     leads: Lead[];
+    setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
+    leadsLoaded: boolean;
+    projectsLoaded: boolean;
     clients: Client[];
     projects: Project[];
     setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
@@ -254,7 +258,7 @@ interface BookingProps {
     showNotification: (message: string) => void;
 }
 
-const Booking: React.FC<BookingProps> = ({ leads, clients, projects, setProjects, packages, userProfile, setProfile, handleNavigation, showNotification }) => {
+const Booking: React.FC<BookingProps> = ({ leads, setLeads, leadsLoaded, projectsLoaded, clients, projects, setProjects, packages, userProfile, setProfile, handleNavigation, showNotification }) => {
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
@@ -309,6 +313,68 @@ const Booking: React.FC<BookingProps> = ({ leads, clients, projects, setProjects
     const filteredConfirmedBookings = useMemo(() => {
         return confirmedBookings.filter(matchesSearchAndDate);
     }, [confirmedBookings, dateFrom, dateTo, searchQuery]);
+
+    const syncedClientIds = useRef(new Set<string>());
+    const syncingClientIds = useRef(new Set<string>());
+    const hasSyncedExistingBookings = useRef(false);
+
+    const syncBookingToLead = async (project: Project) => {
+        const clientId = project.clientId;
+        if (!clientId || syncedClientIds.current.has(clientId) || syncingClientIds.current.has(clientId)) return;
+        syncingClientIds.current.add(clientId);
+
+        try {
+            const client = clients.find(item => item.id === clientId);
+            const clientName = client?.name || project.clientName;
+            const existingLead = leads.find(lead => lead.notes?.includes(clientId)) ||
+                leads.find(lead => lead.name.trim().toLowerCase() === clientName.trim().toLowerCase());
+            const linkedNotes = existingLead?.notes?.includes(clientId)
+                ? existingLead.notes
+                : [existingLead?.notes, `Dikonversi menjadi Pengantin ID: ${clientId}`].filter(Boolean).join('\n');
+
+            if (existingLead) {
+                if (existingLead.status === LeadStatus.CONVERTED && existingLead.notes?.includes(clientId)) {
+                    syncedClientIds.current.add(clientId);
+                    return;
+                }
+                const updated = await updateLeadRow(existingLead.id, {
+                    status: LeadStatus.CONVERTED,
+                    notes: linkedNotes,
+                });
+                setLeads(prev => prev.map(lead => lead.id === updated.id ? updated : lead));
+            } else {
+                const created = await createLeadRow({
+                    name: clientName,
+                    contactChannel: ContactChannel.OTHER,
+                    location: project.location || '',
+                    status: LeadStatus.CONVERTED,
+                    date: project.date || new Date().toISOString(),
+                    notes: `Dikonversi dari booking terkonfirmasi. Pengantin ID: ${clientId}`,
+                    whatsapp: client?.whatsapp || client?.phone || undefined,
+                    address: client?.address || client?.homeAddress || undefined,
+                });
+                setLeads(prev => prev.some(lead => lead.id === created.id) ? prev : [created, ...prev]);
+            }
+            syncedClientIds.current.add(clientId);
+        } finally {
+            syncingClientIds.current.delete(clientId);
+        }
+    };
+
+    useEffect(() => {
+        if (!leadsLoaded || !projectsLoaded || hasSyncedExistingBookings.current) return;
+        hasSyncedExistingBookings.current = true;
+
+        void (async () => {
+            for (const booking of confirmedBookings) {
+                try {
+                    await syncBookingToLead(booking.project);
+                } catch (error) {
+                    console.warn('[Booking] Failed to sync confirmed booking to conversions:', error);
+                }
+            }
+        })();
+    }, [leadsLoaded, projectsLoaded]);
 
     // Removed public booking share feature per request
 
@@ -372,17 +438,30 @@ const Booking: React.FC<BookingProps> = ({ leads, clients, projects, setProjects
 
     const handleStatusChange = async (projectId: string, newStatus: BookingStatus) => {
         const prevStatus = projects.find(p => p.id === projectId)?.bookingStatus;
+        const project = projects.find(p => p.id === projectId);
         // Optimistic update
         setProjects(prev => prev.map(p => (p.id === projectId ? { ...p, bookingStatus: newStatus } : p)));
         try {
             await updateProject(projectId, { bookingStatus: newStatus });
-            showNotification(`Booking berhasil ${newStatus === BookingStatus.TERKONFIRMASI ? 'dikonfirmasi' : 'ditolak'}.`);
         } catch (err) {
             console.warn('[Booking] Failed to persist booking status:', err);
             // Revert on failure
             setProjects(prev => prev.map(p => (p.id === projectId ? { ...p, bookingStatus: prevStatus } : p)));
             showNotification('Gagal menyimpan perubahan status booking. Silakan coba lagi.');
+            return;
         }
+
+        if (newStatus === BookingStatus.TERKONFIRMASI && project) {
+            try {
+                await syncBookingToLead(project);
+            } catch (err) {
+                console.warn('[Booking] Failed to sync confirmed booking to conversions:', err);
+                showNotification('Booking dikonfirmasi, tetapi data konversi gagal disinkronkan.');
+                return;
+            }
+        }
+
+        showNotification(`Booking berhasil ${newStatus === BookingStatus.TERKONFIRMASI ? 'dikonfirmasi' : 'ditolak'}.`);
     };
 
     return (

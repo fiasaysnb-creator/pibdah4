@@ -74,7 +74,7 @@ export const useTeamMembersQuery = (options: DomainQueryOptions = {}) => useQuer
 
 export const useLeadsQuery = (options: DomainQueryOptions = {}) => useQuery({
     queryKey: ['leads'],
-    queryFn: () => listLeads({ limit: DEFAULT_LIMIT }),
+    queryFn: () => listLeads({ limit: 5000 }),
     staleTime: 30 * 1000,
     enabled: options.enabled !== false,
 });

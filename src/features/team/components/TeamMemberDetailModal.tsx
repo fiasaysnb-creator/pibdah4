@@ -12,7 +12,7 @@
 
 import React, { useMemo, useState } from 'react';
 import Modal from '../../../shared/ui/Modal';
-import FreelancerProjects from './FreelancerProjects';
+import FreelancerProjects, { UnpaidTeamPaymentsSection } from './FreelancerProjects';
 import PerformanceTab from './PerformanceTab';
 import CreatePaymentTab from './CreatePaymentTab';
 import {
@@ -135,6 +135,10 @@ const TabBtn: React.FC<{
 
 const PaymentsTabContent: React.FC<{
   memberPaymentRecords: TeamPaymentRecord[];
+  unpaidProjects: TeamProjectPayment[];
+  projectsToPay: string[];
+  onToggleProject: (projectPaymentId: string) => void;
+  onProceedToPayment: () => void;
   teamProjectPayments: TeamProjectPayment[];
   projects: Project[];
   expandedRecordId: string | null;
@@ -147,6 +151,10 @@ const PaymentsTabContent: React.FC<{
   onDeletePaymentRecord: (record: TeamPaymentRecord) => Promise<boolean>;
 }> = ({
   memberPaymentRecords,
+  unpaidProjects,
+  projectsToPay,
+  onToggleProject,
+  onProceedToPayment,
   teamProjectPayments,
   projects,
   expandedRecordId,
@@ -155,21 +163,37 @@ const PaymentsTabContent: React.FC<{
   onUpdatePaymentRecord,
   onDeletePaymentRecord,
 }) => {
+  const uiTextOverrides = useUiTextOverrides();
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [draftRecordNumber, setDraftRecordNumber] = useState('');
   const [draftDate, setDraftDate] = useState('');
   const [isSavingRecord, setIsSavingRecord] = useState(false);
 
-  if (memberPaymentRecords.length === 0) {
-    return (
-      <div className="flex flex-col items-center py-12 text-center">
-        <p className="text-sm font-medium text-brand-text-secondary">Belum ada riwayat pembayaran.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
+      <UnpaidTeamPaymentsSection
+        unpaidProjects={unpaidProjects}
+        projectsToPay={projectsToPay}
+        onToggleProject={onToggleProject}
+        onProceedToPayment={onProceedToPayment}
+        projects={projects}
+      />
+      <section className="space-y-2.5 border-t border-brand-border pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h4 className="text-xs font-bold text-brand-text-primary sm:text-sm">Riwayat Pembayaran</h4>
+            <p className="text-[10px] text-brand-text-secondary sm:text-xs">Slip dan rincian pembayaran yang sudah dibuat.</p>
+          </div>
+          <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold tabular-nums text-emerald-700">
+            {memberPaymentRecords.length}
+          </span>
+        </div>
+      {memberPaymentRecords.length === 0 ? (
+        <div className="flex flex-col items-center py-8 text-center">
+          <p className="text-sm font-medium text-brand-text-secondary">Belum ada riwayat pembayaran.</p>
+        </div>
+      ) : (
+      <div className="space-y-2">
       {memberPaymentRecords.map((record, idx) => {
         const isExpanded = expandedRecordId === record.id;
         return (
@@ -193,6 +217,9 @@ const PaymentsTabContent: React.FC<{
               <span className="font-black text-sm text-emerald-600 shrink-0">
                 {formatCurrency(record.totalAmount)}
               </span>
+              <span className="hidden rounded-full bg-emerald-500/10 px-2 py-1 text-[9px] font-bold text-emerald-700 sm:inline-flex">
+                Dibayar
+              </span>
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={() => onToggleExpandRecord(record.id)}
@@ -203,10 +230,12 @@ const PaymentsTabContent: React.FC<{
                 </button>
                 <button
                   onClick={() => onViewSlip(record)}
-                  title="Lihat Slip"
+                  title="Lihat / cetak slip pembayaran"
+                  aria-label={`Lihat atau cetak slip pembayaran ${record.recordNumber}`}
                   className="p-1.5 rounded-lg text-brand-accent bg-brand-accent/10 hover:bg-brand-accent/20 border border-brand-accent/20 transition-all"
                 >
                   <FileTextIcon className="w-4 h-4" />
+                  <span className="hidden text-[10px] font-semibold sm:inline">Lihat slip</span>
                 </button>
               </div>
             </div>
@@ -351,6 +380,9 @@ const PaymentsTabContent: React.FC<{
           </div>
         );
       })}
+      </div>
+      )}
+      </section>
     </div>
   );
 };
@@ -536,6 +568,7 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
             onClick={() => setDetailTab('payments')}
             icon={<HistoryIcon className="w-3.5 h-3.5 shrink-0" />}
             label={customizeUiText('team.detail.tab.payments', 'Pembayaran', uiTextOverrides)}
+            badge={selectedMemberUnpaidProjects.length}
           />
           <TabBtn
             active={detailTab === 'performance'}
@@ -557,10 +590,6 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
           {/* Tab: Acara Pernikahan */}
           {detailTab === 'projects' && (
             <FreelancerProjects
-              unpaidProjects={selectedMemberUnpaidProjects}
-              projectsToPay={projectsToPay}
-              onToggleProject={onToggleProject}
-              onProceedToPayment={onProceedToPayment}
               projects={memberProjects}
             />
           )}
@@ -569,6 +598,10 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
           {detailTab === 'payments' && (
             <PaymentsTabContent
               memberPaymentRecords={memberPaymentRecords}
+              unpaidProjects={selectedMemberUnpaidProjects}
+              projectsToPay={projectsToPay}
+              onToggleProject={onToggleProject}
+              onProceedToPayment={onProceedToPayment}
               teamProjectPayments={teamProjectPayments}
               projects={projects}
               expandedRecordId={expandedRecordId}
@@ -608,7 +641,7 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
               isInstallment={isInstallment}
               setIsInstallment={setIsInstallment}
               onPay={onPay}
-              onSetTab={() => setDetailTab('projects')}
+              onSetTab={() => setDetailTab('payments')}
               renderPaymentDetailsContent={() =>
                 renderPaymentSlipBody({
                   id: `TEMP-${Date.now()}`,

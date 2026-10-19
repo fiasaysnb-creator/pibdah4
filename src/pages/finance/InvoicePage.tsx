@@ -368,6 +368,7 @@ const InvoicePage: React.FC<InvoicePageProps> = ({
         userProfile={userProfile}
         packages={packages}
         projects={projects}
+        transactions={transactions}
         teamMembers={teamMembers}
         teamProjectPayments={teamProjectPayments}
         isSignatureModalOpen={isSignatureModalOpen}

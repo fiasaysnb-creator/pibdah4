@@ -252,6 +252,9 @@ export const AuthenticatedRoutes: React.FC<AuthenticatedRoutesProps> = ({
         <Suspense fallback={<LoadingState />}>
           <Booking
             leads={leads}
+            setLeads={setLeads}
+            leadsLoaded={appData?.loaded?.leads ?? false}
+            projectsLoaded={appData?.loaded?.projects ?? false}
             clients={clients}
             projects={projects}
             setProjects={setProjects}
@@ -281,6 +284,7 @@ export const AuthenticatedRoutes: React.FC<AuthenticatedRoutesProps> = ({
             setProjects={setProjects}
             teamProjectPayments={teamProjectPayments}
             setTeamProjectPayments={setTeamProjectPayments}
+            teamPaymentRecords={teamPaymentRecords}
             leads={leads}
             teamMembers={teamMembers}
             transactions={transactions}
@@ -488,6 +492,10 @@ export const AuthenticatedRoutes: React.FC<AuthenticatedRoutesProps> = ({
             cards={cards}
             setCards={setCards}
             teamMembers={teamMembers}
+            teamProjectPayments={teamProjectPayments}
+            setTeamProjectPayments={setTeamProjectPayments}
+            teamPaymentRecords={teamPaymentRecords}
+            setTeamPaymentRecords={setTeamPaymentRecords}
           />
         </DataLoadingWrapper>
       );

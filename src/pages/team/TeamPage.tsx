@@ -25,6 +25,7 @@
  */
 
 import React, { useState } from 'react';
+import { Share2 } from 'lucide-react';
 import {
   TeamMember,
   TeamProjectPayment,
@@ -373,6 +374,14 @@ export const Freelancers: React.FC<FreelancersProps> = ({
             >
               <PencilIcon className="w-4 h-4" />
               {payments.paymentSlipToView.vendorSignature || userProfile?.signatureBase64 ? 'Ganti TTD' : 'Bubuhkan TTD'}
+            </button>
+            <button
+              type="button"
+              onClick={payments.handleSharePaymentSlip}
+              className="button-secondary inline-flex items-center gap-2 px-4 py-2 text-sm"
+            >
+              <Share2 className="w-4 h-4" />
+              Bagikan Bukti &amp; Invoice PDF
             </button>
             <button
               type="button"

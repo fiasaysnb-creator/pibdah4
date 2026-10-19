@@ -41,7 +41,7 @@ const safeFilePart = (value?: string): string =>
   sanitize(value).replace(/[\\/:*?"<>|\s]+/g, '_');
 
 export const buildPaymentSlipFileName = (record: TeamPaymentRecord): string =>
-  `Slip-Gaji-${safeFilePart(record.recordNumber || sanitize(record.id).slice(0, 8)) || 'slip'}.pdf`;
+  `Bukti-Invoice-Pembayaran-Tim-${safeFilePart(record.recordNumber || sanitize(record.id).slice(0, 8)) || 'slip'}.pdf`;
 
 export const buildPaymentSlipPdf = async (input: PaymentSlipPdfInput): Promise<jsPDF> => {
   const { record, teamMembers, teamProjectPayments, projects } = input;
@@ -120,7 +120,7 @@ export const buildPaymentSlipPdf = async (input: PaymentSlipPdfInput): Promise<j
   let rightY = headerTop;
   setFont(20, 'bold');
   ink(accent);
-  doc.text('Pembayaran tim', CONTENT_RIGHT, rightY + 20 * PT_TO_MM, { align: 'right' });
+  doc.text('Bukti & Invoice', CONTENT_RIGHT, rightY + 20 * PT_TO_MM, { align: 'right' });
   rightY += lineHeight(20, 1.05) + 1.2;
 
   const badgeText = `#${sanitize(record.recordNumber || '-')}`;

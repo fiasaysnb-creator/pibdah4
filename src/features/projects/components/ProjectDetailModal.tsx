@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Project, TeamMember, Client, Profile,
-  Package, Transaction, TeamProjectPayment, Card, AssignedTeamMember,
+  Package, Transaction, TeamProjectPayment, TeamPaymentRecord, Card, AssignedTeamMember,
   FinancialPocket,
 } from '../../../types';
 import {
@@ -36,6 +36,8 @@ import { customizeUiText, useUiTextOverrides } from '../../../utils/uiTextCustom
 import { useChatTemplates } from '../../../hooks/useChatTemplates';
 import Modal from '../../../shared/ui/Modal';
 import { generateWhatsAppLink } from '../../../utils/whatsapp';
+import PaymentSlipDocument from '../../team/components/PaymentSlipDocument';
+import { buildPaymentSlipFileName, buildPaymentSlipPdf, downloadPaymentSlipPdf } from '../../team/utils/paymentSlipPdf';
 
 const DOCUMENTATION_REMINDER_TITLE = 'Pengingat Persiapan Dokumentasi';
 const DOCUMENTATION_REMINDER_TEMPLATE = `Kak, Aku izin mengingatkan persiapan dokumentasi yang perlu disiapkan untuk hari H 😊🙏🏻
@@ -66,7 +68,11 @@ export interface ProjectDetailModalProps {
   packages: Package[];
   transactions: Transaction[];
   teamProjectPayments: TeamProjectPayment[];
+  teamPaymentRecords?: TeamPaymentRecord[];
+  paymentInvoiceProjects?: Project[];
   cards: Card[];
+  pockets: FinancialPocket[];
+  onPayTeamAssignment?: (payment: TeamProjectPayment, sourceId: string) => Promise<void>;
   onOpenSharePreview: (data: { title: string; message: string; phone?: string | null }) => void;
   onNavigateToClient?: (clientId: string) => void;
   // ── Edit mode props (injected from ProjectsPage via useProjectEditMode) ──
@@ -124,7 +130,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   selectedProject, setSelectedProject, teamMembers, clients, profile,
   showNotification, setProjects, onClose,
   handleProjectDelete, handleOpenBriefingModal, packages, transactions,
-  teamProjectPayments, cards,
+  teamProjectPayments, teamPaymentRecords = [], paymentInvoiceProjects = [], cards, pockets, onPayTeamAssignment,
   onOpenSharePreview, onNavigateToClient,
   // edit mode
   isEditing, isSaving, editFormData, editTeamByCategory,
@@ -150,6 +156,11 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   const [editingCategoryName, setEditingCategoryName] = useState<string | null>(null);
   const [categoryNameDraft, setCategoryNameDraft] = useState('');
   const [isInitializingChecklist, setIsInitializingChecklist] = useState(false);
+  const [paymentToProcess, setPaymentToProcess] = useState<TeamProjectPayment | null>(null);
+  const [paymentSourceId, setPaymentSourceId] = useState('');
+  const [isProcessingTeamPayment, setIsProcessingTeamPayment] = useState(false);
+  const [paymentProofToView, setPaymentProofToView] = useState<TeamPaymentRecord | null>(null);
+  const [isPreparingPaymentProof, setIsPreparingPaymentProof] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [mobileSectionTab, setMobileSectionTab] = useState<'info' | 'meetings' | 'team' | 'checklist' | 'terms' | 'workflow' | 'files'>('info');
 
@@ -707,6 +718,14 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
     selectedProject.customSubStatuses ||
     profile.projectStatusConfig.find(s => s.name === selectedProject.status)?.subStatuses ||
     [];
+  const eventDateParts = selectedProject.date?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const eventDayUtc = eventDateParts
+    ? Date.UTC(Number(eventDateParts[1]), Number(eventDateParts[2]) - 1, Number(eventDateParts[3]))
+    : null;
+  const today = new Date();
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const overdueDays = eventDayUtc === null ? 0 : Math.floor((todayUtc - eventDayUtc) / 86400000);
+  const isActionableOverdue = overdueDays > 0 && !/selesai|dibatalkan/i.test(selectedProject.status);
 
   const pkg = packages.find(p => p.id === selectedProject.packageId) ?? null;
   const packageTerms = getPackageTerms(profile.publicPageConfig?.packageTerms);
@@ -820,6 +839,196 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
         />
       </Modal>
 
+      <Modal
+        isOpen={paymentToProcess !== null}
+        onClose={() => {
+          if (!isProcessingTeamPayment) {
+            setPaymentToProcess(null);
+            setPaymentSourceId('');
+          }
+        }}
+        title="Bayar Fee Tim / Vendor"
+        size="md"
+        footer={(
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              disabled={isProcessingTeamPayment}
+              onClick={() => {
+                setPaymentToProcess(null);
+                setPaymentSourceId('');
+              }}
+              className="min-h-11 rounded-xl border border-brand-border bg-brand-surface px-4 py-2 text-sm font-bold text-brand-text-primary hover:bg-brand-input disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              disabled={!paymentSourceId || isProcessingTeamPayment || !paymentToProcess || !onPayTeamAssignment}
+              onClick={async () => {
+                if (!paymentToProcess || !onPayTeamAssignment || !paymentSourceId) return;
+                setIsProcessingTeamPayment(true);
+                try {
+                  await onPayTeamAssignment(paymentToProcess, paymentSourceId);
+                  setPaymentToProcess(null);
+                  setPaymentSourceId('');
+                } finally {
+                  setIsProcessingTeamPayment(false);
+                }
+              }}
+              className="min-h-11 rounded-xl bg-brand-accent px-4 py-2 text-sm font-bold text-white hover:bg-brand-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isProcessingTeamPayment ? 'Memproses...' : 'Bayar Sekarang'}
+            </button>
+          </div>
+        )}
+      >
+        {paymentToProcess && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-brand-border bg-brand-bg p-3">
+              <p className="text-xs font-semibold text-brand-text-secondary">
+                {paymentToProcess.teamMemberName} · {selectedProject.projectName}
+              </p>
+              <p className="mt-1 text-lg font-extrabold text-brand-text-primary">
+                {formatCurrency(paymentToProcess.fee)}
+              </p>
+            </div>
+            <label className="block text-xs font-bold text-brand-text-primary" htmlFor="team-payment-source">
+              Sumber dana
+              <select
+                id="team-payment-source"
+                value={paymentSourceId}
+                onChange={event => setPaymentSourceId(event.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-brand-border bg-white px-3 py-2.5 text-sm font-medium text-brand-text-primary focus:border-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-accent/30"
+              >
+                <option value="">Pilih kartu atau kantong</option>
+                {cards.map(card => (
+                  <option key={card.id} value={`card-${card.id}`}>
+                    {card.bankName} ···{card.lastFourDigits} — {formatCurrency(card.balance)}
+                  </option>
+                ))}
+                {pockets.map(pocket => (
+                  <option key={pocket.id} value={`pocket-${pocket.id}`}>
+                    {pocket.name} — {formatCurrency(pocket.amount)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {cards.length === 0 && pockets.length === 0 && (
+              <p className="text-xs text-amber-700">Tambahkan sumber dana di Keuangan sebelum memproses pembayaran.</p>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={paymentProofToView !== null}
+        onClose={() => setPaymentProofToView(null)}
+        title="Bukti & Invoice Pembayaran"
+        size="4xl"
+      >
+        {paymentProofToView && selectedProject && (
+          <>
+            <div className="max-h-[65vh] overflow-y-auto rounded-xl border border-brand-border bg-white p-2 sm:p-4">
+              <PaymentSlipDocument
+                record={paymentProofToView}
+                teamMembers={teamMembers}
+                teamProjectPayments={teamProjectPayments}
+                projects={paymentInvoiceProjects.length > 0 ? paymentInvoiceProjects : [selectedProject]}
+                userProfile={profile}
+              />
+            </div>
+            <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-brand-border pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  const member = teamMembers.find(item => item.id === paymentProofToView.teamMemberId);
+                  const text = [
+                    `Halo ${member?.name || 'Tim / Vendor'}, berikut bukti pembayaran honor untuk ${selectedProject.projectName}.`,
+                    `Nomor invoice: ${paymentProofToView.recordNumber}`,
+                    `Total: ${formatCurrency(paymentProofToView.totalAmount)}`,
+                    'Silakan lihat lampiran bukti pembayaran.',
+                  ].join('\n');
+                  onOpenSharePreview({
+                    title: 'Bukti & Invoice Pembayaran Tim',
+                    message: text,
+                    phone: member?.phone,
+                  });
+                }}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100"
+              >
+                <MessageCircle className="h-4 w-4" /> Template WhatsApp
+              </button>
+              <button
+                type="button"
+                disabled={isPreparingPaymentProof}
+                onClick={async () => {
+                  if (!paymentProofToView) return;
+                  setIsPreparingPaymentProof(true);
+                  try {
+                    const fileName = buildPaymentSlipFileName(paymentProofToView);
+                    const pdf = await buildPaymentSlipPdf({
+                      record: paymentProofToView,
+                      teamMembers,
+                      teamProjectPayments,
+                      projects: paymentInvoiceProjects.length > 0 ? paymentInvoiceProjects : [selectedProject],
+                      profile,
+                    });
+                    const file = new File([pdf.output('blob')], fileName, { type: 'application/pdf' });
+                    if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+                      await navigator.share({
+                        files: [file],
+                        title: 'Bukti & Invoice Pembayaran Tim',
+                        text: `Bukti pembayaran ${paymentProofToView.recordNumber}`,
+                      });
+                    } else {
+                      pdf.save(fileName);
+                      showNotification('PDF berhasil diunduh. Lampirkan file tersebut pada template WhatsApp.');
+                    }
+                  } catch (error) {
+                    if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                      console.error('[Projects] Failed to share team payment PDF:', error);
+                      showNotification('Gagal menyiapkan PDF bukti pembayaran. Coba lagi.');
+                    }
+                  } finally {
+                    setIsPreparingPaymentProof(false);
+                  }
+                }}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-accent px-4 py-2 text-sm font-bold text-white hover:bg-brand-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Share2Icon className="h-4 w-4" />
+                {isPreparingPaymentProof ? 'Menyiapkan PDF...' : 'Bagikan PDF'}
+              </button>
+              <button
+                type="button"
+                disabled={isPreparingPaymentProof}
+                onClick={async () => {
+                  if (!paymentProofToView) return;
+                  setIsPreparingPaymentProof(true);
+                  try {
+                    await downloadPaymentSlipPdf({
+                      record: paymentProofToView,
+                      teamMembers,
+                      teamProjectPayments,
+                      projects: paymentInvoiceProjects.length > 0 ? paymentInvoiceProjects : [selectedProject],
+                      profile,
+                    });
+                  } catch (error) {
+                    console.error('[Projects] Failed to download team payment PDF:', error);
+                    showNotification('Gagal mengunduh PDF bukti pembayaran. Coba lagi.');
+                  } finally {
+                    setIsPreparingPaymentProof(false);
+                  }
+                }}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-brand-border bg-white px-4 py-2 text-sm font-bold text-brand-text-primary hover:bg-brand-bg disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ArrowDownIcon className="h-4 w-4" /> Unduh PDF
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+
       {/* ══════════════════════════════════════════════════════════════════
           EDIT MODE
       ══════════════════════════════════════════════════════════════════ */}
@@ -865,7 +1074,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                     key={tab.id}
                     type="button"
                     onClick={() => setMobileSectionTab(tab.id)}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold border transition-all whitespace-nowrap ${
+                    className={`flex min-h-10 flex-shrink-0 items-center justify-center whitespace-nowrap rounded-xl px-3 py-1.5 text-center text-[10px] sm:text-xs font-bold border transition-all ${
                       active
                         ? 'bg-brand-accent text-white border-brand-accent shadow-xs'
                         : 'bg-[#F8FAFC] text-[#5A6A85] border-slate-200 hover:text-[#2A3547] hover:bg-slate-100'
@@ -883,6 +1092,21 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
             <>
               {mobileSectionTab === 'info' && (
                 <>
+              {isActionableOverdue && (
+                <div role="status" className="mb-4 flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-amber-900">Lewat {overdueDays} hari · perlu diperbarui</p>
+                    <p className="mt-0.5 text-xs text-amber-800">Tanggal acara sudah lewat. Periksa status acara sebelum menandai selesai.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => startSectionEdit('status')}
+                    className="min-h-10 shrink-0 rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-800"
+                  >
+                    Perbarui status
+                  </button>
+                </div>
+              )}
               <section>
                 <SectionHeading title={customizeUiText('project.detail.section.main', 'Informasi Utama', uiTextOverrides)} action={sectionEditButton('info')} />
                 <SectionCard>
@@ -1199,6 +1423,9 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                                     );
                                     const payment = matchingPayments.find(item => item.status === 'Unpaid') ?? matchingPayments[0];
                                     const isPaid = payment?.status === 'Paid';
+                                    const paymentRecord = isPaid
+                                      ? teamPaymentRecords.find(record => record.projectPaymentIds.includes(payment.id))
+                                      : undefined;
                                     return (
                                       <div
                                         key={assignment.id || assignment.memberId}
@@ -1223,15 +1450,39 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                                           <p className="text-xs font-extrabold text-[#2A3547] tabular-nums">
                                             {formatCurrency(assignment.fee)}
                                           </p>
-                                          <span
-                                            className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-md mt-0.5 border ${
-                                              isPaid
-                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                : 'bg-amber-50 text-amber-700 border-amber-200'
-                                            }`}
-                                          >
-                                            {isPaid ? 'Lunas' : 'Belum dibayar'}
-                                          </span>
+                                          <div className="mt-1 flex items-center justify-end gap-1.5">
+                                            <span
+                                              className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
+                                                isPaid
+                                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                                              }`}
+                                            >
+                                              {isPaid ? 'Lunas' : 'Belum dibayar'}
+                                            </span>
+                                            {!isPaid && payment && onPayTeamAssignment && teamMember && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setPaymentToProcess(payment);
+                                                  setPaymentSourceId('');
+                                                }}
+                                                className="rounded-md bg-brand-accent px-2 py-0.5 text-[9px] font-bold text-white transition-colors hover:bg-brand-accent-hover"
+                                              >
+                                                Bayar
+                                              </button>
+                                            )}
+                                            {isPaid && paymentRecord && (
+                                              <button
+                                                type="button"
+                                                onClick={() => setPaymentProofToView(paymentRecord)}
+                                                aria-label={`Lihat bukti pembayaran ${assignment.name}`}
+                                                className="inline-flex items-center gap-1 rounded-md border border-brand-accent/25 bg-brand-accent/5 px-1.5 py-0.5 text-[9px] font-bold text-brand-accent transition-colors hover:bg-brand-accent/10"
+                                              >
+                                                <FileTextIcon className="h-3 w-3" /> Bukti
+                                              </button>
+                                            )}
+                                          </div>
                                         </div>
                                       </div>
                                     );

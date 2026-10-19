@@ -6,7 +6,9 @@ import {
     Profile,
     Project,
     Card,
-    TeamMember
+    TeamMember,
+    TeamProjectPayment,
+    TeamPaymentRecord,
 } from '../../types';
 
 import { PlusIcon } from '../../constants';
@@ -65,6 +67,10 @@ interface FinanceProps {
     cards: Card[];
     setCards: React.Dispatch<React.SetStateAction<Card[]>>;
     teamMembers: TeamMember[];
+    teamProjectPayments: TeamProjectPayment[];
+    setTeamProjectPayments: React.Dispatch<React.SetStateAction<TeamProjectPayment[]>>;
+    teamPaymentRecords: TeamPaymentRecord[];
+    setTeamPaymentRecords: React.Dispatch<React.SetStateAction<TeamPaymentRecord[]>>;
 }
 
 export type FinanceTabType =
@@ -95,7 +101,11 @@ const Finance: React.FC<FinanceProps> = ({
     setProjects,
     profile,
     cards,
-    setCards
+    setCards,
+    teamProjectPayments,
+    setTeamProjectPayments,
+    teamPaymentRecords,
+    setTeamPaymentRecords,
 }) => {
     const showNotification = (_message: string) => {};
 
@@ -106,7 +116,11 @@ const Finance: React.FC<FinanceProps> = ({
         setPockets,
         cards,
         setCards,
-        showNotification
+        showNotification,
+        teamProjectPayments,
+        setTeamProjectPayments,
+        teamPaymentRecords,
+        setTeamPaymentRecords,
     );
 
     // ── Navigation & Modal State ─────────────────────────────────────────────

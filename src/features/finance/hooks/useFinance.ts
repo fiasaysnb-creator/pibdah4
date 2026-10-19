@@ -1,8 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Transaction, TransactionType, FinancialPocket, Card, CardType, Project } from '../../../types';
+import { Transaction, TransactionType, FinancialPocket, Card, CardType, Project, TeamPaymentRecord, TeamProjectPayment } from '../../../types';
 import { createTransaction as createTransactionRow, updateCardBalance, updateTransaction as updateTransactionRow, deleteTransaction as deleteTransactionApi } from '../../../services/transactions';
 import { updatePocket as updatePocketRow, deletePocket as deletePocketRow } from '../../../services/pockets';
 import { deleteCard as deleteCardRow, safeDeleteCard } from '../../../services/cards';
+import { updateTeamProjectPayments as updateTeamProjectPaymentsApi } from '../../../services/teamProjectPayments';
+import { updateTeamPaymentRecord as updateTeamPaymentRecordApi } from '../../../services/teamPaymentRecords';
 
 export const useFinance = (
     transactions: Transaction[],
@@ -11,7 +13,11 @@ export const useFinance = (
     setPockets: React.Dispatch<React.SetStateAction<FinancialPocket[]>>,
     cards: Card[],
     setCards: React.Dispatch<React.SetStateAction<Card[]>>,
-    showNotification: (message: string) => void
+    showNotification: (message: string) => void,
+    teamProjectPayments: TeamProjectPayment[],
+    setTeamProjectPayments: React.Dispatch<React.SetStateAction<TeamProjectPayment[]>>,
+    teamPaymentRecords: TeamPaymentRecord[],
+    setTeamPaymentRecords: React.Dispatch<React.SetStateAction<TeamPaymentRecord[]>>,
 ) => {
     const handleAddTransaction = useCallback(async (data: any) => {
         try {
@@ -79,13 +85,62 @@ export const useFinance = (
             }
 
             setTransactions(prev => prev.map(t => t.id === id ? updated : t).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-            showNotification('Transaksi berhasil diperbarui.');
+
+            let teamPaymentSyncFailed = false;
+            if (
+                before.category === 'Gaji Tim / Vendor' &&
+                before.projectId &&
+                before.type === TransactionType.EXPENSE
+            ) {
+                const memberName = before.description.match(/^Gaji Freelance - (.+?) \(/)?.[1];
+                const oldPaymentDate = before.date.slice(0, 10);
+                const linkedPayment = teamProjectPayments.find(payment =>
+                    payment.projectId === before.projectId &&
+                    payment.teamMemberName === memberName &&
+                    payment.status === 'Paid' &&
+                    teamPaymentRecords.some(record =>
+                        record.teamMemberId === payment.teamMemberId &&
+                        record.date.slice(0, 10) === oldPaymentDate &&
+                        record.projectPaymentIds.includes(payment.id)
+                    )
+                );
+                const linkedRecord = linkedPayment && teamPaymentRecords.find(record =>
+                    record.teamMemberId === linkedPayment.teamMemberId &&
+                    record.date.slice(0, 10) === oldPaymentDate &&
+                    record.projectPaymentIds.includes(linkedPayment.id)
+                );
+
+                if (linkedPayment && linkedRecord) {
+                    try {
+                        const [savedPayment] = await updateTeamProjectPaymentsApi([{
+                            ...linkedPayment,
+                            fee: updated.amount,
+                        }]);
+                        const savedRecord = await updateTeamPaymentRecordApi(linkedRecord.id, {
+                            totalAmount: Math.max(0, linkedRecord.totalAmount + updated.amount - linkedPayment.fee),
+                        });
+                        setTeamProjectPayments(prev => prev.map(payment =>
+                            payment.id === savedPayment.id ? savedPayment : payment,
+                        ));
+                        setTeamPaymentRecords(prev => prev.map(record =>
+                            record.id === savedRecord.id ? savedRecord : record,
+                        ));
+                    } catch (syncError) {
+                        teamPaymentSyncFailed = true;
+                        console.error('[Finance] Gagal menyinkronkan perubahan pembayaran tim ke slip.', syncError);
+                    }
+                }
+            }
+
+            showNotification(teamPaymentSyncFailed
+                ? 'Transaksi berubah, tetapi rincian pembayaran tim gagal disinkronkan.'
+                : 'Transaksi berhasil diperbarui.');
             return updated;
         } catch (err) {
             showNotification('Gagal memperbarui transaksi.');
             throw err;
         }
-    }, [transactions, setTransactions, setCards, setPockets, pockets, showNotification]);
+    }, [transactions, setTransactions, setCards, setPockets, pockets, showNotification, teamProjectPayments, setTeamProjectPayments, teamPaymentRecords, setTeamPaymentRecords]);
 
     const handleDelete = useCallback(async (type: 'transaction' | 'pocket' | 'card', id: string) => {
         if (type === 'card') {
