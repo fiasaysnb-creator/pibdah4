@@ -1235,7 +1235,7 @@ export const Leads: React.FC<LeadsProps> = ({
                 <div>
                     <h3 className="text-sm sm:text-base font-bold text-[#2A3547] flex items-center gap-1.5">
                         <TrendingUpIcon className="w-4 h-4 text-[#5D87FF]" />
-                        <span>Statistik Calon Pengantin</span>
+                        <span>Leds Klien</span>
                         {activeCardFilter && (
                             <span className="text-[10px] font-semibold bg-[#5D87FF]/10 text-[#5D87FF] px-2 py-0.5 rounded-full border border-[#5D87FF]/30">
                                 1 Filter Aktif
@@ -1244,7 +1244,7 @@ export const Leads: React.FC<LeadsProps> = ({
                     </h3>
                     <p className="text-xs text-[#5A6A85]">
                         {statCardView === 'insights'
-                            ? 'Klik kartu untuk memfilter data langsung berdasarkan kota, acara, sumber, atau tindakan'
+                            ? 'Klik kartu untuk memfilter data '
                             : 'Pantau pergerakan prospek di tiap tahapan pipeline (Diskusi, Follow Up, Deal)'}
                     </p>
                 </div>
@@ -1260,7 +1260,7 @@ export const Leads: React.FC<LeadsProps> = ({
                                     : 'text-[#5A6A85] hover:text-[#2A3547]'
                             }`}
                         >
-                            Wawasan Wilayah &amp; Acara
+                            Rekap &amp; Leds
                         </button>
                         <button
                             type="button"

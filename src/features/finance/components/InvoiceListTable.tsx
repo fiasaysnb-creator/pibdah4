@@ -37,7 +37,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   };
   const cls = cfg[status] ?? 'bg-[#5A6A85]/10 text-[#5A6A85] border-[#5A6A85]/20';
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${cls}`}>
+    <span className={`inline-flex shrink-0 items-center whitespace-nowrap leading-none px-2 py-0.5 rounded-full text-[10px] font-bold border ${cls}`}>
       {status}
     </span>
   );
@@ -47,7 +47,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 
 const KindBadge: React.FC<{ kind: 'invoice' | 'receipt' | 'slip-gaji' }> = ({ kind }) => (
   <span
-    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+    className={`inline-flex shrink-0 items-center whitespace-nowrap leading-none px-2 py-0.5 rounded-full text-[10px] font-bold border ${
       kind === 'invoice'
         ? 'bg-brand-accent text-white border-transparent'
         : kind === 'receipt'

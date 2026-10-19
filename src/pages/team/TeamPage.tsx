@@ -321,7 +321,6 @@ export const Freelancers: React.FC<FreelancersProps> = ({
             )
           }
           onProceedToPayment={payments.handleCreatePayment}
-          projectsInDateRange={filters.projectsInDateRange}
           teamProjectPayments={teamProjectPayments}
           teamPaymentRecords={payments.uniqueTeamPaymentRecords}
           projects={projects}

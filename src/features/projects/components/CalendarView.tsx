@@ -1851,13 +1851,13 @@ const EventPanel: React.FC<EventPanelProps> = ({ isOpen, mode, selectedEvent, ev
                         </div>
 
                         <div className="p-4 sm:p-6 border-t border-brand-border/40 space-y-2 shrink-0 bg-white/30">
-                            {selectedEvent.team?.length > 0 && (
+                            {selectedEvent.clientId !== 'INTERNAL' && !selectedEvent.id.endsWith('-deadline') && (
                                 <button
                                     type="button"
                                     onClick={() => setIsTeamBriefingOpen(true)}
-                                    className="button-secondary w-full inline-flex items-center justify-center gap-2"
+                                    className="button-secondary w-full inline-flex items-center justify-center gap-2 !border-emerald-700 !bg-emerald-600 !text-white hover:!bg-emerald-700"
                                 >
-                                    <MessageCircle className="h-4 w-4" /> Chat Briefing Tim
+                                    <MessageCircle className="h-4 w-4" /> Chat Briefing Acara Pernikahan
                                 </button>
                             )}
                             {selectedEvent.clientId === 'INTERNAL' ? (

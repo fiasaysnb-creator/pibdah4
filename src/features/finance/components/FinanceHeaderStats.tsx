@@ -64,7 +64,6 @@ export const FinanceHeaderStats: React.FC<FinanceHeaderStatsProps> = ({
                         iconColorVariant="success"
                         valueClassName="!text-[#166534]"
                         compactOnMobile
-                        badge={{ text: 'All-time', variant: 'success' }}
                     />
                 </div>
 
@@ -78,7 +77,6 @@ export const FinanceHeaderStats: React.FC<FinanceHeaderStatsProps> = ({
                         iconColorVariant="error"
                         valueClassName="!text-[#DC2626]"
                         compactOnMobile
-                        badge={{ text: 'All-time', variant: 'error' }}
                     />
                 </div>
 

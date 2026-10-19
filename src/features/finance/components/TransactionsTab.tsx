@@ -300,10 +300,8 @@ const TransactionsTab: React.FC<TransactionsTabProps> = ({
                     <table className="w-full min-w-[372px] table-fixed border-collapse text-left">
                         <thead className="bg-[#F4F6F9]/80 text-[#5A6A85]">
                             <tr>
-                                <th className="w-[66px] border-r border-[#EAEFF4] !px-2 !py-2 !text-[10px] font-bold">Tanggal</th>
-                                <th className="border-r border-[#EAEFF4] !px-2 !py-2 !text-[10px] font-bold">Deskripsi</th>
-                                <th className="w-[96px] border-r border-[#EAEFF4] !px-2 !py-2 text-right !text-[10px] font-bold">Jumlah</th>
-                                <th className="w-[100px] !px-1 !py-2 text-center !text-[10px] font-bold">Aksi</th>
+                                <th className="border-r border-[#EAEFF4] !px-2 !py-2 !text-[10px] font-bold">Transaksi</th>
+                                <th className="w-[128px] !px-1 !py-2 text-center !text-[10px] font-bold">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -311,20 +309,22 @@ const TransactionsTab: React.FC<TransactionsTabProps> = ({
                                 const subDescription = getTransactionSubDescription(t);
                                 return (
                                     <tr key={t.id} className="border-t border-[#EAEFF4]">
-                                        <td className="border-r border-[#EAEFF4] !px-2 !py-2 align-top whitespace-nowrap !text-[10px] text-[#5A6A85]">
-                                            {new Date(t.date).toLocaleDateString('id-ID')}
-                                        </td>
                                         <td className="border-r border-[#EAEFF4] !px-2 !py-2 align-top">
-                                            <p className="!text-[11px] font-bold leading-tight text-[#2A3547] break-words">{t.description}</p>
-                                            <p className="!text-[10px] leading-tight text-[#5A6A85] break-words">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="shrink-0 !text-[10px] text-[#5A6A85]">
+                                                    {new Date(t.date).toLocaleDateString('id-ID')}
+                                                </span>
+                                                <span className={`whitespace-nowrap text-right !text-[10px] font-bold tabular-nums ${t.type === TransactionType.INCOME ? 'text-[#166534]' : 'text-[#DC2626]'}`}>
+                                                    {formatCurrency(t.amount)}
+                                                </span>
+                                            </div>
+                                            <p className="mt-1 !text-[11px] font-bold leading-tight text-[#2A3547] break-words">{t.description}</p>
+                                            <p className="line-clamp-2 !text-[10px] leading-tight text-[#5A6A85] break-words" title={subDescription || undefined}>
                                                 {t.category || '-'}{subDescription ? ` • ${subDescription}` : ''}
                                             </p>
                                         </td>
-                                        <td className={`border-r border-[#EAEFF4] !px-2 !py-2 align-top text-right whitespace-nowrap !text-[10px] font-bold tabular-nums ${t.type === TransactionType.INCOME ? 'text-[#166534]' : 'text-[#DC2626]'}`}>
-                                            {formatCurrency(t.amount)}
-                                        </td>
-                                        <td className="!px-1 !py-2 align-top">
-                                            <div className="flex items-center justify-center gap-1">
+                                        <td className="w-[128px] !px-1 !py-2 align-top">
+                                            <div className="transactions-mobile-actions flex flex-nowrap items-center justify-center gap-1">
                                                 <button
                                                     type="button"
                                                     onClick={() => setSelectedTransaction(t)}

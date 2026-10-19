@@ -85,14 +85,20 @@ const PublicLeadForm: React.FC<PublicLeadFormProps> = ({ setLeads, userProfile, 
                     title: 'Inquiry Baru',
                     message: `${formState.name} mengirim formulir konsultasi.`,
                     icon: 'lead',
-                    link: { view: ViewType['Calon Pengantin'] }
+                    link: {
+                        view: ViewType['Calon Pengantin'],
+                        action: { type: 'VIEW_LEAD_DETAILS', id: created.id },
+                    }
                 });
             } else if ((window as any).addNotification) {
                 (window as any).addNotification({
                     title: 'Inquiry Baru',
                     message: `${formState.name} mengirim formulir konsultasi.`,
                     icon: 'lead',
-                    link: { view: ViewType['Calon Pengantin'] }
+                    link: {
+                        view: ViewType['Calon Pengantin'],
+                        action: { type: 'VIEW_LEAD_DETAILS', id: created.id },
+                    }
                 });
             }
 

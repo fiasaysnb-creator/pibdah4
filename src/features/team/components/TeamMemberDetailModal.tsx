@@ -46,7 +46,6 @@ interface TeamMemberDetailModalProps {
   projectsToPay: string[];
   onToggleProject: (id: string) => void;
   onProceedToPayment: () => void;
-  projectsInDateRange: Project[];
   // Payments tab
   teamProjectPayments: TeamProjectPayment[];
   teamPaymentRecords: TeamPaymentRecord[];
@@ -408,12 +407,14 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
     [teamProjectPayments],
   );
 
-  const totalPaidEvents = useMemo(
-    () =>
-      currentTeamPayments.filter(
-        (p) => p.teamMemberId === selectedMember.id && p.status === 'Paid',
-      ).length,
-    [currentTeamPayments, selectedMember.id],
+  const memberProjects = useMemo(
+    () => projects.filter((project) => project.team?.some((member) => member.memberId === selectedMember.id)),
+    [projects, selectedMember.id],
+  );
+
+  const totalCompletedEvents = useMemo(
+    () => memberProjects.filter((project) => project.status === 'Selesai').length,
+    [memberProjects],
   );
 
   const totalEarnings = useMemo(
@@ -500,8 +501,7 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
         <div className="grid grid-cols-3 divide-x divide-brand-border bg-brand-bg border border-brand-border rounded-lg sm:rounded-2xl overflow-hidden">
           <SnapshotStat
             label={customizeUiText('team.detail.stat.completed', 'Acara Selesai', uiTextOverrides)}
-            value={totalPaidEvents}
-            sub={customizeUiText('team.detail.stat.paid', 'Sudah dibayar', uiTextOverrides)}
+            value={totalCompletedEvents}
           />
           <SnapshotStat
             label={customizeUiText('team.detail.stat.income', 'Total Pendapatan', uiTextOverrides)}
@@ -529,7 +529,7 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
             onClick={() => setDetailTab('projects')}
             icon={<FileTextIcon className="w-3.5 h-3.5 shrink-0" />}
             label={customizeUiText('team.detail.tab.projects', 'Acara', uiTextOverrides)}
-            badge={selectedMemberUnpaidProjects.length}
+            badge={memberProjects.length}
           />
           <TabBtn
             active={detailTab === 'payments'}
@@ -561,7 +561,7 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
               projectsToPay={projectsToPay}
               onToggleProject={onToggleProject}
               onProceedToPayment={onProceedToPayment}
-              projects={projectsInDateRange}
+              projects={memberProjects}
             />
           )}
 

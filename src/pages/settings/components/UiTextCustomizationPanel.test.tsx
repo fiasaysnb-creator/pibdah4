@@ -150,12 +150,16 @@ describe('UiTextCustomizationPanel', () => {
         const scaleStart = css.lastIndexOf('@media (max-width: 768px)', scaleAnchor);
         const mobileOverrides = css.slice(scaleStart);
 
+        expect(css).toContain('min-width: min(640px, 100%);');
         expect(mobileOverrides).toContain('main[data-mobile-ui-scale-excluded="true"]');
         expect(mobileOverrides).toContain('#invoice');
         expect(mobileOverrides).toContain('.invoice-document-mobile');
         expect(mobileOverrides).toContain('.text-xs { font-size: calc(12px * var(--mobile-ui-scale, 1)) !important;');
         expect(mobileOverrides).toContain('button[class*="text-"]');
         expect(mobileOverrides).toContain('main button[class*="text-"]');
+        expect(mobileOverrides).toContain('main .client-report-tab-switcher.flex > button[class*="text-"]');
+        expect(mobileOverrides).toContain('.transactions-mobile-actions button[aria-label]:not([class*="w-11"][class*="h-6"])');
+        expect(mobileOverrides).toContain('width: 36px !important;');
         expect(mobileOverrides).toContain('min-height: max(44px, calc(40px * var(--mobile-ui-scale, 1))) !important;');
         expect(mobileOverrides).toContain('font-size: calc(14px * var(--mobile-ui-scale, 1)) !important;');
         expect(mobileOverrides).toContain('table td p,');
@@ -173,6 +177,9 @@ describe('UiTextCustomizationPanel', () => {
         expect(mobileOverrides.slice(iconButtonRuleStart, iconButtonRuleEnd)).not.toContain('white-space: nowrap !important;');
         expect(mobileOverrides).toContain('[class~="sm:text-2xl"].font-extrabold.tabular-nums');
         expect(mobileOverrides).toContain('[class~="min-h-[90px]"][class~="sm:min-h-0"]');
+        const statCardHeaderStart = mobileOverrides.indexOf('[class~="min-h-[90px]"][class~="sm:min-h-0"][class~="rounded-xl"][class~="sm:rounded-2xl"][class~="p-2.5"] > div:first-child {');
+        const statCardHeaderEnd = mobileOverrides.indexOf('}', statCardHeaderStart);
+        expect(mobileOverrides.slice(statCardHeaderStart, statCardHeaderEnd)).toContain('position: relative !important;');
         expect(mobileOverrides).toContain('font-size: min(calc(16px * var(--mobile-ui-scale, 1)), 17px) !important;');
         expect(mobileOverrides).toContain('[class~="grid-cols-2"][class~="lg:grid-cols-4"] > div[class~="flex"]');
         expect(mobileOverrides).toContain('width: max-content !important;');

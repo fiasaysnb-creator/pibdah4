@@ -1051,7 +1051,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
             </MobileCollapsibleSection>
 
             {/* ── Segmented Tab Switcher for Business Intelligence Rekap ── */}
-            <div className="flex items-center gap-1.5 p-1.5 bg-brand-bg rounded-xl border border-brand-border/60 overflow-x-auto scrollbar-none">
+            <div className="client-report-tab-switcher flex items-center gap-1.5 p-1.5 bg-brand-bg rounded-xl border border-brand-border/60 overflow-x-auto scrollbar-none">
                 <button
                     onClick={() => setActiveReportTab('ringkasan')}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap shrink-0 ${activeReportTab === 'ringkasan' ? 'bg-brand-surface text-brand-text-light shadow-sm border border-brand-border/60' : 'text-brand-text-secondary hover:text-brand-text-primary'}`}

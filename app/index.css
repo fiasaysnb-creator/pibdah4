@@ -1897,7 +1897,7 @@ input[type='reset'] {
 .overflow-x-auto > table:not(.invoice-table-tight),
 .table-responsive > table:not(.invoice-table-tight),
 [class*='table-wrapper']:not(.invoice-table-wrapper) > table {
-  min-width: 640px;
+  min-width: min(640px, 100%);
 }
 
 table {
@@ -2901,6 +2901,11 @@ select:not(:placeholder-shown) + .input-label {
     line-height: 1.35 !important;
   }
 
+  #root:not(:has(main[data-mobile-ui-scale-excluded="true"], #invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer)) main .client-report-tab-switcher.flex > button[class*="text-"] {
+    font-size: calc(14px * var(--mobile-ui-scale, 1)) !important;
+    line-height: 1.35 !important;
+  }
+
   :is(#root:not(:has(main[data-mobile-ui-scale-excluded="true"], #invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer)), .app-modal-dialog:not(:has(#invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer))) button[class*="text-"],
   :is(#root:not(:has(main[data-mobile-ui-scale-excluded="true"], #invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer)), .app-modal-dialog:not(:has(#invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer))) [role="button"][class*="text-"] {
     padding: calc(7px * var(--mobile-ui-scale, 1)) calc(11px * var(--mobile-ui-scale, 1)) !important;
@@ -3011,15 +3016,15 @@ select:not(:placeholder-shown) + .input-label {
     align-items: stretch !important;
     justify-content: center !important;
     gap: 0 !important;
-    padding: calc(24px * var(--mobile-ui-scale, 1)) calc(10px * var(--mobile-ui-scale, 1)) calc(10px * var(--mobile-ui-scale, 1)) !important;
+    padding: calc(10px * var(--mobile-ui-scale, 1)) !important;
   }
 
   :is(#root:not(:has(main[data-mobile-ui-scale-excluded="true"], #invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer)), .app-modal-dialog:not(:has(#invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer))) [class~="min-h-[90px]"][class~="sm:min-h-0"][class~="rounded-xl"][class~="sm:rounded-2xl"][class~="p-2.5"] > div:first-child {
-    position: absolute !important;
-    top: 8px !important;
-    right: 8px !important;
-    width: auto !important;
-    margin: 0 !important;
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    margin: 0 0 calc(8px * var(--mobile-ui-scale, 1)) !important;
   }
 
   :is(#root:not(:has(main[data-mobile-ui-scale-excluded="true"], #invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer)), .app-modal-dialog:not(:has(#invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer))) [class~="min-h-[90px]"][class~="sm:min-h-0"][class~="rounded-xl"][class~="sm:rounded-2xl"][class~="p-2.5"] > div:last-child {
@@ -3257,6 +3262,16 @@ select:not(:placeholder-shown) + .input-label {
   :is(#root:not(:has(main[data-mobile-ui-scale-excluded="true"], #invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer)), .app-modal-dialog:not(:has(#invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer))) button[aria-label]:not([class*="w-11"][class*="h-6"]),
   :is(#root:not(:has(main[data-mobile-ui-scale-excluded="true"], #invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer)), .app-modal-dialog:not(:has(#invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer))) [role="button"][aria-label] {
     min-width: max(44px, calc(40px * var(--mobile-ui-scale, 1))) !important;
+  }
+
+  #root:not(:has(main[data-mobile-ui-scale-excluded="true"], #invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer)) main .transactions-mobile-actions button[aria-label]:not([class*="w-11"][class*="h-6"]) {
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
+    padding: 0 !important;
   }
 
   :is(#root:not(:has(main[data-mobile-ui-scale-excluded="true"], #invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer)), .app-modal-dialog:not(:has(#invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer))) input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]),
