@@ -9,8 +9,8 @@ import Modal from '../../../shared/ui/Modal';
 import RupiahInput from '../../../shared/form/RupiahInput';
 import {
   PencilIcon, Trash2Icon, FileTextIcon, CreditCardIcon, Share2Icon,
-  HistoryIcon, DollarSignIcon, FolderKanbanIcon, UsersIcon, TrendingUpIcon,
-  TrendingDownIcon, CheckIcon, XIcon, cleanPhoneNumber
+  HistoryIcon, DollarSignIcon, FolderKanbanIcon, TrendingUpIcon,
+  TrendingDownIcon, CheckIcon, XIcon
 } from '../../../constants';
 import { Sparkles, Zap, Plus, Settings, Gift, ChevronDown } from 'lucide-react';
 import { updateProject as updateProjectRow } from '../../../services/projects';
@@ -110,13 +110,6 @@ export const POPULAR_PRESET_CHIPS: { label: string; name: string; amount: number
 ];
 
 // ─── Tiny reusable sub-components ───────────────────────────────────────────
-
-const InfoField: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-  <div className="flex flex-col gap-0.5">
-    <span className="text-[10px] font-bold uppercase tracking-widest text-[#5A6A85]">{label}</span>
-    <span className="text-sm font-semibold text-[#2A3547]">{children}</span>
-  </div>
-);
 
 const FinancePill: React.FC<{
   label: string;
@@ -242,9 +235,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 }) => {
   const uiTextOverrides = useUiTextOverrides();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'info' | 'events' | 'payments'>(() =>
-    projects.some(project => project.clientId === client.id) ? 'events' : 'info',
-  );
+  const [activeTab, setActiveTab] = useState<'events' | 'payments'>('events');
   const [newPayments, setNewPayments] = useState<{ [key: string]: { amount: string; destinationCardId: string } }>({});
   const [paymentProofFiles, setPaymentProofFiles] = useState<Record<string, File | null>>({});
   const [savingPaymentProjectId, setSavingPaymentProjectId] = useState<string | null>(null);
@@ -255,6 +246,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   const [teamPaymentSourceId, setTeamPaymentSourceId] = useState('');
   const [isPayingTeamPayment, setIsPayingTeamPayment] = useState(false);
   const [projectPaymentHistoryTabs, setProjectPaymentHistoryTabs] = useState<Record<string, 'summary' | 'client' | 'team' | 'expenses'>>({});
+  const [openCostDetails, setOpenCostDetails] = useState<Record<string, boolean>>({});
   const [newCharge, setNewCharge] = useState<{ [key: string]: { name: string; amount: string } }>({});
   const [transactionFormOpen, setTransactionFormOpen] = useState<Record<string, 'payment' | 'expense' | 'charges' | null>>({});
   const [newExpense, setNewExpense] = useState<Record<string, {
@@ -759,9 +751,6 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const totalProjects = clientProjects.length;
-  const totalProjectValue = clientProjects.reduce((s, p) => s + p.totalCost, 0);
-  const totalPaid = clientProjects.reduce((s, p) => s + p.amountPaid, 0);
-  const totalDue = totalProjectValue - totalPaid;
 
   // ── avatar initials ───────────────────────────────────────────────────────
 
@@ -774,8 +763,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
   // ── tab config ────────────────────────────────────────────────────────────
 
-  const tabs: { key: 'info' | 'events' | 'payments'; label: string; icon: React.ReactNode }[] = [
-    { key: 'info', label: customizeUiText('client.detail.tab.info', 'Informasi', uiTextOverrides), icon: <UsersIcon className="w-4 h-4" /> },
+  const tabs: { key: 'events' | 'payments'; label: string; icon: React.ReactNode }[] = [
     { key: 'events', label: `${customizeUiText('client.detail.tab.events', 'Acara Pernikahan', uiTextOverrides)} (${totalProjects})`, icon: <FolderKanbanIcon className="w-4 h-4" /> },
     { key: 'payments', label: customizeUiText('client.detail.tab.payments', 'Pembayaran & Transaksi', uiTextOverrides), icon: <HistoryIcon className="w-4 h-4" /> },
   ];
@@ -867,110 +855,6 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
       {/* ── SCROLLABLE CONTENT ──────────────────────────────────────────── */}
       <div className="pb-4">
-
-        {/* ════════════════════════════════════════════════════════════════
-            TAB: INFO
-        ════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'info' && (
-          <div className="space-y-5 animate-fade-in">
-
-            {/* Contact & identity card */}
-            <div className="bg-brand-surface rounded-2xl border border-brand-border overflow-hidden shadow-sm">
-              <div className="px-4 py-3 border-b border-brand-border bg-brand-bg/60">
-                <p className="text-[10px] font-black uppercase tracking-widest text-brand-text-secondary">{customizeUiText('client.detail.section.contact', 'Kontak & Identitas', uiTextOverrides)}</p>
-              </div>
-              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-                <InfoField label="Email">
-                  <span className="break-all">{client.email || '-'}</span>
-                </InfoField>
-                <InfoField label="Telepon">
-                  <a
-                    href={`https://wa.me/${cleanPhoneNumber(client.whatsapp || client.phone)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-brand-accent hover:underline"
-                  >
-                    {client.whatsapp || client.phone || '-'}
-                  </a>
-                </InfoField>
-                <InfoField label="Instagram">
-                  {client.instagram
-                    ? <a href={`https://instagram.com/${client.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-brand-accent hover:underline">{client.instagram}</a>
-                    : '-'
-                  }
-                </InfoField>
-                {client.address && (
-                  <div className="sm:col-span-2">
-                    <InfoField label="Alamat Lengkap">{client.address}</InfoField>
-                  </div>
-                )}
-                {client.homeAddress && (
-                  <div className="sm:col-span-2">
-                    <InfoField label="📦 Alamat Rumah (Pengiriman Cetakan)">
-                      {client.homeAddress}
-                    </InfoField>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Financial summary cards */}
-            <div>
-              <SectionTitle sub="Total Package, pembayaran, dan sisa pembayaran pengantin ini">
-                {customizeUiText('client.detail.section.finance', 'Ringkasan Keuangan', uiTextOverrides)}
-              </SectionTitle>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  {
-                    label: 'Jumlah Acara',
-                    value: totalProjects.toString(),
-                    accent: 'grad-indigo',
-                    text: 'text-white',
-                  },
-                  {
-                    label: 'Total Package',
-                    value: formatCurrency(totalProjectValue),
-                    accent: 'grad-blue',
-                    text: 'text-white',
-                  },
-                  {
-                    label: 'Terbayar',
-                    value: formatCurrency(totalPaid),
-                    accent: 'grad-green',
-                    text: 'text-white',
-                  },
-                  {
-                    label: 'Sisa Pembayaran',
-                    value: formatCurrency(totalDue),
-                    accent: totalDue > 0 ? 'bg-red-600' : 'grad-green',
-                    text: 'text-white',
-                  },
-                ].map(card => (
-                  <div
-                    key={card.label}
-                    className={`${card.accent} border border-white/20 rounded-2xl p-4 shadow-sm`}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-white/80">{card.label}</p>
-                      <p className={`text-sm font-black ${card.text} truncate mt-1`}>{card.value}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Portal share button */}
-            <div className="flex justify-end">
-              <button
-                onClick={() => onSharePortal(client)}
-                className="w-auto max-w-full min-h-[38px] sm:min-h-[44px] button-secondary inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm"
-              >
-                <Share2Icon className="w-4 h-4" />
-                Bagikan Portal Pengantin
-              </button>
-            </div>
-          </div>
-        )}
 
         {activeTab === 'events' && (
           <Suspense fallback={<div className="py-8 text-center text-sm text-brand-text-secondary">Memuat pengelolaan acara...</div>}>
@@ -1509,14 +1393,14 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
                   <div className="mt-4 space-y-3">
                     <SectionTitle sub="Rincian tagihan dan riwayat pembayaran untuk acara ini.">
-                      {customizeUiText('client.detail.section.transactions', 'Riwayat Transaksi', uiTextOverrides)}
+                      {customizeUiText('client.detail.section.transactions', 'Riwayat Pembayaran', uiTextOverrides)}
                     </SectionTitle>
                     <div className="grid grid-cols-4 gap-1 rounded-xl border border-brand-border bg-brand-bg p-1">
                       {([
-                        { id: 'summary', label: 'Rincian', mobileLabel: 'Rincian' },
+                        { id: 'summary', label: 'Invoice', mobileLabel: 'Invoice' },
                         { id: 'client', label: `Klien (${clientPaymentTransactions.length})`, mobileLabel: `Klien ${clientPaymentTransactions.length}` },
                         { id: 'team', label: `Tim (${teamProjectPaymentsForEvent.length})`, mobileLabel: `Tim ${teamProjectPaymentsForEvent.length}` },
-                        { id: 'expenses', label: `Biaya acara (${eventExpenseTransactions.length})`, mobileLabel: `Biaya ${eventExpenseTransactions.length}` },
+                        { id: 'expenses', label: `Biaya (${eventExpenseTransactions.length})`, mobileLabel: `Biaya ${eventExpenseTransactions.length}` },
                       ] as const).map(tab => (
                         <button
                           key={tab.id}
@@ -1539,7 +1423,14 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                     <div className="p-3 sm:p-5 space-y-3 sm:space-y-5">
 
                       {/* Cost breakdown */}
-                      <details className="rounded-xl bg-slate-50 border border-slate-100 overflow-hidden">
+                      <details
+                        open={openCostDetails[p.id] ?? true}
+                        onToggle={e => {
+                          const isOpen = e.currentTarget.open;
+                          setOpenCostDetails(prev => (prev[p.id] === isOpen ? prev : { ...prev, [p.id]: isOpen }));
+                        }}
+                        className="rounded-xl bg-slate-50 border border-slate-100 overflow-hidden"
+                      >
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 bg-blue-600 px-4 py-3 text-xs font-bold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
                           <span>Rincian biaya</span>
                           <span className="flex items-center gap-2">

@@ -30,7 +30,6 @@ import { PackageModal } from './components/PackageModal';
 import { DuplicatePackageModal } from './components/DuplicatePackageModal';
 import { DuplicateAddOnModal } from './components/DuplicateAddOnModal';
 import { SharePackageModal } from './components/SharePackageModal';
-import { PackageGuideModal } from './components/PackageGuideModal';
 import { WorkflowModal } from './components/WorkflowModal';
 import { PackageTermsModal } from './components/PackageTermsModal';
 import { RegionPricelistModal } from './components/RegionPricelistModal';
@@ -40,7 +39,6 @@ import {
     Package as PackageIcon,
     Plus,
     Share2,
-    HelpCircle,
     Search,
     LayoutGrid,
     List,
@@ -56,7 +54,6 @@ import {
     Download,
     Upload,
     Link as LinkIcon,
-    ExternalLink,
     ChevronUp,
     ChevronDown,
     GripVertical
@@ -394,8 +391,6 @@ export const Packages: React.FC<PackagesProps> = ({
     const [isAddOnFormOpen, setIsAddOnFormOpen] = useState(false);
     const [editingAddOn, setEditingAddOn] = useState<AddOn | null>(null);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-    const [isBookingLinksModalOpen, setIsBookingLinksModalOpen] = useState(false);
-    const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
     const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
     const [isPricelistModalOpen, setIsPricelistModalOpen] = useState(false);
     const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
@@ -1087,23 +1082,13 @@ export const Packages: React.FC<PackagesProps> = ({
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:max-w-full sm:justify-end">
                     <button
                         type="button"
-                        onClick={() => setIsBookingLinksModalOpen(true)}
-                        title="Kelola tautan booking publik"
+                        onClick={() => setIsShareModalOpen(true)}
+                        title="Kelola tautan booking & paket per wilayah"
                         className="min-h-[44px] shrink-0 whitespace-nowrap px-3 py-2 rounded-xl bg-brand-accent/10 text-brand-accent text-xs font-semibold hover:bg-brand-accent/20 transition-all flex items-center justify-center gap-1.5"
                     >
                         <LinkIcon className="w-3.5 h-3.5" />
                         Tautan Booking Publik
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => setIsGuideModalOpen(true)}
-                        className="shrink-0 whitespace-nowrap py-2 px-3 rounded-xl border border-[#EAEFF4] bg-white hover:bg-[#F4F6F9] text-[#5A6A85] font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 min-h-[44px] touch-manipulation cursor-pointer"
-                        title="Lihat Panduan Pengelolaan Paket"
-                    >
-                        <HelpCircle className="w-4 h-4 text-[#5A6A85]" />
-                        <span className="hidden xs:inline sm:inline">Panduan</span>
-                    </button>
-
                     <button
                         type="button"
                         onClick={() => setIsTermsModalOpen(true)}
@@ -1132,16 +1117,6 @@ export const Packages: React.FC<PackagesProps> = ({
                     >
                         <List className="w-4 h-4 text-[#5A6A85]" />
                         <span className="hidden xs:inline sm:inline">Workflow</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => setIsShareModalOpen(true)}
-                        className="shrink-0 whitespace-nowrap py-2 px-3 rounded-xl border border-[#EAEFF4] bg-white hover:bg-[#F4F6F9] text-[#5A6A85] font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 min-h-[44px] touch-manipulation cursor-pointer"
-                        title="Bagikan Tautan Booking & Katalog"
-                    >
-                        <Share2 className="w-4 h-4 text-brand-accent" />
-                        <span>Bagikan</span>
                     </button>
 
                     <button
@@ -1259,7 +1234,7 @@ export const Packages: React.FC<PackagesProps> = ({
 
                 <div className="border-t border-[#EAEFF4] pt-3">
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-[10px] sm:text-xs font-semibold text-[#5A6A85]">Filter wilayah · Paket dan Add-On</p>
+                        <p className="text-[10px] sm:text-xs font-semibold text-[#5A6A85]">PACKAGE CUTOM </p>
                         {regionFilter && <span className="text-[10px] sm:text-xs text-[#5A6A85]">{catalogEntries.length} item</span>}
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -1534,12 +1509,6 @@ export const Packages: React.FC<PackagesProps> = ({
                 unionRegions={unionRegions}
             />
 
-            {/* ── Guide Modal ── */}
-            <PackageGuideModal
-                isOpen={isGuideModalOpen}
-                onClose={() => setIsGuideModalOpen(false)}
-            />
-
             {/* ── Package Terms & Conditions Modal (CRUD) ── */}
             <PackageTermsModal
                 isOpen={isTermsModalOpen}
@@ -1567,134 +1536,6 @@ export const Packages: React.FC<PackagesProps> = ({
                 onSaveWorkflows={handleSaveWorkflows}
                 showNotification={showNotification}
             />
-            
-            {/* ── Booking Links Modal ── */}
-            {isBookingLinksModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-sm animate-fade-in overflow-y-auto">
-                    <div className="bg-white rounded-2xl border border-[#EAEFF4] shadow-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 sm:space-y-5 animate-scale-up my-auto max-h-[90vh] flex flex-col">
-                        <div className="flex items-center justify-between pb-3 border-b border-[#EAEFF4]">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-xl bg-brand-accent flex items-center justify-center text-white">
-                                    <LinkIcon className="w-4 h-4" />
-                                </div>
-                                <h3 className="font-bold text-sm sm:text-base text-[#2A3547]">
-                                    Tautan Booking & Paket per Wilayah
-                                </h3>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setIsBookingLinksModalOpen(false)}
-                                className="p-1.5 rounded-lg text-[#5A6A85] hover:text-[#2A3547] hover:bg-[#F4F6F9] cursor-pointer"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-4 overflow-y-auto flex-1 pr-1 text-sm text-[#5A6A85]">
-                            <p className="text-xs sm:text-sm text-[#5A6A85] leading-relaxed">
-                                Bagikan tautan booking publik khusus ke calon pengantin. Setiap tautan akan menyaring paket & add-on sesuai dengan wilayah yang dipilih.
-                            </p>
-
-                            <div className="space-y-3">
-                                {/* Semua Wilayah */}
-                                <div className="border border-[#EAEFF4] rounded-xl p-3.5 bg-[#F9FBFC] hover:border-brand-accent/40 transition-all space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <p className="font-bold text-xs sm:text-sm text-[#2A3547]">
-                                            Semua Wilayah (Katalog Lengkap)
-                                        </p>
-                                        <span className="text-[10px] font-semibold bg-brand-accent text-white px-2 py-0.5 rounded-md">
-                                            Lengkap
-                                        </span>
-                                    </div>
-                                    <p className="text-[11px] text-[#5A6A85] font-mono break-all bg-white px-2 py-1 rounded border border-[#EAEFF4]">
-                                        {typeof window !== 'undefined' ? `${window.location.origin}/#/public-packages` : '/#/public-packages'}
-                                    </p>
-                                    <div className="flex items-center gap-2 pt-1">
-                                        <a
-                                            href="/#/public-packages"
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand-accent hover:bg-brand-accent-hover text-white text-xs font-bold transition-colors cursor-pointer"
-                                        >
-                                            <ExternalLink className="w-3.5 h-3.5" />
-                                            <span>Buka Halaman</span>
-                                        </a>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const url = `${window.location.origin}/#/public-packages`;
-                                                navigator.clipboard.writeText(url);
-                                                showNotification('Tautan berhasil disalin!');
-                                            }}
-                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#EAEFF4] bg-white hover:bg-[#F4F6F9] text-[#2A3547] text-xs font-semibold transition-colors cursor-pointer"
-                                        >
-                                            <Copy className="w-3.5 h-3.5 text-[#5A6A85]" />
-                                            <span>Salin Tautan</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Per Region */}
-                                {REGIONS.map((r) => {
-                                    const regionUrl = typeof window !== 'undefined'
-                                        ? `${window.location.origin}/#/public-packages?region=${r.value}`
-                                        : `/#/public-packages?region=${r.value}`;
-                                    return (
-                                        <div
-                                            key={r.value}
-                                            className="border border-[#EAEFF4] rounded-xl p-3.5 bg-[#F9FBFC] hover:border-brand-accent/40 transition-all space-y-2"
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <p className="font-bold text-xs sm:text-sm text-[#2A3547]">
-                                                    Khusus Wilayah: {r.label}
-                                                </p>
-                                                <span className="text-[10px] font-semibold solid-teal text-white px-2 py-0.5 rounded-md">
-                                                    Wilayah {r.label}
-                                                </span>
-                                            </div>
-                                            <p className="text-[11px] text-[#5A6A85] font-mono break-all bg-white px-2 py-1 rounded border border-[#EAEFF4]">
-                                                {regionUrl}
-                                            </p>
-                                            <div className="flex items-center gap-2 pt-1">
-                                                <a
-                                                    href={`/#/public-packages?region=${r.value}`}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand-accent hover:bg-brand-accent-hover text-white text-xs font-bold transition-colors cursor-pointer"
-                                                >
-                                                    <ExternalLink className="w-3.5 h-3.5" />
-                                                    <span>Buka Halaman</span>
-                                                </a>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(regionUrl);
-                                                        showNotification(`Tautan ${r.label} berhasil disalin!`);
-                                                    }}
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#EAEFF4] bg-white hover:bg-[#F4F6F9] text-[#2A3547] text-xs font-semibold transition-colors cursor-pointer"
-                                                >
-                                                    <Copy className="w-3.5 h-3.5 text-[#5A6A85]" />
-                                                    <span>Salin Tautan</span>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-[#EAEFF4]">
-                            <button
-                                type="button"
-                                onClick={() => setIsBookingLinksModalOpen(false)}
-                                className="w-full py-2.5 px-4 rounded-xl bg-brand-accent hover:bg-brand-accent-hover text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
-                            >
-                                Tutup
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

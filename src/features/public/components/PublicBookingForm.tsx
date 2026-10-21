@@ -3,7 +3,7 @@ import { ChevronDown, Package as PackageIcon } from 'lucide-react';
 import { REGIONS } from '../../../types';
 import { Client, Project, Package, AddOn, Transaction, Profile, Card, FinancialPocket, ClientStatus, PaymentStatus, TransactionType, PromoCode, Lead, LeadStatus, ContactChannel, ClientType, PublicBookingFormProps, BookingStatus, ViewType } from '../../../types';
 import Modal from '../../../shared/ui/Modal';
-import { MessageSquareIcon } from '../../../constants';
+import { MessageSquareIcon, cleanPhoneNumber } from '../../../constants';
 import { createClient, deleteClient } from '../../../services/clients';
 import { createProject } from '../../../services/projects';
 import { createLead as createLeadRow, updateLead as updateLeadRow } from '../../../services/leads';
@@ -600,15 +600,23 @@ const PublicBookingForm: React.FC<PublicBookingFormProps> = ({
                     const leadNote = leadId
                         ? `Dikonversi dari formulir booking. Pengantin ID: ${createdClient.id}`
                         : `Dikonversi otomatis dari booking publik. Acara Pernikahan: ${createdProject.projectName}. Pengantin ID: ${createdClient.id}`;
+                    const leadPool = leads || [];
                     const lead = leadId
-                        ? leads.find(l =>
+                        ? leadPool.find(l =>
                             l.id.startsWith(leadId) ||
                             l.id === leadId ||
                             toPublicNameSlug(l.name) === leadId
                         )
                         : undefined;
-                    if (lead) {
-                        const updatedLead = await updateLeadRow(lead.id, { status: LeadStatus.CONVERTED, notes: leadNote });
+                    // Fallback: bila lid/leadId hilang atau tidak ketemu, cocokkan lewat
+                    // nomor WhatsApp agar lead yang datang dari form booking publik tetap
+                    // terkonversi (bukan dibiarkan gagal atau dibuat duplikat).
+                    const phoneKey = cleanPhoneNumber(createdClient.phone);
+                    const matchedLead = lead || (phoneKey
+                        ? leadPool.find(l => cleanPhoneNumber(l.whatsapp) === phoneKey)
+                        : undefined);
+                    if (matchedLead) {
+                        const updatedLead = await updateLeadRow(matchedLead.id, { status: LeadStatus.CONVERTED, notes: leadNote });
                         mergeById(setLeads, updatedLead);
                         return;
                     }

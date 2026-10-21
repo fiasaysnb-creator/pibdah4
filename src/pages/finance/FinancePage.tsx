@@ -13,15 +13,6 @@ import {
 
 import { PlusIcon } from '../../constants';
 
-const InfoIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="16" x2="12" y2="12" />
-        <line x1="12" y1="8" x2="12.01" y2="8" />
-    </svg>
-);
-
 import { FinanceHeaderStats } from '../../features/finance/components/FinanceHeaderStats';
 import { FinanceTabs } from '../../features/finance/components/FinanceTabs';
 import { MobileCollapsibleSection } from '../../components/ui/MobileProgressiveDisclosure';
@@ -35,7 +26,6 @@ import EventProfitabilityTab from '../../features/finance/components/EventProfit
 import FinanceFormModal from '../../features/finance/components/FinanceFormModal';
 import FinanceHistoryModal from '../../features/finance/components/FinanceHistoryModal';
 import FinanceStatDetailModal from '../../features/finance/components/FinanceStatDetailModal';
-import FinanceGuideModal from '../../features/finance/components/FinanceGuideModal';
 import InteractiveCashflowChart from '../../shared/ui/InteractiveCashflowChart';
 import CategoryBarChart from '../../features/finance/components/CategoryBarChart';
 
@@ -131,7 +121,6 @@ const Finance: React.FC<FinanceProps> = ({
         item: Card | FinancialPocket | null;
     } | null>(null);
     const [activeStatModal, setActiveStatModal] = useState<'assets' | 'pockets' | 'income' | 'expense' | null>(null);
-    const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
     // ── Filters ──────────────────────────────────────────────────────────────
     const [filters, setFilters] = useState({ searchTerm: '', dateFrom: '', dateTo: '' });
@@ -381,14 +370,6 @@ const Finance: React.FC<FinanceProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={() => setIsInfoModalOpen(true)}
-                        className="bg-white hover:bg-[#F4F6F9] border border-[#EAEFF4] text-[#2A3547] font-bold rounded-xl px-3.5 py-2 text-xs gap-1.5 hidden sm:inline-flex items-center shadow-xs transition-all"
-                        title="Panduan Keuangan"
-                    >
-                        <InfoIcon className="w-4 h-4 text-[#5A6A85] flex-shrink-0" />
-                        <span>Panduan</span>
-                    </button>
-                    <button
                         onClick={() => handleOpenModal('transaction', 'add')}
                         className="bg-[#5D87FF] hover:bg-[#4871e3] text-white font-bold rounded-xl px-4 py-2.5 text-xs sm:text-sm shadow-md shadow-[#5D87FF]/25 inline-flex items-center gap-1.5 transition-all"
                     >
@@ -523,8 +504,6 @@ const Finance: React.FC<FinanceProps> = ({
             </div>
 
             {/* ── Modals ───────────────────────────────────────────────────── */}
-            <FinanceGuideModal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} />
-
             <FinanceFormModal
                 modalState={modalState}
                 onClose={handleCloseModal}

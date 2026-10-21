@@ -12,7 +12,7 @@ import Modal from '../../shared/ui/Modal';
 import RupiahInput from '../../shared/form/RupiahInput';
 import { PlusIcon, PencilIcon, Trash2Icon, Share2Icon, DownloadIcon, SendIcon, UsersIcon, TargetIcon, TrendingUpIcon, CalendarIcon, MapPinIcon, QrCodeIcon, MessageSquareIcon, CameraIcon, FileTextIcon, PhoneIncomingIcon, LightbulbIcon, ChevronRightIcon, CheckCircleIcon, EyeIcon, LinkIcon, WhatsappIcon } from '../../constants';
 import { ModernStatCard } from '../../components/modernize/ModernStatCard';
-import { cleanPhoneNumber } from '../../constants';
+import { cleanPhoneNumber, resolveLeadStatus } from '../../constants';
 import { listLeads as _listLeads, createLead as createLeadRow, updateLead as updateLeadRow, deleteLead as deleteLeadRow } from '../../services/leads';
 import { createClient as createClientRow } from '../../services/clients';
 import { createProject as createProjectRow } from '../../services/projects';
@@ -708,6 +708,29 @@ export const Leads: React.FC<LeadsProps> = ({
     const publicBookingFormUrl = useMemo(() => buildPublicShareUrl('booking'), []);
     const publicPackagesUrl = useMemo(() => buildPublicShareUrl('packages'), []);
 
+    // Daftar wilayah untuk tautan booking: gabungan wilayah bawaan (REGIONS) dengan
+    // wilayah kustom yang diisi pada paket & add-on (mis. "PACKAGE KASTEM"), supaya
+    // tautan per wilayahnya ikut muncul dan bisa dibagikan.
+    const unionRegions = useMemo(() => {
+        const baseValues = REGIONS.map(r => r.value.toLowerCase());
+        const extraValues = new Set<string>();
+        packages.forEach(p => {
+            const region = String(p.region || '').trim();
+            if (region) extraValues.add(region);
+        });
+        addOns.forEach(a => {
+            const region = String(a.region || '').trim();
+            if (region) extraValues.add(region);
+        });
+        const extra = Array.from(extraValues)
+            .sort((a, b) => a.localeCompare(b))
+            .filter(region => !baseValues.includes(region.toLowerCase()));
+        return [
+            ...REGIONS.map(r => ({ value: r.value, label: r.label })),
+            ...extra.map(region => ({ value: region, label: region.replace(/\b\w/g, c => c.toUpperCase()) })),
+        ];
+    }, [packages, addOns]);
+
     const uniqueCities = useMemo(() => {
         const set = new Set<string>();
         leads.forEach(l => {
@@ -729,7 +752,6 @@ export const Leads: React.FC<LeadsProps> = ({
         }
     }, [isShareModalOpen, publicLeadFormUrl]);
 
-    const handleStatCardClick = (stat: string) => setActiveStatModal(stat);
     const toggleHiddenColumns = () => {
         setHiddenColumns(prev => {
             const newHidden = new Set(prev);
@@ -743,7 +765,14 @@ export const Leads: React.FC<LeadsProps> = ({
         });
     };
 
-    const filteredLeads = useMemo(() => leads.filter(lead => {
+    // Lead dengan catatan konversi ditampilkan memakai status 'Dikonversi' walau
+    // status tersimpannya sudah tertimpa, supaya data konversi tidak hilang.
+    const resolvedLeads = useMemo(() => leads.map(lead => {
+        const status = resolveLeadStatus(lead);
+        return status === lead.status ? lead : { ...lead, status };
+    }), [leads]);
+
+    const filteredLeads = useMemo(() => resolvedLeads.filter(lead => {
         const searchMatch = searchTerm === '' ||
             lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (lead.notes && lead.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -781,7 +810,7 @@ export const Leads: React.FC<LeadsProps> = ({
         }
 
         return true;
-    }), [leads, searchTerm, sourceFilter, cityFilter, dateFrom, dateTo, activeCardFilter]);
+    }), [resolvedLeads, searchTerm, sourceFilter, cityFilter, dateFrom, dateTo, activeCardFilter]);
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, leadId: string) => {
         e.dataTransfer.setData("leadId", leadId);
@@ -798,6 +827,15 @@ export const Leads: React.FC<LeadsProps> = ({
         if (newStatus === LeadStatus.CONVERTED) {
             handleOpenModal('convert', leadToUpdate);
             return;
+        }
+
+        // Lead yang catatannya menyimpan jejak konversi tetap dihitung sebagai
+        // Dikonversi, jadi memindahkannya keluar kolom itu perlu konfirmasi dulu.
+        if (resolveLeadStatus(leadToUpdate) === LeadStatus.CONVERTED) {
+            const targetTitle = statusConfig[newStatus]?.title || newStatus;
+            if (!window.confirm(`Calon Pengantin "${leadToUpdate.name}" tercatat sudah dikonversi.\n\nYakin ingin memindahkannya ke "${targetTitle}"? Catatan konversinya tetap tersimpan, jadi kartu ini tetap muncul di kolom Dikonversi.`)) {
+                return;
+            }
         }
 
         setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus, date: new Date().toISOString() } : l));
@@ -937,6 +975,11 @@ export const Leads: React.FC<LeadsProps> = ({
                 } as Omit<Client, 'id'>);
                 setClients(prev => [createdClient, ...prev]);
 
+                // Simpan catatan konversi ke database juga (bukan hanya di state lokal)
+                // supaya data di DB tetap sinkron dengan yang ditampilkan.
+                const conversionNote = `Dikonversi menjadi Pengantin ID: ${createdClient.id}`;
+                await updateLeadRow(selectedLead.id, { notes: conversionNote });
+
                 // Create project in Supabase
                 const createdProject = await createProjectRow({
                     projectName: `${formData.clientName}`,
@@ -1011,7 +1054,7 @@ export const Leads: React.FC<LeadsProps> = ({
                     }
                 }
                 if (promoCode) { setPromoCodes(prev => prev.map(p => p.id === promoCode.id ? { ...p, usageCount: p.usageCount + 1 } : p)); }
-                setLeads(prev => prev.map(l => l.id === selectedLead.id ? { ...l, status: LeadStatus.CONVERTED, notes: `Dikonversi menjadi Pengantin ID: ${createdClient.id}` } : l));
+                setLeads(prev => prev.map(l => l.id === selectedLead.id ? { ...l, status: LeadStatus.CONVERTED, notes: conversionNote } : l));
                 showNotification(`Calon Pengantin ${selectedLead.name} berhasil dikonversi menjadi pengantin!`);
             } catch (err) {
                 alert('Gagal mengkonversi Calon Pengantin. Coba lagi.');
@@ -1048,12 +1091,12 @@ export const Leads: React.FC<LeadsProps> = ({
     }, [visibleLeadColumns, mobileStatusTab]);
 
     // ── Stat computations ─────────────────────────────────────────────────────
-    const totalLeads = leads.length;
-    const activeLeads = leads.filter(l => l.status === LeadStatus.DISCUSSION || l.status === LeadStatus.FOLLOW_UP).length;
-    const discussionLeads = leads.filter(l => l.status === LeadStatus.DISCUSSION).length;
-    const followUpLeads = leads.filter(l => l.status === LeadStatus.FOLLOW_UP).length;
-    const convertedLeads = leads.filter(l => l.status === LeadStatus.CONVERTED).length;
-    const rejectedLeads = leads.filter(l => l.status === LeadStatus.REJECTED).length;
+    const totalLeads = resolvedLeads.length;
+    const activeLeads = resolvedLeads.filter(l => l.status === LeadStatus.DISCUSSION || l.status === LeadStatus.FOLLOW_UP).length;
+    const discussionLeads = resolvedLeads.filter(l => l.status === LeadStatus.DISCUSSION).length;
+    const followUpLeads = resolvedLeads.filter(l => l.status === LeadStatus.FOLLOW_UP).length;
+    const convertedLeads = resolvedLeads.filter(l => l.status === LeadStatus.CONVERTED).length;
+    const rejectedLeads = resolvedLeads.filter(l => l.status === LeadStatus.REJECTED).length;
     const conversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -1120,11 +1163,11 @@ export const Leads: React.FC<LeadsProps> = ({
         if (!activeStatModal) return { title: '', items: [], groupedItems: null };
         switch (activeStatModal) {
             case 'all': return { title: `Semua Calon Pengantin (${leads.length})`, items: leads, groupedItems: null };
-            case 'active': return { title: `Calon Pengantin Perlu Tindakan (${activeLeads})`, items: leads.filter(l => l.status === LeadStatus.DISCUSSION || l.status === LeadStatus.FOLLOW_UP), groupedItems: null };
-            case 'discussion': return { title: `Sedang Diskusi (${discussionLeads})`, items: leads.filter(l => l.status === LeadStatus.DISCUSSION), groupedItems: null };
-            case 'followup': return { title: `Menunggu Follow Up (${followUpLeads})`, items: leads.filter(l => l.status === LeadStatus.FOLLOW_UP), groupedItems: null };
-            case 'converted': return { title: `Dikonversi Menjadi Pengantin (${convertedLeads})`, items: leads.filter(l => l.status === LeadStatus.CONVERTED), groupedItems: null };
-            case 'rejected': return { title: `Ditolak / Tidak Berlanjut (${rejectedLeads})`, items: leads.filter(l => l.status === LeadStatus.REJECTED), groupedItems: null };
+            case 'active': return { title: `Calon Pengantin Perlu Tindakan (${activeLeads})`, items: resolvedLeads.filter(l => l.status === LeadStatus.DISCUSSION || l.status === LeadStatus.FOLLOW_UP), groupedItems: null };
+            case 'discussion': return { title: `Sedang Diskusi (${discussionLeads})`, items: resolvedLeads.filter(l => l.status === LeadStatus.DISCUSSION), groupedItems: null };
+            case 'followup': return { title: `Menunggu Follow Up (${followUpLeads})`, items: resolvedLeads.filter(l => l.status === LeadStatus.FOLLOW_UP), groupedItems: null };
+            case 'converted': return { title: `Dikonversi Menjadi Pengantin (${convertedLeads})`, items: resolvedLeads.filter(l => l.status === LeadStatus.CONVERTED), groupedItems: null };
+            case 'rejected': return { title: `Ditolak / Tidak Berlanjut (${rejectedLeads})`, items: resolvedLeads.filter(l => l.status === LeadStatus.REJECTED), groupedItems: null };
             case 'new': { const n = new Date(); const som = new Date(n.getFullYear(), n.getMonth(), 1); return { title: 'Calon Pengantin Baru Bulan Ini', items: leads.filter(l => new Date(l.date) >= som), groupedItems: null }; }
             case 'city': {
                 const targetCity = cityStats.topCity;
@@ -1192,10 +1235,10 @@ export const Leads: React.FC<LeadsProps> = ({
             }
             default: return { title: '', items: [], groupedItems: null };
         }
-    }, [activeStatModal, leads, cityStats, eventMonthStats, sourceStats, activeLeads, discussionLeads, followUpLeads, convertedLeads, rejectedLeads]);
+    }, [activeStatModal, leads, resolvedLeads, cityStats, eventMonthStats, sourceStats, activeLeads, discussionLeads, followUpLeads, convertedLeads, rejectedLeads]);
 
     const modalGroups = modalData.groupedItems ?? modalData.items.reduce((groups, lead) => {
-        const group = statusConfig[lead.status]?.title || lead.status;
+        const group = statusConfig[resolveLeadStatus(lead)]?.title || lead.status;
         if (!groups[group]) groups[group] = [];
         groups[group].push(lead);
         return groups;
@@ -1272,14 +1315,6 @@ export const Leads: React.FC<LeadsProps> = ({
                             }`}
                         >
                             Tahapan Pipeline
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handleStatCardClick('location')}
-                            className="px-2 py-1.5 text-xs font-semibold text-[#5A6A85] hover:text-[#3563E9] hover:bg-white/60 rounded-lg transition-all cursor-pointer"
-                            title="Lihat Peringkat Kota Lengkap"
-                        >
-                            Rincian
                         </button>
                     </div>
                 </div>
@@ -1881,7 +1916,7 @@ export const Leads: React.FC<LeadsProps> = ({
                 </div>
             </Modal>
 
-            {shareModalState && <ShareMessageModal type={shareModalState.type} lead={shareModalState.lead} userProfile={userProfile} publicBookingFormUrl={publicBookingFormUrl} publicPackagesUrl={publicPackagesUrl} onClose={() => setShareModalState(null)} showNotification={showNotification} setProfile={setProfile} />}
+            {shareModalState && <ShareMessageModal type={shareModalState.type} lead={shareModalState.lead} userProfile={userProfile} publicBookingFormUrl={publicBookingFormUrl} publicPackagesUrl={publicPackagesUrl} regions={unionRegions} onClose={() => setShareModalState(null)} showNotification={showNotification} setProfile={setProfile} />}
 
             <Modal isOpen={!!activeStatModal} onClose={() => setActiveStatModal(null)} title={modalData.title} size="2xl">
                 <div className="max-h-[65vh] overflow-y-auto pr-1 space-y-3">
@@ -2048,8 +2083,8 @@ export const Leads: React.FC<LeadsProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Per Region */}
-                                {REGIONS.map((r) => {
+                                {/* Per Region (termasuk wilayah kustom dari paket & add-on) */}
+                                {unionRegions.map((r) => {
                                     const regionUrl = typeof window !== 'undefined'
                                         ? `${window.location.origin}/#/public-packages?region=${r.value}`
                                         : `/#/public-packages?region=${r.value}`;
@@ -2206,27 +2241,28 @@ interface ShareMessageModalProps {
     userProfile: Profile;
     publicPackagesUrl: string;
     publicBookingFormUrl: string;
+    regions: { value: string; label: string }[];
     onClose: () => void;
     showNotification: (message: string) => void;
     setProfile: React.Dispatch<React.SetStateAction<Profile>>;
 }
 
-const ShareMessageModal: React.FC<ShareMessageModalProps> = ({ type, lead, userProfile, publicPackagesUrl, publicBookingFormUrl, onClose, showNotification, setProfile }) => {
+const ShareMessageModal: React.FC<ShareMessageModalProps> = ({ type, lead, userProfile, publicPackagesUrl, publicBookingFormUrl, regions, onClose, showNotification, setProfile }) => {
     const [message, setMessage] = useState('');
     const [galleries, setGalleries] = useState<Gallery[]>([]);
     const [selectedGalleryId, setSelectedGalleryId] = useState<string>('');
     const [packageSource, setPackageSource] = useState<'public-packages' | 'gallery'>('public-packages');
     const initialBookingRegion = useMemo(() => {
         const loc = (lead.location || '').toLowerCase().trim();
-        const found = REGIONS.find(r => r.value.toLowerCase() === loc || r.label.toLowerCase() === loc || loc.includes(r.value.toLowerCase()));
+        const found = regions.find(r => r.value.toLowerCase() === loc || r.label.toLowerCase() === loc || loc.includes(r.value.toLowerCase()));
         return found?.value || '';
-    }, [lead.location]);
+    }, [lead.location, regions]);
     const [selectedBookingRegion, setSelectedBookingRegion] = useState(initialBookingRegion);
 
     const [selectedRegion, setSelectedRegion] = useState<string>(() => {
         const loc = (lead.location || '').toLowerCase().trim();
         if (!loc) return '';
-        const found = REGIONS.find(r => r.value.toLowerCase() === loc || r.label.toLowerCase() === loc || loc.includes(r.value.toLowerCase()));
+        const found = regions.find(r => r.value.toLowerCase() === loc || r.label.toLowerCase() === loc || loc.includes(r.value.toLowerCase()));
         return found ? found.value : '';
     });
 
@@ -2461,7 +2497,7 @@ const ShareMessageModal: React.FC<ShareMessageModalProps> = ({ type, lead, userP
                                     >
                                         Semua Wilayah
                                     </button>
-                                    {REGIONS.map((r) => (
+                                    {regions.map((r) => (
                                         <button
                                             key={r.value}
                                             type="button"
@@ -2534,7 +2570,7 @@ const ShareMessageModal: React.FC<ShareMessageModalProps> = ({ type, lead, userP
                             </button>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                            {REGIONS.map(region => (
+                            {regions.map(region => (
                                 <button
                                     key={region.value}
                                     type="button"

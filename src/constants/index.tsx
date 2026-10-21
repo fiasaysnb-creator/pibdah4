@@ -14,6 +14,16 @@ export const cleanPhoneNumber = (phone: string | undefined) => {
     return cleaned;
 };
 
+// Status efektif lead: dianggap 'Dikonversi' bila statusnya memang Dikonversi ATAU
+// catatannya masih menyimpan jejak konversi (baris yang diawali "Dikonversi ...").
+// Status bisa tertimpa saat kartu dipindah antar kolom di Kanban, sedangkan catatan
+// konversi tidak — karena itu catatan dipakai sebagai sumber kedua agar data
+// konversi tidak hilang.
+export const resolveLeadStatus = (lead: { status: LeadStatus; notes?: string | null }): LeadStatus => {
+    if (lead.status === LeadStatus.CONVERTED) return LeadStatus.CONVERTED;
+    return /(^|\n)\s*dikonversi\b/i.test(lead.notes || '') ? LeadStatus.CONVERTED : lead.status;
+};
+
 export const lightenColor = (hex: string, percent: number): string => {
     if (!hex || !hex.startsWith('#')) return '#ffffff';
     let [r, g, b] = hex.match(/\w\w/g)?.map(x => parseInt(x, 16)) || [255, 255, 255];

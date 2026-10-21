@@ -761,14 +761,6 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
 
           {!isEditing ? (
                     <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5 sm:gap-2">
-                      <button
-                onClick={() => { setEditingSection(null); onEnterEditMode(selectedProject); }}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-accent/10 px-2.5 py-1.5 text-[11px] font-bold text-[#2A3547] transition-all hover:bg-brand-accent/20 active:scale-95 sm:px-3 sm:py-2 sm:text-xs"
-                title="Edit Acara"
-              >
-                <PencilIcon className="h-3.5 w-3.5 flex-shrink-0 text-brand-accent" />
-                <span>Edit</span>
-              </button>
               <button
                 type="button"
                 onClick={() => {

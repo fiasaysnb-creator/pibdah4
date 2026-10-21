@@ -316,7 +316,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({
                             <div className="md:col-span-2">
                                 <label className="block text-xs font-bold text-[#2A3547] mb-1.5 uppercase tracking-wider flex items-center gap-1.5">
                                     <MapPin className="w-3.5 h-3.5 text-brand-accent" />
-                                    {text('field.region', 'Wilayah Operasional (Opsional)')}
+                                    {text('field.region', 'PACKAGE KASTEM ( paket daerah atu paket pribadi) (Opsional)')}
                                 </label>
                                 <input
                                     type="text"

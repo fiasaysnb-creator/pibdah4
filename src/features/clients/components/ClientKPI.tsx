@@ -16,6 +16,7 @@ import {
     CheckCircleIcon, CalendarIcon, DownloadIcon,
     BriefcaseIcon, PackageIcon, MapPinIcon
 } from '../../../constants';
+import { resolveLeadStatus } from '../../../constants';
 
 const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
@@ -565,10 +566,10 @@ const ClientReports: React.FC<ClientReportsProps> = ({
     // ── 5. Leads & Konversi ke Pengantin ──
     const leadConversionStats = useMemo(() => {
         const total = filteredLeads.length;
-        const converted = filteredLeads.filter(l => l.status === LeadStatus.CONVERTED).length;
-        const discussion = filteredLeads.filter(l => l.status === LeadStatus.DISCUSSION).length;
-        const followUp = filteredLeads.filter(l => l.status === LeadStatus.FOLLOW_UP).length;
-        const rejected = filteredLeads.filter(l => l.status === LeadStatus.REJECTED).length;
+        const converted = filteredLeads.filter(l => resolveLeadStatus(l) === LeadStatus.CONVERTED).length;
+        const discussion = filteredLeads.filter(l => resolveLeadStatus(l) === LeadStatus.DISCUSSION).length;
+        const followUp = filteredLeads.filter(l => resolveLeadStatus(l) === LeadStatus.FOLLOW_UP).length;
+        const rejected = filteredLeads.filter(l => resolveLeadStatus(l) === LeadStatus.REJECTED).length;
         const rate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
 
         const channelMap: Record<string, { channel: string; total: number; converted: number }> = {};
@@ -576,7 +577,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
             const ch = l.contactChannel || 'Lainnya';
             if (!channelMap[ch]) channelMap[ch] = { channel: ch, total: 0, converted: 0 };
             channelMap[ch].total += 1;
-            if (l.status === LeadStatus.CONVERTED) channelMap[ch].converted += 1;
+            if (resolveLeadStatus(l) === LeadStatus.CONVERTED) channelMap[ch].converted += 1;
         });
 
         const channels = Object.values(channelMap).sort((a, b) => b.total - a.total).map(ch => ({
@@ -1876,8 +1877,8 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                         <tr key={l.id} className="odd:bg-brand-surface even:bg-brand-bg/40 hover:bg-brand-accent/10 transition-colors align-top">
                                             <td className="p-3 font-bold text-brand-text-light">{l.name}</td>
                                             <td className="p-3">
-                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap text-white ${l.status === LeadStatus.CONVERTED ? 'bg-emerald-600' : l.status === LeadStatus.DISCUSSION ? 'bg-blue-600' : l.status === LeadStatus.FOLLOW_UP ? 'bg-violet-600' : 'bg-red-600'}`}>
-                                                    {l.status}
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap text-white ${resolveLeadStatus(l) === LeadStatus.CONVERTED ? 'bg-emerald-600' : resolveLeadStatus(l) === LeadStatus.DISCUSSION ? 'bg-blue-600' : resolveLeadStatus(l) === LeadStatus.FOLLOW_UP ? 'bg-violet-600' : 'bg-red-600'}`}>
+                                                    {resolveLeadStatus(l)}
                                                 </span>
                                             </td>
                                             <td className="p-3 text-brand-text-secondary">{l.contactChannel}</td>

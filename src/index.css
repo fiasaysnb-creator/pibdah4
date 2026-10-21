@@ -241,6 +241,31 @@ button img,
   }
 }
 
+/* ========================================
+   MOBILE: SEMUA TEKS TABEL SATU BARIS (NOWRAP)
+   Mencegah teks tabel mengkerut/putus ke bawah
+   di layar sempit; tabel yang lebih lebar dari
+   layar digeser horizontal. Dokumen cetak
+   (invoice, slip honor, kontrak, PDF) dikecualikan
+   agar teks tetap membungkus di dalam kertas.
+   ======================================== */
+@media screen and (max-width: 1279px) {
+  table th,
+  table td,
+  table th p,
+  table td p {
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+
+  :is(.invoice-container, .printable-content, .printable-area, .print-invoice, .contract-document, .pdf-viewer) :is(th, td, th p, td p) {
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+  }
+}
+
 /* Match labelled CRUD actions to the solid btn-box palette. */
 button:is([title*="detail" i], [title*="view" i], [title*="lihat" i], [aria-label*="detail" i], [aria-label*="view" i], [aria-label*="lihat" i]) {
   background-color: #2563EB !important;
