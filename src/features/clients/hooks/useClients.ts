@@ -28,7 +28,11 @@ export const useClients = (
 ) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('Semua Status');
-    const [monthFilter, setMonthFilter] = useState('');
+    const [monthFilter, setMonthFilter] = useState(() => {
+        const currentDate = new Date();
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+        return `${currentDate.getFullYear()}-${month}`;
+    });
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
 
@@ -104,10 +108,7 @@ export const useClients = (
                 monthMatch = client.projects.some(p => {
                     const projectDate = new Date(p.date);
                     return projectDate.getFullYear() === filterYear && projectDate.getMonth() + 1 === filterMonth;
-                }) || (() => {
-                    const clientJoinDate = new Date(client.since);
-                    return clientJoinDate.getFullYear() === filterYear && clientJoinDate.getMonth() + 1 === filterMonth;
-                })();
+                });
             }
 
             // Date range filter - filter berdasarkan tanggal project
