@@ -3,7 +3,7 @@ import { ExternalLink } from 'lucide-react';
 import { Profile, Gallery, REGIONS } from '../../../types';
 import Modal from '../../../shared/ui/Modal';
 import { UploadIcon, TrashIcon, LinkIcon, MapPinIcon, PlusIcon, FileTextIcon, CameraIcon } from '../../../constants';
-import { createGallery, listGalleries, uploadGalleryImages, deleteGallery, updateGallery, uploadCoverImage, uploadGalleryPdf, deleteGalleryImage, reorderGalleryImages } from '../../../services/galleries';
+import { createGallery, listGalleries, uploadGalleryImages, deleteGallery, updateGallery, uploadCoverImage, uploadGalleryPdf, deleteGalleryImage, reorderGalleryImages, MAX_PUBLIC_PDF_BYTES } from '../../../services/galleries';
 import { getGalleryPublicRouteId } from '../../../utils/publicRouting';
 import { useSupabaseRealtimeRefresh } from '../../../hooks/useSupabaseRealtimeRefresh';
 
@@ -73,7 +73,7 @@ const GalleryDraftImagePicker: React.FC<GalleryDraftImagePickerProps> = ({
                 <div className="vendor-gallery-scroll grid max-h-48 grid-cols-3 gap-2 overflow-y-auto p-1 sm:grid-cols-4">
                     {files.map((file, index) => (
                         <div key={`${file.name}-${file.lastModified}-${index}`} className="group relative aspect-square overflow-hidden rounded-lg border border-brand-border">
-                            {previewUrls[index] && <img src={previewUrls[index]} alt={file.name} className="h-full w-full object-cover" />}
+                            {previewUrls[index] && <img src={previewUrls[index]} alt={file.name} className="h-full w-full object-cover"  loading="lazy" decoding="async" />}
                             <button
                                 type="button"
                                 onClick={() => onRemoveFile(index)}
@@ -157,20 +157,20 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({ userProfile, showNotifica
         loadGalleries();
     }, []);
 
-    const loadGalleries = async () => {
+    const loadGalleries = async (silent = false) => {
         try {
-            setIsLoading(true);
+            if (!silent) setIsLoading(true);
             const data = await listGalleries();
             setGalleries(data);
         } catch (error) {
             console.error('Error loading galleries:', error);
-            showNotification('Gagal memuat Pricelist');
+            if (!silent) showNotification('Gagal memuat Pricelist');
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
     };
 
-    useSupabaseRealtimeRefresh('dashboard-galleries', ['galleries'], loadGalleries);
+    useSupabaseRealtimeRefresh('dashboard-galleries', ['galleries'], () => loadGalleries(true), { refreshOnFocus: false });
 
     const validateDraftImageFiles = (files: File[]) => files.filter(file => {
         if (file.size > 10 * 1024 * 1024) {
@@ -405,11 +405,18 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({ userProfile, showNotifica
     };
 
     const handlePdfFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) return;
-        const file = e.target.files[0];
+        const input = e.currentTarget;
+        const file = input.files?.[0];
+        input.value = '';
+        if (!file) return;
 
         if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
             showNotification('File PDF saja yang dapat diupload');
+            return;
+        }
+
+        if (file.size > MAX_PUBLIC_PDF_BYTES) {
+            showNotification('Ukuran PDF maksimal 5 MB. Kompres file lalu pilih kembali.');
             return;
         }
 
@@ -419,7 +426,7 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({ userProfile, showNotifica
     };
 
     const handleUploadPdf = async () => {
-        if (!selectedGallery || !selectedPdfFile) return;
+        if (!selectedGallery || !selectedPdfFile || isSubmitting) return;
 
         const finalPdfName = (pdfDisplayName || selectedGallery.title || 'Pricelist PDF').trim() || 'Pricelist PDF';
 
@@ -440,7 +447,7 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({ userProfile, showNotifica
             showNotification('PDF Pricelist berhasil diupload');
         } catch (error) {
             console.error('Error uploading gallery PDF:', error);
-            showNotification('Gagal mengupload PDF Pricelist');
+            showNotification(error instanceof Error ? error.message : 'Gagal mengupload PDF Pricelist');
         } finally {
             setIsSubmitting(false);
         }
@@ -624,7 +631,7 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({ userProfile, showNotifica
                                     width="400"
                                     height="300"
                                     className="w-full h-full object-cover transition-transform duration-700 ease-in-out group-hover:scale-105"
-                                />
+                                 decoding="async" />
                             ) : gallery.images.length > 0 ? (
                                 <img
                                     src={gallery.images[0].url}
@@ -633,7 +640,7 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({ userProfile, showNotifica
                                     width="400"
                                     height="300"
                                     className="w-full h-full object-cover transition-transform duration-700 ease-in-out group-hover:scale-105"
-                                />
+                                 decoding="async" />
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-brand-text-secondary/40 bg-brand-input/50">
                                     <CameraIcon className="w-12 h-12 mb-2 opacity-50" />
@@ -1008,8 +1015,10 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({ userProfile, showNotifica
                                                         <img
                                                             src={image.url}
                                                             alt={`${selectedGallery.title} ${actualIndex + 1}`}
-                                                            onLoad={event => handleImageLoad(image.id, event)}
+                                                            onLoad={(event) => handleImageLoad(image.id, event)}
                                                             className="h-auto w-full rounded-xl border border-brand-border/50 bg-brand-surface object-contain"
+                                                            loading="lazy"
+                                                            decoding="async"
                                                             style={{ aspectRatio: `${ratio}` }}
                                                         />
                                                         <div className="absolute bottom-2 right-2 flex gap-1">
@@ -1116,7 +1125,7 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({ userProfile, showNotifica
                                     {isSubmitting && selectedPdfFile ? 'Mengunggah PDF...' : 'Upload PDF'}
                                 </button>
                             </section>
-                            <p className="text-xs text-brand-text-secondary">Maksimal 10 MB per gambar. Format: JPG, PNG, WebP.</p>
+                            <p className="text-xs text-brand-text-secondary">PDF maksimal 5 MB. Gambar maksimal 10 MB per file (JPG, PNG, WebP).</p>
                         </div>
                     )}
 
@@ -1173,6 +1182,8 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({ userProfile, showNotifica
                                                             alt={`${selectedGallery.title} ${actualIndex + 1}`}
                                                             onLoad={(event) => handleImageLoad(image.id, event)}
                                                             className={`w-full rounded-xl border border-brand-border/50 bg-brand-surface ${isPortrait ? 'h-auto object-contain' : 'h-auto object-cover'}`}
+                                                            loading="lazy"
+                                                            decoding="async"
                                                             style={{ aspectRatio: `${ratio}` }}
                                                         />
 
@@ -1355,7 +1366,7 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({ userProfile, showNotifica
 
                     <div className="rounded-2xl border border-brand-border/50 bg-brand-bg/20 p-2.5 sm:p-3">
                         <p className="text-[10px] sm:text-[11px] text-brand-text-secondary leading-relaxed">
-                            Maksimal 10MB per file. Format: JPG, PNG, WebP.
+                            PDF maksimal 5 MB. Gambar maksimal 10 MB per file (JPG, PNG, WebP).
                         </p>
                     </div>
 

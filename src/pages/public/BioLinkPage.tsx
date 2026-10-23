@@ -16,7 +16,7 @@ const BioLinkPage: React.FC<BioLinkPageProps> = ({ slug }) => {
 
   useSupabaseRealtimeRefresh('public-bio-link', ['bio_link_pages'], () => {
     setRefreshVersion(version => version + 1);
-  });
+  }, { realtime: false, refreshOnFocus: false });
 
   useEffect(() => {
     let cancelled = false;
@@ -84,11 +84,11 @@ const BioLinkPage: React.FC<BioLinkPageProps> = ({ slug }) => {
       `}</style>
       <div className="mx-auto min-h-screen w-full max-w-[590px] bg-white shadow-[0_0_30px_rgba(0,0,0,0.06)]">
         <div className="relative h-[170px] overflow-visible bg-[#d4d4d4] sm:h-[220px]">
-          {page.cover_url && <img src={page.cover_url} alt="" className="absolute inset-0 h-full w-full object-cover grayscale" />}
+          {page.cover_url && <img src={page.cover_url} alt="" className="absolute inset-0 h-full w-full object-cover grayscale"  loading="lazy" decoding="async" />}
           <div className="absolute inset-0 bg-black/20" />
           <div className="absolute -bottom-[44px] left-1/2 z-10 h-[104px] w-[104px] -translate-x-1/2 overflow-hidden rounded-full border-[4px] border-white bg-[#d4d4d4] shadow-sm sm:-bottom-[58px] sm:h-[132px] sm:w-[132px] sm:border-[5px]">
             {page.avatar_url ? (
-              <img src={page.avatar_url} alt={page.title} className="h-full w-full object-cover grayscale" />
+              <img src={page.avatar_url} alt={page.title} className="h-full w-full object-cover grayscale"  loading="lazy" decoding="async" />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-4xl font-light text-[#525252]">
                 {(page.title || '?').slice(0, 1).toUpperCase()}

@@ -99,7 +99,7 @@ export const PackageTable: React.FC<PackageTableProps> = ({
                                                     src={pkg.coverImage} 
                                                     alt="" 
                                                     className="w-11 h-11 rounded-xl object-cover border border-[#EAEFF4] flex-shrink-0"
-                                                />
+                                                 loading="lazy" decoding="async" />
                                             ) : (
                                                 <div className="w-11 h-11 rounded-xl bg-[#F4F6F9] border border-[#EAEFF4] flex items-center justify-center text-[#5A6A85] flex-shrink-0">
                                                     <Camera className="w-5 h-5 opacity-40" />

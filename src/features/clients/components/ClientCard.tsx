@@ -81,7 +81,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-brand-accent/20 to-brand-accent/10 flex items-center justify-center flex-shrink-0 border-2 border-brand-accent/20">
                             {client.avatarUrl ? (
-                                <img src={client.avatarUrl} alt={`${client.name} avatar`} className="w-full h-full object-cover" />
+                                <img src={client.avatarUrl} alt={`${client.name} avatar`} className="w-full h-full object-cover"  loading="lazy" decoding="async" />
                             ) : (
                                 <span className="text-lg font-bold text-brand-accent">{client.name.charAt(0).toUpperCase()}</span>
                             )}

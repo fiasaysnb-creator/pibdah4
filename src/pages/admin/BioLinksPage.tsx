@@ -168,7 +168,7 @@ const BioLinksPage: React.FC = () => {
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-slate-700">Foto sampul</span>
             <div className="relative flex h-40 items-center justify-center overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50">
-              {form.cover_url ? <img src={form.cover_url} alt="Sampul halaman" className="h-full w-full object-cover" /> : <div className="text-center text-slate-400"><ImagePlus className="mx-auto mb-2" /><span className="text-sm">Pilih foto sampul</span></div>}
+              {form.cover_url ? <img src={form.cover_url} alt="Sampul halaman" className="h-full w-full object-cover"  loading="lazy" decoding="async" /> : <div className="text-center text-slate-400"><ImagePlus className="mx-auto mb-2" /><span className="text-sm">Pilih foto sampul</span></div>}
               <input type="file" accept="image/*" aria-label="Unggah foto sampul" className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => handleImageUpload('cover', event.target.files?.[0])} />
               {uploading === 'cover' && <span className="absolute bottom-2 rounded-lg bg-white/90 px-3 py-1 text-xs font-medium">Mengunggah...</span>}
             </div>
@@ -176,7 +176,7 @@ const BioLinksPage: React.FC = () => {
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-slate-700">Foto profil / logo</span>
             <div className="relative flex h-40 items-center justify-center overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50">
-              {form.avatar_url ? <img src={form.avatar_url} alt="Foto profil" className="h-32 w-32 rounded-full object-cover" /> : <div className="text-center text-slate-400"><ImagePlus className="mx-auto mb-2" /><span className="text-sm">Pilih foto profil</span></div>}
+              {form.avatar_url ? <img src={form.avatar_url} alt="Foto profil" className="h-32 w-32 rounded-full object-cover"  loading="lazy" decoding="async" /> : <div className="text-center text-slate-400"><ImagePlus className="mx-auto mb-2" /><span className="text-sm">Pilih foto profil</span></div>}
               <input type="file" accept="image/*" aria-label="Unggah foto profil" className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => handleImageUpload('avatar', event.target.files?.[0])} />
               {uploading === 'avatar' && <span className="absolute bottom-2 rounded-lg bg-white/90 px-3 py-1 text-xs font-medium">Mengunggah...</span>}
             </div>

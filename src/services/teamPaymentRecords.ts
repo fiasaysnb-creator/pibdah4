@@ -1,5 +1,6 @@
 import supabase from '../lib/supabaseClient';
 import { TeamPaymentRecord } from '../types';
+import { uploadImageDataUrl } from './storage';
 
 const TABLE = 'team_payment_records';
 
@@ -39,6 +40,13 @@ export async function listTeamPaymentRecords(): Promise<TeamPaymentRecord[]> {
 }
 
 export async function createTeamPaymentRecord(payload: Omit<TeamPaymentRecord, 'id'>): Promise<TeamPaymentRecord> {
+  if (payload.vendorSignature?.startsWith('data:image/')) {
+    payload = {
+      ...payload,
+      vendorSignature: await uploadImageDataUrl(payload.vendorSignature, 'team-payment-signatures'),
+    };
+  }
+
   const { data, error } = await supabase
     .from(TABLE)
     .insert(toRow(payload))
@@ -49,6 +57,13 @@ export async function createTeamPaymentRecord(payload: Omit<TeamPaymentRecord, '
 }
 
 export async function updateTeamPaymentRecord(id: string, patch: Partial<TeamPaymentRecord>): Promise<TeamPaymentRecord> {
+  if (patch.vendorSignature?.startsWith('data:image/')) {
+    patch = {
+      ...patch,
+      vendorSignature: await uploadImageDataUrl(patch.vendorSignature, 'team-payment-signatures'),
+    };
+  }
+
   const { data, error } = await supabase
     .from(TABLE)
     .update(toRow(patch))

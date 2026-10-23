@@ -1,6 +1,7 @@
 import supabase from '../lib/supabaseClient';
 import { Profile, ProjectStatusConfig } from '../types';
 import { MOBILE_UI_SCALE_DEFAULT, normalizeMobileUiScale } from '../utils/mobileUiScale';
+import { canonicalizeStorageAssetUrls, uploadImageDataUrl } from './storage';
 
 const TABLE = 'profiles';
 const TEMPLATE_ENVELOPE_KEYS = [
@@ -30,6 +31,7 @@ function getTemplateEnvelope(value: any): Record<string, any> | null {
 }
 
 function fromRow(row: any): Profile {
+  row = canonicalizeStorageAssetUrls(row);
   const templateEnvelope = getTemplateEnvelope(row.booking_form_template);
   return {
     id: row.id,
@@ -171,6 +173,33 @@ export async function getProfile(): Promise<Profile | null> {
 }
 
 /**
+ * Public booking and document pages need business identity and selected public
+ * settings only. Keep admin-only settings/templates out of their REST payload.
+ */
+export async function getPublicProfile(): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('id,full_name,email,phone,company_name,website,instagram,address,bank_account,authorized_signer,bio,project_types,terms_and_conditions,logo_base64,signature_base64,brand_color,public_page_config')
+    .limit(1)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116') throw error;
+  return data ? fromRow(data) : null;
+}
+
+/** Contact-only public details should not download settings or signature images. */
+export async function getPublicContactProfile(): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('id,phone')
+    .limit(1)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116') throw error;
+  return data ? fromRow(data) : null;
+}
+
+/**
  * Payload Realtime `profiles` sudah memuat seluruh kolom baris terbaru, jadi
  * cache bisa langsung ditambal tanpa menarik ulang kolom besar (logo base64
  * dan public_page_config) yang ada di baris ini.
@@ -214,6 +243,13 @@ function isSameProfileValue(a: any, b: any): boolean {
 }
 
 export async function upsertProfile(input: Partial<Profile> & { id?: string }): Promise<Profile> {  // Declare payload variable at function scope
+  for (const field of ['logoBase64', 'signatureBase64'] as const) {
+    const value = input[field];
+    if (typeof value === 'string' && value.startsWith('data:image/')) {
+      input = { ...input, [field]: await uploadImageDataUrl(value, 'profile-assets') };
+    }
+  }
+
   let bookingFormTemplatePayload: string | undefined = undefined;
 
   // If any of the templates are provided, merge into booking_form_template JSON envelope

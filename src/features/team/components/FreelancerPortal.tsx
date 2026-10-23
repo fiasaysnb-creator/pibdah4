@@ -208,7 +208,7 @@ const FreelancerPortal: React.FC<FreelancerPortalProps> = ({ accessId, teamMembe
                             <div></div>
                             <div className="text-center w-full sm:w-2/5">
                                 <p className="text-sm text-slate-600">Diverifikasi oleh,</p>
-                                <div className="h-14 mt-2 flex items-center justify-center">{record.vendorSignature ? (<img src={record.vendorSignature} alt="Tanda Tangan" className="object-contain shrink-0" style={{ width: '150px', height: '48px' }} />) : (<div className="h-14 flex items-center justify-center text-xs text-slate-400 italic border-b border-dashed w-full">Belum Ditandatangani</div>)}</div>
+                                <div className="h-14 mt-2 flex items-center justify-center">{record.vendorSignature ? (<img src={record.vendorSignature} alt="Tanda Tangan" className="object-contain shrink-0" style={{ width: '150px', height: '48px' }}  loading="lazy" decoding="async" />) : (<div className="h-14 flex items-center justify-center text-xs text-slate-400 italic border-b border-dashed w-full">Belum Ditandatangani</div>)}</div>
                                 <p className="text-sm font-semibold text-slate-800 mt-1 border-t-2 border-slate-300 pt-1">({profile.authorizedSigner || profile.companyName})</p>
                             </div>
                         </div>
@@ -237,7 +237,7 @@ return (
                 <div className="relative flex flex-col gap-6 p-5 sm:p-8 md:flex-row md:items-center md:justify-between md:p-10">
                     <div className="flex items-center gap-4 sm:gap-5">
                         <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl overflow-hidden shrink-0 bg-white/10 text-white ring-1 ring-white/20 flex items-center justify-center text-2xl font-semibold shadow-lg">
-                            {member.avatarUrl ? <img src={member.avatarUrl} alt={`${member.name} avatar`} className="w-full h-full object-cover" /> : member.name?.charAt(0).toUpperCase() || '?'}
+                            {member.avatarUrl ? <img src={member.avatarUrl} alt={`${member.name} avatar`} className="w-full h-full object-cover"  loading="lazy" decoding="async" /> : member.name?.charAt(0).toUpperCase() || '?'}
                         </div>
                         <div className="min-w-0">
                             <p className="text-[11px] sm:text-xs font-medium uppercase tracking-[0.2em] text-slate-300">Portal Freelancer</p>
@@ -538,7 +538,7 @@ const ProjectsTab: React.FC<{ projects: Project[], clients: Client[], onProjectC
                     <button type="button" key={p.id} onClick={() => onProjectClick(p)} className="freelancer-project-card h-fit w-full p-3 sm:p-4 bg-white rounded-2xl border border-slate-200/80 text-left hover:border-slate-400 flex justify-between items-center gap-3 transition-all duration-200 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 widget-animate" style={{ animationDelay: `${index * 80}ms` }}>
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center text-sm font-medium text-slate-600">
-                                {projectClient?.avatarUrl ? <img src={projectClient.avatarUrl} alt={`${p.clientName} avatar`} className="w-full h-full object-cover" /> : (p.clientName || 'K').charAt(0).toUpperCase()}
+                                {projectClient?.avatarUrl ? <img src={projectClient.avatarUrl} alt={`${p.clientName} avatar`} className="w-full h-full object-cover"  loading="lazy" decoding="async" /> : (p.clientName || 'K').charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">

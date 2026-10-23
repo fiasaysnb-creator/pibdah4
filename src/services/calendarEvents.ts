@@ -1,5 +1,6 @@
 import supabase from '../lib/supabaseClient';
 import { CalendarEvent } from '../types';
+import { canonicalizeStorageAssetUrls } from './storage';
 
 const TABLE = 'calendar_events';
 const PROJECT_MEETING_NOTE_PREFIX = '[weddfin-project-meeting:v1]';
@@ -39,6 +40,7 @@ function getTimeValue(value: string): string {
 }
 
 function toCalendarEvent(row: CalendarEventRow): CalendarEvent {
+  row = canonicalizeStorageAssetUrls(row);
   const startTime = row.start_time || undefined;
   const endTime = row.end_time || undefined;
   const allDay = !startTime && !endTime
@@ -100,8 +102,10 @@ export type ProjectMeeting = {
 export async function listProjectMeetings(projectId: string): Promise<ProjectMeeting[]> {
   const { data, error } = await supabase
     .from(TABLE)
-    .select('*')
-    .ilike('notes', `${PROJECT_MEETING_NOTE_PREFIX}%`)
+    .select('id,title,event_type,date,start_time,end_time,team,location,notes,tasks,created_at,updated_at')
+    // The project id is the first JSON property written by encodeProjectMeetingNotes.
+    // Filter at PostgREST so the portal doesn't download every calendar event per project.
+    .ilike('notes', `${PROJECT_MEETING_NOTE_PREFIX}%${JSON.stringify({ projectId })}%`)
     .order('date', { ascending: true });
   if (error) throw error;
 

@@ -1,5 +1,5 @@
 import supabase from '../lib/supabaseClient';
-import { compressImage } from './storage';
+import { canonicalizeStorageAssetUrls, compressImage } from './storage';
 import { Client, ClientStatus, ClientType } from '../types';
 import { publicNamePatternsFromSlug } from '../utils/publicRouting';
 
@@ -68,39 +68,32 @@ export async function listClientsPaginated(
   total: number;
   hasMore: boolean;
 }> {
-  const offset = (page - 1) * limit;
+  const pageSize = Math.min(20, Math.max(1, Math.floor(limit) || 20));
+  const offset = (Math.max(1, Math.floor(page) || 1) - 1) * pageSize;
 
   // Build query with search and filters
   let query = supabase.from(TABLE).select('*', { count: 'exact' });
-  let countQuery = supabase.from(TABLE).select('*', { count: 'exact', head: true });
 
   // Apply search
   if (searchQuery && searchQuery.trim()) {
     const searchTerm = `%${searchQuery.trim()}%`;
     query = query.or(`name.ilike.${searchTerm},email.ilike.${searchTerm},phone.ilike.${searchTerm}`);
-    countQuery = countQuery.or(`name.ilike.${searchTerm},email.ilike.${searchTerm},phone.ilike.${searchTerm}`);
   }
 
   // Apply filters
   if (filters?.status) {
     query = query.eq('status', filters.status);
-    countQuery = countQuery.eq('status', filters.status);
   }
 
   if (filters?.clientType) {
     query = query.eq('client_type', filters.clientType);
-    countQuery = countQuery.eq('client_type', filters.clientType);
   }
 
-  // Get total count
-  const { count, error: countError } = await countQuery;
-  if (countError) throw countError;
-
-  // Get paginated data
-  const { data, error } = await query
+  // Data and exact count arrive in one request; avoid a second full count scan.
+  const { data, error, count } = await query
     .order('since', { ascending: false })
     .order('id', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .range(offset, offset + pageSize - 1);
 
   if (error) throw error;
 
@@ -110,7 +103,7 @@ export async function listClientsPaginated(
   return {
     clients,
     total,
-    hasMore: (page * limit) < total
+    hasMore: (Math.max(1, Math.floor(page) || 1) * pageSize) < total
   };
 }
 
@@ -238,6 +231,7 @@ export async function deleteClient(id: string): Promise<void> {
 
 // Helpers to map between DB row and TS type (in case of snake_case in DB)
 export function normalizeClient(row: any): Client {
+  row = canonicalizeStorageAssetUrls(row);
   const sinceDate = row.since || row.created_at || new Date().toISOString();
   return {
     id: row.id,

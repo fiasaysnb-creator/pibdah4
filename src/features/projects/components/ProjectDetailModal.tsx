@@ -1426,7 +1426,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                                         <div className="flex min-w-0 flex-1 items-center gap-2.5">
                                           <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden shrink-0 bg-brand-accent/10 border border-brand-accent/20 flex items-center justify-center text-sm font-bold text-brand-accent">
                                             {teamMember?.avatarUrl ? (
-                                              <img src={teamMember.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                              <img src={teamMember.avatarUrl} alt="" className="w-full h-full object-cover"  loading="lazy" decoding="async" />
                                             ) : (
                                               assignment.name?.charAt(0).toUpperCase() || '?'
                                             )}
@@ -2003,7 +2003,7 @@ const EditModeContent: React.FC<EditModeContentProps> = ({
                             <label className="flex items-center gap-2.5 sm:gap-3 cursor-pointer">
                               <input type="checkbox" checked={isSelected} onChange={() => onTeamChange(member)} className="h-4 w-4 text-brand-accent rounded border-slate-300 focus:ring-brand-accent/40 flex-shrink-0" />
                               <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden shrink-0 bg-white border border-slate-200 flex items-center justify-center text-sm font-bold text-brand-accent">
-                                {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover" /> : member.name?.charAt(0).toUpperCase() || '?'}
+                                {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover"  loading="lazy" decoding="async" /> : member.name?.charAt(0).toUpperCase() || '?'}
                               </div>
                               <div className="flex-grow min-w-0">
                                 <p className="text-xs sm:text-sm font-bold text-[#2A3547] truncate">{member.name}</p>

@@ -1,5 +1,9 @@
 import { useSyncExternalStore } from 'react';
-import { isLightweightPublicRouteNow } from '../routes/publicRoutePath';
+import {
+  isLightweightPublicRouteNow,
+  isPublicFormDataRouteNow,
+  isPublicLeadFormRouteNow,
+} from '../routes/publicRoutePath';
 
 function subscribe(callback: () => void) {
   window.addEventListener('hashchange', callback);
@@ -10,7 +14,17 @@ function subscribe(callback: () => void) {
   };
 }
 
-/** `true` saat pengunjung berada di Public Packages / Public Booking. */
+/** `true` saat halaman publik tidak membutuhkan dataset vendor global. */
 export function useIsLightweightPublicRoute(): boolean {
   return useSyncExternalStore(subscribe, isLightweightPublicRouteNow, () => false);
+}
+
+/** Dataset pendukung hanya dimuat untuk formulir paket/booking publik. */
+export function useIsPublicFormDataRoute(): boolean {
+  return useSyncExternalStore(subscribe, isPublicFormDataRouteNow, () => false);
+}
+
+/** Form prospek memakai pengaturan profil, tetapi tidak perlu dataset global. */
+export function useIsPublicLeadFormRoute(): boolean {
+  return useSyncExternalStore(subscribe, isPublicLeadFormRouteNow, () => false);
 }

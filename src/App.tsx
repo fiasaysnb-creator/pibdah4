@@ -14,7 +14,11 @@ import { useSimplifiedData } from "./contexts/SimplifiedDataContext";
 import { useAuth } from "./hooks/useAuth";
 import { useAuxiliaryData } from "./hooks/useAuxiliaryData";
 import { useAppRouting } from "./hooks/useAppRouting";
-import { useIsLightweightPublicRoute } from "./hooks/useIsLightweightPublicRoute";
+import {
+  useIsLightweightPublicRoute,
+  useIsPublicFormDataRoute,
+  useIsPublicLeadFormRoute,
+} from "./hooks/useIsLightweightPublicRoute";
 import { persistQueryCache } from "./lib/queryCachePersistence";
 
 import PublicRoutes, { isPublicRoutePath } from "./routes/PublicRoutes";
@@ -33,6 +37,8 @@ function App() {
   // ─── Global Shared Data Context ─────────────────────────────────────────
   const data = useSimplifiedData();
   const isLightPublicRoute = useIsLightweightPublicRoute();
+  const isPublicFormDataRoute = useIsPublicFormDataRoute();
+  const isPublicLeadFormRoute = useIsPublicLeadFormRoute();
 
   // ─── Auxiliary Application Data & Notifications ─────────────────────────
   const auxData = useAuxiliaryData({
@@ -40,6 +46,9 @@ function App() {
     appDataLoadedClientFeedback: !data.loading.clientFeedback,
     setClientFeedback: data.setClientFeedback, // Use the setter from simplified context
     skipVendorOnlyData: isLightPublicRoute,
+    skipPublicSharedData: isLightPublicRoute && !isPublicFormDataRoute,
+    skipProfileData: isLightPublicRoute && !isPublicFormDataRoute && !isPublicLeadFormRoute,
+    publicProfileData: isLightPublicRoute && (isPublicFormDataRoute || isPublicLeadFormRoute),
   });
 
   useEffect(() => {

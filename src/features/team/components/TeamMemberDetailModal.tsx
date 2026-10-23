@@ -475,7 +475,7 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
           {/* Avatar */}
           <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-brand-accent overflow-hidden flex items-center justify-center shrink-0 text-white text-2xl sm:text-3xl font-black shadow-lg shadow-brand-accent/25">
             {selectedMember.avatarUrl ? (
-              <img src={selectedMember.avatarUrl} alt={`${selectedMember.name} avatar`} className="w-full h-full object-cover" />
+              <img src={selectedMember.avatarUrl} alt={`${selectedMember.name} avatar`} className="w-full h-full object-cover"  loading="lazy" decoding="async" />
             ) : avatarLetter}
           </div>
 

@@ -1,7 +1,80 @@
-import supabase from '../lib/supabaseClient';
+import supabase, { isSupabaseConfigured } from '../lib/supabaseClient';
 
 const DP_PROOFS_BUCKET = 'dp-proofs';
 const GALLERY_BUCKET = 'gallery-images';
+
+/** Repoint legacy public Storage URLs to this project's bucket when the same
+ * object path has been carried over. URLs from non-Supabase hosts are untouched. */
+export function canonicalizeStorageAssetUrl(value: string): string {
+  if (!isSupabaseConfigured || !value) return value;
+
+  try {
+    const parsed = new URL(value);
+    const match = parsed.pathname.match(/^\/storage\/v1\/object\/public\/(gallery-images|dp-proofs)\/(.+)$/);
+    if (!match || !parsed.hostname.endsWith('.supabase.co')) return value;
+
+    const bucket = match[1];
+    const objectPath = decodeURIComponent(match[2]);
+    const canonical = supabase.storage.from(bucket).getPublicUrl(objectPath).data.publicUrl;
+    const canonicalUrl = new URL(canonical);
+    if (canonicalUrl.origin === parsed.origin) return value;
+
+    canonicalUrl.search = parsed.search;
+    canonicalUrl.hash = parsed.hash;
+    return canonicalUrl.toString();
+  } catch {
+    return value;
+  }
+}
+
+export function canonicalizeStorageAssetUrls<T>(value: T): T {
+  if (typeof value === 'string') return canonicalizeStorageAssetUrl(value) as T;
+  if (Array.isArray(value)) return value.map(item => canonicalizeStorageAssetUrls(item)) as T;
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, canonicalizeStorageAssetUrls(item)]),
+    ) as T;
+  }
+  return value;
+}
+
+export async function uploadImageAsset(file: File, folder = 'assets'): Promise<string> {
+  if (!file.type.startsWith('image/')) throw new Error('File must be an image');
+  if (file.size > 10 * 1024 * 1024) throw new Error('File size must be less than 10MB');
+
+  // Logo/TTD PNG must keep transparency. WebP supports alpha and is usually
+  // much smaller than storing the original PNG; SVG remains vector as-is.
+  const outputType = file.type === 'image/png' ? 'image/webp' : 'image/jpeg';
+  const processedFile = await compressImage(file, 1200, 0.82, 400 * 1024, outputType);
+  if (processedFile.size > 10 * 1024 * 1024) throw new Error('File size must be less than 10MB after compression');
+
+  const safeFolder = folder.replace(/[^a-zA-Z0-9/_-]/g, '').replace(/^\/+|\/+$/g, '') || 'assets';
+  const extension = processedFile.type.split('/')[1]?.replace('svg+xml', 'svg') || 'bin';
+  const now = new Date();
+  const path = `${safeFolder}/${now.getFullYear()}/${now.getMonth() + 1}/${crypto.randomUUID()}.${extension}`;
+  const { data, error } = await supabase.storage.from(GALLERY_BUCKET).upload(path, processedFile, {
+    contentType: processedFile.type,
+    cacheControl: '31536000',
+    upsert: false,
+  });
+  if (error) throw error;
+
+  const { data: publicUrl } = supabase.storage.from(GALLERY_BUCKET).getPublicUrl(data.path);
+  return publicUrl.publicUrl;
+}
+
+export async function uploadImageDataUrl(dataUrl: string, folder: string): Promise<string> {
+  const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([\s\S]+)$/);
+  if (!match) return dataUrl;
+
+  const binary = atob(match[2]);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+  const extension = match[1].split('/')[1]?.replace('svg+xml', 'svg') || 'bin';
+  const file = new File([bytes], `image.${extension}`, { type: match[1] });
+  return uploadImageAsset(file, folder);
+}
 
 export async function uploadDpProof(file: File): Promise<string> {
   const processedFile = await compressImage(file, 1200, 0.8, 400 * 1024); // retain readability for proof images
@@ -30,6 +103,7 @@ export async function compressImage(
   maxWidthOrHeight: number = 1920,
   quality: number = 0.8,
   maxSizeBytes?: number,
+  outputType: 'image/jpeg' | 'image/webp' = 'image/jpeg',
 ): Promise<File> {
   if (!file.type.startsWith('image/') || file.type === 'image/gif' || file.type === 'image/svg+xml') {
     return file; // Jangan kompres non-gambar, gif, atau svg
@@ -66,12 +140,16 @@ export async function compressImage(
           ? [...new Set([quality, quality - 0.15, quality - 0.3, 0.35].map(value => Math.max(0.25, Math.min(1, value))))]
           : [quality];
         const encode = (qualityStep: number) => new Promise<Blob | null>((resolveBlob) => {
-          canvas.toBlob(resolveBlob, 'image/jpeg', qualityStep);
+          canvas.toBlob(resolveBlob, outputType, qualityStep);
         });
-        const makeCompressedFile = (blob: Blob) => new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
-          type: 'image/jpeg',
-          lastModified: Date.now(),
-        });
+        const makeCompressedFile = (blob: Blob) => {
+          const contentType = blob.type || outputType;
+          const extension = contentType === 'image/webp' ? 'webp' : contentType === 'image/png' ? 'png' : 'jpg';
+          return new File([blob], file.name.replace(/\.[^/.]+$/, `.${extension}`), {
+            type: contentType,
+            lastModified: Date.now(),
+          });
+        };
 
         void (async () => {
           let bestBlob: Blob | null = null;

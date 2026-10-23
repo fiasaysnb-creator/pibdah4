@@ -3,6 +3,7 @@ import { Project, AddOn, PaymentStatus, BookingStatus, AssignedTeamMember } from
 import { upsertAssignmentsForProject, listAssignmentsByProject } from './projectTeamAssignments';
 import { listChecklistByProject } from './weddingDayChecklist';
 import { publicNamePatternsFromSlug } from '../utils/publicRouting';
+import { canonicalizeStorageAssetUrls, uploadImageDataUrl } from './storage';
 
 const PROJECTS = 'projects';
 const PROJECT_ADD_ONS = 'project_add_ons';
@@ -51,6 +52,7 @@ export type UpdateProjectInput = Partial<CreateProjectInput> & Partial<Pick<Proj
 >> & { addOns?: { id: string; name: string; price: number }[] };
 
 export function normalizeProject(row: any): Project {
+  row = canonicalizeStorageAssetUrls(row);
   return {
     id: row.id,
     projectName: row.project_name,
@@ -141,54 +143,45 @@ export async function listProjectsPaginated(
   total: number;
   hasMore: boolean;
 }> {
-  const offset = (page - 1) * limit;
+  const pageSize = Math.min(20, Math.max(1, Math.floor(limit) || 20));
+  const safePage = Math.max(1, Math.floor(page) || 1);
+  const offset = (safePage - 1) * pageSize;
 
   // Build query with search and filters
   let query = supabase.from(PROJECTS).select('*', { count: 'exact' });
-  let countQuery = supabase.from(PROJECTS).select('*', { count: 'exact', head: true });
 
   // Apply search
   if (searchQuery && searchQuery.trim()) {
     const searchTerm = `%${searchQuery.trim()}%`;
     query = query.or(`project_name.ilike.${searchTerm},client_name.ilike.${searchTerm},location.ilike.${searchTerm}`);
-    countQuery = countQuery.or(`project_name.ilike.${searchTerm},client_name.ilike.${searchTerm},location.ilike.${searchTerm}`);
   }
 
   // Apply filters
   if (filters?.status) {
     query = query.eq('status', filters.status);
-    countQuery = countQuery.eq('status', filters.status);
   }
 
   if (filters?.clientId) {
     query = query.eq('client_id', filters.clientId);
-    countQuery = countQuery.eq('client_id', filters.clientId);
   }
 
   if (filters?.projectType) {
     query = query.eq('project_type', filters.projectType);
-    countQuery = countQuery.eq('project_type', filters.projectType);
   }
 
   if (filters?.dateFrom) {
     query = query.gte('date', filters.dateFrom);
-    countQuery = countQuery.gte('date', filters.dateFrom);
   }
 
   if (filters?.dateTo) {
     query = query.lte('date', filters.dateTo);
-    countQuery = countQuery.lte('date', filters.dateTo);
   }
 
-  // Get total count
-  const { count, error: countError } = await countQuery;
-  if (countError) throw countError;
-
-  // Get paginated data
-  const { data, error } = await query
+  // Data and exact count arrive in one request; avoid a second full count scan.
+  const { data, error, count } = await query
     .order('date', { ascending: false })
     .order('id', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .range(offset, offset + pageSize - 1);
 
   if (error) throw error;
 
@@ -198,7 +191,7 @@ export async function listProjectsPaginated(
   return {
     projects,
     total,
-    hasMore: (page * limit) < total
+    hasMore: (safePage * pageSize) < total
   };
 }
 
@@ -255,6 +248,13 @@ async function linkProjectAddOns(projectId: string, addOns: Array<{ id?: string;
 }
 
 export async function updateProject(projectId: string, input: UpdateProjectInput): Promise<Project> {
+  if (input.invoiceSignature?.startsWith('data:image/')) {
+    input = {
+      ...input,
+      invoiceSignature: await uploadImageDataUrl(input.invoiceSignature, 'project-signatures'),
+    };
+  }
+
   // Resolve package id if packageName provided, preserving explicitly provided packageId if not matched
   let packageId: string | undefined = input.packageId;
   const isUuid = (v?: string) => !!v && /^[0-9a-fA-F-]{36}$/.test(v);

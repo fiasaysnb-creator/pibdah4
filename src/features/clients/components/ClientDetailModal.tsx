@@ -791,7 +791,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
           {/* Avatar */}
           <div className="w-16 h-16 sm:w-48 sm:h-48 rounded-xl sm:rounded-2xl overflow-hidden bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-inner border border-white/30">
             {client.avatarUrl ? (
-              <img src={client.avatarUrl} alt={`${client.name} avatar`} className="w-full h-full object-cover" />
+              <img src={client.avatarUrl} alt={`${client.name} avatar`} className="w-full h-full object-cover"  loading="lazy" decoding="async" />
             ) : (
               <span className="text-white font-black text-base sm:text-2xl tracking-tight select-none">{initials}</span>
             )}

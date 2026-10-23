@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
     Package,
     AddOn,
@@ -24,6 +24,7 @@ import {
     deleteAddOn,
 } from '../../services/addOns';
 import { upsertProfile } from '../../services/profile';
+import { deleteGalleryImage, uploadGalleryImage } from '../../services/storage';
 
 import { PackageCard } from './components/PackageCard';
 import { PackageModal } from './components/PackageModal';
@@ -99,14 +100,6 @@ const emptyPackageForm = {
         { label: 'Full Day', price: '', default: false }
     ],
 };
-
-const toBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
-    });
 
 const titleCase = (s: string) =>
     s ? s.replace(/\b\w/g, c => c.toUpperCase()) : '';
@@ -384,8 +377,24 @@ export const Packages: React.FC<PackagesProps> = ({
     // ── Modal States ──
     const [packageEditMode, setPackageEditMode] = useState<string | null>(null);
     const [packageFormData, setPackageFormData] = useState<any>(emptyPackageForm);
+    const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
+    const pendingCoverPreview = useRef<string | null>(null);
     const [isSavingPackage, setIsSavingPackage] = useState(false);
     const isSavingPackageRef = React.useRef(false);
+
+    const clearPendingCover = useCallback(() => {
+        if (pendingCoverPreview.current) URL.revokeObjectURL(pendingCoverPreview.current);
+        pendingCoverPreview.current = null;
+        setPendingCoverFile(null);
+    }, []);
+
+    useEffect(() => () => {
+        if (pendingCoverPreview.current) URL.revokeObjectURL(pendingCoverPreview.current);
+    }, []);
+
+    useEffect(() => {
+        if (pendingCoverFile && !packageFormData.coverImage) clearPendingCover();
+    }, [pendingCoverFile, packageFormData.coverImage, clearPendingCover]);
     const [copySourcePkg, setCopySourcePkg] = useState<Package | null>(null);
     const [copySourceAddOn, setCopySourceAddOn] = useState<AddOn | null>(null);
     const [isAddOnFormOpen, setIsAddOnFormOpen] = useState(false);
@@ -642,6 +651,7 @@ export const Packages: React.FC<PackagesProps> = ({
     const packageCoverBaseline = useRef<string>('');
 
     const handleOpenCreatePackage = () => {
+        clearPendingCover();
         setPackageEditMode('new');
         packageCoverBaseline.current = '';
         setPackageFormData({
@@ -652,6 +662,7 @@ export const Packages: React.FC<PackagesProps> = ({
     };
 
     const handleOpenEditPackage = (pkg: Package) => {
+        clearPendingCover();
         setPackageEditMode(pkg.id);
         packageCoverBaseline.current = pkg.coverImage || '';
         setPackageFormData({
@@ -702,8 +713,11 @@ export const Packages: React.FC<PackagesProps> = ({
                 return;
             }
             try {
-                const base64 = await toBase64(file);
-                setPackageFormData((prev: any) => ({ ...prev, coverImage: base64 }));
+                if (pendingCoverPreview.current) URL.revokeObjectURL(pendingCoverPreview.current);
+                const previewUrl = URL.createObjectURL(file);
+                pendingCoverPreview.current = previewUrl;
+                setPendingCoverFile(file);
+                setPackageFormData((prev: any) => ({ ...prev, coverImage: previewUrl }));
             } catch (err) {
                 console.error(err);
                 alert('Gagal mengunggah gambar. Silakan coba lagi.');
@@ -761,20 +775,30 @@ export const Packages: React.FC<PackagesProps> = ({
 
         isSavingPackageRef.current = true;
         setIsSavingPackage(true);
+        let uploadedCoverUrl: string | undefined;
         try {
+            if (pendingCoverFile) uploadedCoverUrl = await uploadGalleryImage(pendingCoverFile);
+            const packageToSave = {
+                ...packageData,
+                ...(uploadedCoverUrl ? { coverImage: uploadedCoverUrl } : {}),
+            };
             if (packageEditMode !== 'new' && packageEditMode) {
-                const updated = await updatePackage(packageEditMode, packageData);
+                const updated = await updatePackage(packageEditMode, packageToSave);
                 setPackages(prev => prev.map(p => p.id === packageEditMode ? updated : p));
                 showNotification('Paket layanan berhasil diperbarui.');
             } else {
-                const created = await createPackage(packageData as any);
+                const created = await createPackage(packageToSave as any);
                 setPackages(prev => [...prev, created]);
                 appendToOrder('package', created.id);
                 showNotification('Paket layanan baru berhasil ditambahkan.');
             }
+            clearPendingCover();
             setPackageEditMode(null);
             setPackageFormData(emptyPackageForm);
         } catch (err: any) {
+            if (uploadedCoverUrl) {
+                await deleteGalleryImage(uploadedCoverUrl).catch((): void => {});
+            }
             console.error('[Packages.save] error:', err);
             alert(`Gagal menyimpan paket ke database. ${err?.message || 'Silakan coba lagi.'}`);
         } finally {
@@ -1468,6 +1492,7 @@ export const Packages: React.FC<PackagesProps> = ({
                 <PackageModal
                     isOpen={true}
                     onClose={() => {
+                        clearPendingCover();
                         setPackageEditMode(null);
                         setPackageFormData(emptyPackageForm);
                     }}

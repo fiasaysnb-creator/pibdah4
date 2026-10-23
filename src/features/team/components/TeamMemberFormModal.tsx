@@ -104,7 +104,7 @@ export const TeamMemberFormModal: React.FC<TeamMemberFormModalProps> = ({
                     <div className="flex items-center gap-4 mb-4">
                         <div className="w-16 h-16 rounded-full overflow-hidden shrink-0 border border-brand-border bg-brand-bg flex items-center justify-center text-xl font-bold text-brand-text-secondary">
                             {formData.avatarUrl ? (
-                                <img src={formData.avatarUrl} alt="Foto profil Tim / Vendor" className="w-full h-full object-cover" />
+                                <img src={formData.avatarUrl} alt="Foto profil Tim / Vendor" className="w-full h-full object-cover"  loading="lazy" decoding="async" />
                             ) : (
                                 formData.name?.charAt(0).toUpperCase() || '?'
                             )}

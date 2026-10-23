@@ -1,5 +1,5 @@
 import supabase from '../lib/supabaseClient';
-import { compressImage } from './storage';
+import { canonicalizeStorageAssetUrls, compressImage } from './storage';
 import { TeamMember, PerformanceNote } from '../types';
 import { publicNamePatternsFromSlug } from '../utils/publicRouting';
 
@@ -10,6 +10,7 @@ export function normalizeTeamMember(row: any): TeamMember {
 }
 
 function normalize(row: any): TeamMember {
+  row = canonicalizeStorageAssetUrls(row);
   return {
     id: row.id,
     name: row.name,

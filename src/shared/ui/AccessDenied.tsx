@@ -30,8 +30,7 @@ export const AccessDenied: React.FC<AccessDeniedProps> = ({
         height="160"
         loading="lazy"
         decoding="async"
-        className="w-full h-full object-contain"
-      />
+        className="w-full h-full object-contain" />
     </div>
     <h2
       className="

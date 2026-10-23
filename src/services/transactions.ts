@@ -1,6 +1,7 @@
 import supabase from '../lib/supabaseClient';
 import { Transaction, TransactionType } from '../types';
 import { validateCardBalance } from './balanceValidator';
+import { canonicalizeStorageAssetUrls, uploadImageDataUrl } from './storage';
 
 const TRANSACTIONS = 'transactions';
 const CARDS = 'cards';
@@ -175,6 +176,7 @@ export async function updateCardBalance(cardId: string, delta: number): Promise<
 }
 
 export function normalizeTransaction(row: any): Transaction {
+  row = canonicalizeStorageAssetUrls(row);
   return {
     id: row.id,
     date: row.date,
@@ -216,6 +218,13 @@ function denormalizeTransaction(patch: TransactionPatch): Partial<TransactionRow
 }
 
 export async function updateTransaction(id: string, patch: TransactionPatch): Promise<Transaction> {
+  if (patch.vendorSignature?.startsWith('data:image/')) {
+    patch = {
+      ...patch,
+      vendorSignature: await uploadImageDataUrl(patch.vendorSignature, 'transaction-signatures'),
+    };
+  }
+
   const payload = denormalizeTransaction(patch);
   const { data, error } = await supabase
     .from(TRANSACTIONS)

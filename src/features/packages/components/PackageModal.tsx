@@ -538,7 +538,7 @@ export const PackageModal: React.FC<PackageModalProps> = ({
                                         src={formData.coverImage}
                                         alt="Cover preview"
                                         className="h-48 w-full max-w-md mx-auto object-cover rounded-xl shadow-md border border-white"
-                                    />
+                                     loading="lazy" decoding="async" />
                                     <div className="flex justify-center gap-2">
                                         <label className="cursor-pointer py-2 px-4 rounded-xl bg-brand-accent text-white font-semibold text-xs hover:bg-brand-accent-hover transition-colors shadow-sm inline-flex items-center gap-1.5">
                                             <Upload className="w-4 h-4" />

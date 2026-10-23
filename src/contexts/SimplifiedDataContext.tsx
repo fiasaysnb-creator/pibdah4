@@ -27,6 +27,7 @@ import {
 import { useDashboardStats } from '../hooks/useDashboardStats';
 import { useClientFeedback } from '../hooks/useClientFeedback';
 import { useIsLightweightPublicRoute } from '../hooks/useIsLightweightPublicRoute';
+import { useIsPublicFormDataRoute } from '../hooks/useIsLightweightPublicRoute';
 import {
   Client,
   Project,
@@ -122,23 +123,23 @@ function makeCacheSetter<T>(
 export const SimplifiedDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const queryClient = useQueryClient();
 
-  // Halaman publik ringan (Public Packages / Public Booking) hanya memakai
-  // profile, packages, addOns, leads, cards, promoCodes. Dataset vendor (termasuk
-  // seluruh kolom + relasi proyek) tidak dikirim; lencana "Paling Populer" memakai
-  // useProjectPackageIdsQuery yang hanya mengambil package_id.
+  // Rute publik yang tidak membutuhkan dataset vendor menahan query global dan
+  // listener Realtime. Form paket/booking mempertahankan data pendukungnya.
   const isLightPublic = useIsLightweightPublicRoute();
+  const isPublicFormData = useIsPublicFormDataRoute();
   const vendorOnly = { enabled: !isLightPublic };
+  const publicFormData = { enabled: !isLightPublic || isPublicFormData };
 
   // ─── Domain queries (single source of truth) ────────────────────────────
   const { data: clients, isLoading: loadingClients, error: errorClients } = useClientsQuery(vendorOnly);
   const { data: projects, isLoading: loadingProjects, error: errorProjects } = useProjectsQuery(vendorOnly);
   const { data: teamMembers, isLoading: loadingTeamMembers, error: errorTeamMembers } = useTeamMembersQuery(vendorOnly);
   const { data: transactions, isLoading: loadingTransactions, error: errorTransactions } = useTransactionsQuery(vendorOnly);
-  const { data: leads, isLoading: loadingLeads, error: errorLeads } = useLeadsQuery();
-  const { data: cards, isLoading: loadingCards, error: errorCards } = useCardsQuery();
+  const { data: leads, isLoading: loadingLeads, error: errorLeads } = useLeadsQuery(publicFormData);
+  const { data: cards, isLoading: loadingCards, error: errorCards } = useCardsQuery(publicFormData);
   const { data: pockets, isLoading: loadingPockets, error: errorPockets } = usePocketsQuery(vendorOnly);
-  const { data: packages, isLoading: loadingPackages, error: errorPackages } = usePackagesQuery();
-  const { data: addOns, isLoading: loadingAddOns, error: errorAddOns } = useAddOnsQuery();
+  const { data: packages, isLoading: loadingPackages, error: errorPackages } = usePackagesQuery(publicFormData);
+  const { data: addOns, isLoading: loadingAddOns, error: errorAddOns } = useAddOnsQuery(publicFormData);
   const { data: calendarEvents, isLoading: loadingCalendarEvents, error: errorCalendarEvents } = useCalendarEventsQuery(vendorOnly);
   const { data: clientFeedback, isLoading: loadingClientFeedback, error: errorClientFeedback } = useClientFeedback({ enabled: !isLightPublic });
   const { data: totals, isLoading: loadingTotals, error: errorTotals } = useDashboardStats({ enabled: !isLightPublic });
@@ -225,6 +226,15 @@ export const SimplifiedDataProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     const channel = supabase.channel('global-realtime-channel');
+    const pendingInvalidations = new Map<string, number>();
+    const scheduleInvalidation = (queryKey: string) => {
+      if (pendingInvalidations.has(queryKey)) return;
+      const timer = window.setTimeout(() => {
+        pendingInvalidations.delete(queryKey);
+        void queryClient.invalidateQueries({ queryKey: [queryKey] });
+      }, 300);
+      pendingInvalidations.set(queryKey, timer);
+    };
 
     const makeHandler = <T extends { id: string }>(
       queryKey: string,
@@ -232,10 +242,10 @@ export const SimplifiedDataProvider: React.FC<{ children: React.ReactNode }> = (
       options: { sortByDateDesc?: boolean; tempIdPrefixes?: string[]; amountMatchField?: keyof T; invalidateQueryKeys?: string[] } = {},
     ) => (payload: any) => {
       options.invalidateQueryKeys?.forEach((key) => {
-        void queryClient.invalidateQueries({ queryKey: [key] });
+        scheduleInvalidation(key);
       });
       if (!queryClient.getQueryData<T[]>([queryKey])) {
-        void queryClient.invalidateQueries({ queryKey: [queryKey] });
+        scheduleInvalidation(queryKey);
         return;
       }
 
@@ -290,17 +300,17 @@ export const SimplifiedDataProvider: React.FC<{ children: React.ReactNode }> = (
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' },
         makeHandler<Client>('clients', normalizeClient, { invalidateQueryKeys: ['dashboardStats'] }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['projects'] });
-        void queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+        scheduleInvalidation('projects');
+        scheduleInvalidation('dashboardStats');
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cards' },
-        makeHandler<Card>('cards', normalizeCard, { invalidateQueryKeys: ['dashboardStats'] }))
+        makeHandler<Card>('cards', normalizeCard))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pockets' },
-        makeHandler<FinancialPocket>('pockets', normalizePocket, { invalidateQueryKeys: ['dashboardStats'] }))
+        makeHandler<FinancialPocket>('pockets', normalizePocket))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' },
         makeHandler<Lead>('leads', normalizeLead, { invalidateQueryKeys: ['dashboardStats'] }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members' },
-        makeHandler<TeamMember>('teamMembers', normalizeTeamMember, { invalidateQueryKeys: ['projects'] }))
+        makeHandler<TeamMember>('teamMembers', normalizeTeamMember, { invalidateQueryKeys: ['projects', 'dashboardStats'] }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'packages' },
         makeHandler<Package>('packages', normalizePackage))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'add_ons' }, (payload: any) => {
@@ -317,7 +327,7 @@ export const SimplifiedDataProvider: React.FC<{ children: React.ReactNode }> = (
           }
         }
         if (isDisplayChange) {
-          void queryClient.invalidateQueries({ queryKey: ['projects'] });
+          scheduleInvalidation('projects');
         }
         addOnsRealtimeHandler(payload);
       })
@@ -326,37 +336,37 @@ export const SimplifiedDataProvider: React.FC<{ children: React.ReactNode }> = (
       .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' },
         makeHandler<CalendarEvent>('calendarEvents', normalizeCalendarEvent))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'project_add_ons' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['projects'] });
+        scheduleInvalidation('projects');
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'project_team_assignments' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['projects'] });
+        scheduleInvalidation('projects');
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wedding_day_checklists' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['projects'] });
+        scheduleInvalidation('projects');
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'contracts' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['contracts'] });
+        scheduleInvalidation('contracts');
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'promo_codes' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['promoCodes'] });
+        scheduleInvalidation('promoCodes');
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload: any) => {
         const row = payload.eventType === 'DELETE' ? null : payload.new;
         const cached = queryClient.getQueryData<Profile>(['profile']);
         if (!row || !cached || row.id !== cached.id) {
-          void queryClient.invalidateQueries({ queryKey: ['profile'] });
+          scheduleInvalidation('profile');
           return;
         }
         queryClient.setQueryData<Profile>(['profile'], normalizeProfileRow(row));
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_project_payments' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['teamProjectPayments'] });
+        scheduleInvalidation('teamProjectPayments');
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_payment_records' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['teamPaymentRecords'] });
+        scheduleInvalidation('teamPaymentRecords');
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        scheduleInvalidation('notifications');
       })
       .subscribe((status, subscribeError) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -365,6 +375,8 @@ export const SimplifiedDataProvider: React.FC<{ children: React.ReactNode }> = (
       });
 
     return () => {
+      pendingInvalidations.forEach((timer) => window.clearTimeout(timer));
+      pendingInvalidations.clear();
       supabase.removeChannel(channel);
     };
   }, [queryClient, isLightPublic]);

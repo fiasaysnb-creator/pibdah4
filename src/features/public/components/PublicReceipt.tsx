@@ -3,7 +3,7 @@ import { Transaction, Profile, Project, Client, TransactionType } from '../../..
 import { DownloadIcon } from '../../../constants';
 import { getTransaction } from '../../../services/transactions';
 import { getProjectWithRelations } from '../../../services/projects';
-import { getProfile } from '../../../services/profile';
+import { getPublicProfile } from '../../../services/profile';
 import { getClient } from '../../../services/clients';
 import { useSupabaseRealtimeRefresh } from '../../../hooks/useSupabaseRealtimeRefresh';
 import { downloadReceiptPdf } from '../../clients/utils/receiptPdf';
@@ -23,7 +23,7 @@ const PublicReceipt: React.FC<PublicReceiptProps> = ({ transactionId }) => {
 
     useSupabaseRealtimeRefresh('public-receipt', ['transactions', 'projects', 'project_add_ons', 'clients', 'profiles'], () => {
         setRefreshVersion(version => version + 1);
-    });
+    }, { realtime: false, refreshOnFocus: false });
 
     useEffect(() => {
         if (!transactionId) {
@@ -40,7 +40,7 @@ const PublicReceipt: React.FC<PublicReceiptProps> = ({ transactionId }) => {
 
                 const [fetchedTx, fetchedProfile] = await Promise.all([
                     getTransaction(transactionId),
-                    getProfile()
+                    getPublicProfile()
                 ]);
 
                 if (cancelled) return;
@@ -182,7 +182,7 @@ const PublicReceipt: React.FC<PublicReceiptProps> = ({ transactionId }) => {
                         <div className="mb-6 flex flex-col items-start justify-between gap-5 border-b-2 border-brand-accent pb-6 sm:mb-10 sm:flex-row sm:items-start sm:pb-8">
                             <div>
                                 {profile.logoBase64 ? (
-                                    <img src={profile.logoBase64} alt="Company Logo" className="h-20 object-contain mb-4" />
+                                    <img src={profile.logoBase64} alt="Company Logo" className="h-20 object-contain mb-4"  loading="lazy" decoding="async" />
                                 ) : (
                                     <h2 className="text-2xl font-bold text-brand-accent mb-2">{profile.companyName}</h2>
                                 )}
@@ -273,9 +273,9 @@ const PublicReceipt: React.FC<PublicReceiptProps> = ({ transactionId }) => {
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 font-mono">Tanda Tangan Authorized</p>
                                 <div className="h-20 flex items-center justify-center mb-4">
                                     {transaction.vendorSignature ? (
-                                        <img src={transaction.vendorSignature} alt="Tanda Tangan" className="max-h-full object-contain grayscale" />
+                                        <img src={transaction.vendorSignature} alt="Tanda Tangan" className="max-h-full object-contain grayscale"  loading="lazy" decoding="async" />
                                     ) : profile.signatureBase64 ? (
-                                        <img src={profile.signatureBase64} alt="Authorized" className="max-h-full object-contain grayscale" />
+                                        <img src={profile.signatureBase64} alt="Authorized" className="max-h-full object-contain grayscale"  loading="lazy" decoding="async" />
                                     ) : (
                                         <div className="h-px w-32 bg-slate-200 mx-auto" />
                                     )}

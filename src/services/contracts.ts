@@ -1,9 +1,11 @@
 import supabase from '../lib/supabaseClient';
 import { Contract } from '../types';
+import { canonicalizeStorageAssetUrls, uploadImageDataUrl } from './storage';
 
 const CONTRACTS = 'contracts';
 
 function normalizeContract(row: any): Contract {
+  row = canonicalizeStorageAssetUrls(row);
   return {
     id: row.id,
     contractNumber: row.contract_number,
@@ -48,6 +50,13 @@ export async function listContracts(): Promise<Contract[]> {
 }
 
 export async function createContract(contract: Omit<Contract, 'id' | 'createdAt'>): Promise<Contract> {
+  if (contract.vendorSignature?.startsWith('data:image/')) {
+    contract = {
+      ...contract,
+      vendorSignature: await uploadImageDataUrl(contract.vendorSignature, 'contract-signatures'),
+    };
+  }
+
   const insertRow = {
     contract_number: contract.contractNumber,
     client_id: contract.clientId,
@@ -88,6 +97,13 @@ export async function createContract(contract: Omit<Contract, 'id' | 'createdAt'
 }
 
 export async function updateContract(id: string, patch: Partial<Contract>): Promise<Contract> {
+  if (patch.vendorSignature?.startsWith('data:image/')) {
+    patch = {
+      ...patch,
+      vendorSignature: await uploadImageDataUrl(patch.vendorSignature, 'contract-signatures'),
+    };
+  }
+
   const updateRow: any = {};
   if (patch.contractNumber !== undefined) updateRow.contract_number = patch.contractNumber;
   if (patch.clientId !== undefined) updateRow.client_id = patch.clientId;

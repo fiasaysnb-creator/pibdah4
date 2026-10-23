@@ -11,7 +11,7 @@ import WebPushNotificationPanel from './components/WebPushNotificationPanel';
 import { PencilIcon, PlusIcon, Trash2Icon, KeyIcon, UsersIcon, ListIcon, FolderKanbanIcon, FileTextIcon, SettingsIcon, MessageSquareIcon, RefreshCwIcon, NAV_ITEMS, DEFAULT_INCOME_CATEGORIES, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_PROJECT_TYPES, DEFAULT_EVENT_TYPES, DEFAULT_PACKAGE_CATEGORIES, DEFAULT_LEAD_SOURCES, DEFAULT_PROJECT_STATUS_SUGGESTIONS, DEFAULT_BRIEFING_TEMPLATE, DEFAULT_TERMS_AND_CONDITIONS, DEFAULT_PACKAGE_SHARE_TEMPLATE, DEFAULT_BOOKING_FORM_TEMPLATE, CHAT_TEMPLATES, DEFAULT_BILLING_TEMPLATES, DEFAULT_INVOICE_SHARE_TEMPLATE, DEFAULT_RECEIPT_SHARE_TEMPLATE, DEFAULT_EXPENSE_SHARE_TEMPLATE, DEFAULT_PORTAL_SHARE_TEMPLATE } from '../../constants';
 import { upsertProfile, buildProfilePatch } from '../../services/profile';
 import { updatePackage } from '../../services/packages';
-import { uploadGalleryImage } from '../../services/storage';
+import { uploadGalleryImage, uploadImageAsset } from '../../services/storage';
 import { listUsers, createUser, updateUser, deleteUser } from '../../services/users';
 import { validateTemplate, processTemplate } from '../../services/chatTemplatesOffline';
 import { DEFAULT_CHECKLIST_TEMPLATES } from '../../services/weddingDayChecklist';
@@ -1676,19 +1676,20 @@ const Settings: React.FC<SettingsProps> = ({ profile, setProfile, transactions, 
         setLocalProfile(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             if (file.size > 2 * 1024 * 1024) { // 2MB limit
                 alert("Ukuran file logo tidak boleh melebihi 2MB.");
                 return;
             }
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const res = reader.result as string;
+            try {
+                const res = await uploadImageAsset(file, 'profile-assets');
                 setLocalProfile(prev => ({ ...prev, logoBase64: res }));
-            };
-            reader.readAsDataURL(file);
+            } catch (error) {
+                console.error('[Settings] Logo upload failed:', error);
+                alert('Gagal mengunggah logo. Silakan coba lagi.');
+            }
         }
     };
 
@@ -1696,19 +1697,20 @@ const Settings: React.FC<SettingsProps> = ({ profile, setProfile, transactions, 
         setLocalProfile(prev => ({ ...prev, logoBase64: '' as any }));
     };
 
-    const handleSignatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleSignatureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             if (file.size > 2 * 1024 * 1024) { // 2MB limit
                 alert("Ukuran file TTD tidak boleh melebihi 2MB.");
                 return;
             }
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const res = reader.result as string;
+            try {
+                const res = await uploadImageAsset(file, 'profile-assets');
                 setLocalProfile(prev => ({ ...prev, signatureBase64: res }));
-            };
-            reader.readAsDataURL(file);
+            } catch (error) {
+                console.error('[Settings] Signature upload failed:', error);
+                alert('Gagal mengunggah tanda tangan. Silakan coba lagi.');
+            }
         }
     };
 
@@ -2135,7 +2137,7 @@ const Settings: React.FC<SettingsProps> = ({ profile, setProfile, transactions, 
                                     <div className="mt-2 flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4">
                                         <div className="relative flex-shrink-0">
                                             {profile.logoBase64 && profile.logoBase64 !== '' ?
-                                                <img src={profile.logoBase64} alt="Logo preview" className="h-12 w-12 md:h-16 md:w-16 object-contain rounded-md bg-brand-bg p-1 border border-brand-border" />
+                                                <img src={profile.logoBase64} alt="Logo preview" className="h-12 w-12 md:h-16 md:w-16 object-contain rounded-md bg-brand-bg p-1 border border-brand-border"  loading="lazy" decoding="async" />
                                                 : <div className="h-12 w-12 md:h-16 md:w-16 rounded-md bg-brand-bg border border-brand-border flex items-center justify-center text-[10px] md:text-xs text-brand-text-secondary">No Logo</div>
                                             }
                                             {profile.logoBase64 && profile.logoBase64 !== '' && (
@@ -2164,7 +2166,7 @@ const Settings: React.FC<SettingsProps> = ({ profile, setProfile, transactions, 
                                     <div className="mt-2 flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4">
                                         <div className="relative flex-shrink-0">
                                             {profile.signatureBase64 && profile.signatureBase64 !== '' ?
-                                                <img src={profile.signatureBase64} alt="TTD preview" className="h-16 w-24 md:h-20 md:w-32 object-contain rounded-md bg-white p-1 border border-brand-border" />
+                                                <img src={profile.signatureBase64} alt="TTD preview" className="h-16 w-24 md:h-20 md:w-32 object-contain rounded-md bg-white p-1 border border-brand-border"  loading="lazy" decoding="async" />
                                                 : <div className="h-16 w-24 md:h-20 md:w-32 rounded-md bg-brand-bg border border-brand-border flex items-center justify-center text-[10px] md:text-xs text-brand-text-secondary text-center px-1">Belum Upload TTD</div>
                                             }
                                             {profile.signatureBase64 && profile.signatureBase64 !== '' && (
@@ -2216,7 +2218,7 @@ const Settings: React.FC<SettingsProps> = ({ profile, setProfile, transactions, 
                                                         {imageUrl && <span className="text-[10px] text-emerald-600 font-semibold">Tersimpan</span>}
                                                     </div>
                                                     {imageUrl ? (
-                                                        <img src={imageUrl} alt={`${label} background`} className="w-full h-24 object-cover rounded-lg border border-brand-border mb-2" />
+                                                        <img src={imageUrl} alt={`${label} background`} className="w-full h-24 object-cover rounded-lg border border-brand-border mb-2"  loading="lazy" decoding="async" />
                                                     ) : (
                                                         <div className="w-full h-24 rounded-lg border border-dashed border-brand-border flex items-center justify-center text-[10px] text-brand-text-secondary mb-2">Default digunakan</div>
                                                     )}

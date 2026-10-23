@@ -86,7 +86,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({
                         alt={pkg.name} 
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
                         loading="lazy" 
-                    />
+                     decoding="async" />
                 ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-1.5 bg-[#F4F6F9]">
                         <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-white/90 border border-[#EAEFF4] flex items-center justify-center shadow-sm text-[#5A6A85]">

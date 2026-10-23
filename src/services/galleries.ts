@@ -1,9 +1,10 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-import { compressImage } from './storage';
+import { canonicalizeStorageAssetUrls, compressImage } from './storage';
 import { Gallery, GalleryImage } from '../types';
 import { toGalleryPublicSlug, toPublicNameSlug } from '../utils/publicRouting';
 
 const LOCAL_STORAGE_GALLERIES_KEY = 'weddfin-galleries';
+export const MAX_PUBLIC_PDF_BYTES = 5 * 1024 * 1024;
 
 function getStoredGalleries(): Gallery[] {
     try {
@@ -78,8 +79,9 @@ export const listGalleries = async (): Promise<Gallery[]> => {
                 .order('created_at', { ascending: false });
 
             if (!error && data) {
-                saveStoredGalleries(data);
-                return data;
+                const galleries = canonicalizeStorageAssetUrls(data);
+                saveStoredGalleries(galleries);
+                return galleries;
             }
             if (error) {
                 console.warn('[galleries] Remote galleries fetch failed, using stored fallback:', error.message || error);
@@ -102,7 +104,7 @@ export const getGallery = async (id: string): Promise<Gallery | null> => {
                 .single();
 
             if (!error && data) {
-                return data;
+                return canonicalizeStorageAssetUrls(data);
             }
         } catch (err) {
             console.warn('[galleries] Remote getGallery error:', err);
@@ -137,7 +139,7 @@ export const getPublicGallery = async (publicId: string): Promise<Gallery | null
         data = res.data;
         error = res.error;
 
-        if (!error && data) return data;
+        if (!error && data) return canonicalizeStorageAssetUrls(data);
     } catch (err) {
         error = err;
     }
@@ -316,6 +318,10 @@ export const uploadGalleryPdf = async (
     file: File,
     displayName?: string
 ): Promise<{ pdf_url: string; pdf_name: string }> => {
+    if (file.size > MAX_PUBLIC_PDF_BYTES) {
+        throw new Error('Ukuran PDF maksimal 5 MB. Kompres PDF sebelum mengunggah agar pelanggan tidak mengunduh file terlalu besar.');
+    }
+
     const fileExt = file.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'pdf';
     const fileName = `${galleryId}/pricelist-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
 
@@ -323,11 +329,15 @@ export const uploadGalleryPdf = async (
         .from('gallery-images')
         .upload(fileName, file, {
             contentType: 'application/pdf',
-            upsert: true
+            cacheControl: '31536000',
+            upsert: false
         });
 
     if (uploadError) {
         console.error('Error uploading gallery PDF:', uploadError);
+        if (/row-level security policy/i.test(uploadError.message)) {
+            throw new Error('Upload ditolak kebijakan akses Storage. Pastikan Anda login dengan akun pemilik Pricelist ini.');
+        }
         throw new Error('Gagal mengupload PDF Pricelist');
     }
 

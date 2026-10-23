@@ -22,7 +22,7 @@ const getInitials = (name: string) => {
 
 const ClientAvatar: React.FC<{ client?: Client | null; name: string; className: string }> = ({ client, name, className }) => (
     <div className={`${className} rounded-full overflow-hidden shrink-0 bg-brand-accent/10 flex items-center justify-center text-[9px] font-bold text-brand-accent`}>
-        {client?.avatarUrl ? <img src={client.avatarUrl} alt={`${name} avatar`} className="w-full h-full object-cover" /> : getInitials(name)}
+        {client?.avatarUrl ? <img src={client.avatarUrl} alt={`${name} avatar`} className="w-full h-full object-cover"  loading="lazy" decoding="async" /> : getInitials(name)}
     </div>
 );
 
@@ -327,7 +327,7 @@ const CalendarSidebar: React.FC<CalendarSidebarProps> = ({ profile, isClientProj
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-accent/10 flex items-center justify-center text-brand-accent font-bold text-sm border border-brand-accent/20">
-                                        {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover" /> : getInitials(member.name)}
+                                        {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover"  loading="lazy" decoding="async" /> : getInitials(member.name)}
                                     </div>
                                     <div className="min-w-0">
                                         <p className="font-semibold text-brand-text-light text-sm truncate">{member.name}</p>
@@ -1548,7 +1548,7 @@ const TeamView: React.FC<TeamViewProps> = ({ currentDate, eventsByDate, teamMemb
                         <div key={member.id} className="flex border-b border-brand-border/40 hover:bg-white/40 transition-colors group">
                             <div className="w-32 sm:w-48 p-3 border-r border-brand-border/40 flex items-center gap-3 shrink-0 bg-brand-surface/50 z-10 sticky left-0 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
                                 <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-input flex items-center justify-center text-xs font-bold text-brand-text-secondary border border-brand-border/50">
-                                    {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover" /> : getInitials(member.name)}
+                                    {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover"  loading="lazy" decoding="async" /> : getInitials(member.name)}
                                 </div>
                                 <div className="min-w-0 hidden sm:block">
                                     <p className="font-semibold text-sm text-brand-text-light truncate">{member.name}</p>
@@ -1607,7 +1607,7 @@ const TeamView: React.FC<TeamViewProps> = ({ currentDate, eventsByDate, teamMemb
                         <section key={member.id} className="overflow-hidden rounded-xl border border-brand-border/50 bg-white shadow-sm">
                             <div className="flex items-center gap-3 border-b border-brand-border/40 px-3 py-3">
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-brand-border/50 bg-brand-input text-xs font-bold text-brand-text-secondary">
-                                    {member.avatarUrl ? <img src={member.avatarUrl} alt={`${member.name} avatar`} className="h-full w-full object-cover" /> : getInitials(member.name)}
+                                    {member.avatarUrl ? <img src={member.avatarUrl} alt={`${member.name} avatar`} className="h-full w-full object-cover"  loading="lazy" decoding="async" /> : getInitials(member.name)}
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-semibold text-brand-text-light">{member.name}</p>
@@ -1750,7 +1750,7 @@ const EventPanel: React.FC<EventPanelProps> = ({ isOpen, mode, selectedEvent, ev
                         <div className="flex-1 overflow-y-auto custom-scrollbar bg-white/30 min-h-0">
                             {activeTab === 'info' && (
                                 <div className="p-4 sm:p-6">
-                                    {selectedEvent.image && <div className="relative h-48 w-full -mx-6 -mt-6 mb-6"><img src={selectedEvent.image} alt={selectedEvent.projectName} className="w-full h-full object-cover" /><div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/60 to-transparent"></div></div>}
+                                    {selectedEvent.image && <div className="relative h-48 w-full -mx-6 -mt-6 mb-6"><img src={selectedEvent.image} alt={selectedEvent.projectName} className="w-full h-full object-cover"  loading="lazy" decoding="async" /><div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/60 to-transparent"></div></div>}
                                     <h3 className="break-words text-lg font-semibold text-brand-text-light sm:text-xl">{selectedEvent.projectName}</h3>
                                     <span className={`mt-2 rounded-full px-2 py-0.5 text-xs font-medium ${selectedEvent.projectType.length > 24 ? 'hidden sm:inline-block' : 'inline-block'}`} style={{ backgroundColor: `${getEventColor(selectedEvent, profile)}30`, color: getEventColor(selectedEvent, profile) }}>{selectedEvent.projectType}</span>
                                     {selectedEvent.clientId !== 'INTERNAL' && selectedEvent.clientName && (
@@ -1903,7 +1903,7 @@ const EventPanel: React.FC<EventPanelProps> = ({ isOpen, mode, selectedEvent, ev
                                                 <div key={t.memberId} className="p-3 bg-white/50 border border-brand-border/40 rounded-xl flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-full overflow-hidden bg-brand-input flex items-center justify-center text-sm font-bold text-brand-text-secondary border-2 border-brand-surface">
                                                         {teamMembers.find(member => member.id === t.memberId)?.avatarUrl ? (
-                                                            <img src={teamMembers.find(member => member.id === t.memberId)?.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                                            <img src={teamMembers.find(member => member.id === t.memberId)?.avatarUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                                                         ) : getInitials(t.name)}
                                                     </div>
                                                     <div className="flex-1">
@@ -2082,7 +2082,7 @@ const EventPanel: React.FC<EventPanelProps> = ({ isOpen, mode, selectedEvent, ev
                                                     className="h-4 w-4 shrink-0 accent-brand-accent"
                                                 />
                                                 <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-brand-border/50 bg-brand-input text-xs font-bold text-brand-text-secondary">
-                                                    {member.avatarUrl ? <img src={member.avatarUrl} alt={`${member.name} avatar`} className="h-full w-full object-cover" /> : getInitials(member.name)}
+                                                    {member.avatarUrl ? <img src={member.avatarUrl} alt={`${member.name} avatar`} className="h-full w-full object-cover"  loading="lazy" decoding="async" /> : getInitials(member.name)}
                                                 </div>
                                                 <span className="min-w-0 flex-1">
                                                     <span className="block truncate text-sm font-semibold text-brand-text-light">{member.name}</span>
@@ -2200,38 +2200,32 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projects, setProject
         return () => { isMounted = false; };
     }, [selectedYear, calendarRetryToken, teamMembers, projects]);
 
-    // Realtime subscription for calendar_events
+    // Batch bursty calendar changes into one bounded year-range refresh.
     useEffect(() => {
+        let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+        const refreshEvents = () => {
+            if (refreshTimer) clearTimeout(refreshTimer);
+            refreshTimer = setTimeout(() => {
+                const from = formatLocalDate(new Date(selectedYear, 0, 1));
+                const to = formatLocalDate(new Date(selectedYear, 11, 31));
+                void listCalendarEventsInRange(from, to)
+                    .then(rows => setInternalEvents(Array.isArray(rows) ? rows.map(event => calendarEventToCalendarProject(event, teamMembers, projects)) : []))
+                    .catch(() => undefined);
+            }, 350);
+        };
         const channel = supabase
             .channel('calendar-events-ch')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'calendar_events' }, (payload) => {
-                // Refetch or append
-                // Safer to re-map quickly
-                (async () => {
-                    try {
-                        const from = formatLocalDate(new Date(selectedYear, 0, 1));
-                        const to = formatLocalDate(new Date(selectedYear, 11, 31));
-                        const rows = await listCalendarEventsInRange(from, to);
-                        setInternalEvents(Array.isArray(rows) ? rows.map(event => calendarEventToCalendarProject(event, teamMembers, projects)) : []);
-                    } catch { }
-                })();
-            })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calendar_events' }, (payload) => {
-                (async () => {
-                    try {
-                        const from = formatLocalDate(new Date(selectedYear, 0, 1));
-                        const to = formatLocalDate(new Date(selectedYear, 11, 31));
-                        const rows = await listCalendarEventsInRange(from, to);
-                        setInternalEvents(Array.isArray(rows) ? rows.map(event => calendarEventToCalendarProject(event, teamMembers, projects)) : []);
-                    } catch { }
-                })();
-            })
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'calendar_events' }, (payload) => {
-                setInternalEvents(prev => prev.filter(e => e.id !== (payload.old as any).id));
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' }, (payload) => {
+                if (payload.eventType === 'DELETE') {
+                    setInternalEvents(prev => prev.filter(event => event.id !== (payload.old as any).id));
+                    return;
+                }
+                refreshEvents();
             })
             .subscribe();
 
         return () => {
+            if (refreshTimer) clearTimeout(refreshTimer);
             try { supabase.removeChannel(channel); } catch { }
         };
     }, [currentDate, selectedYear, teamMembers, projects]);
@@ -2983,7 +2977,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projects, setProject
                         {/* Member Profile Card */}
                         <div className="flex items-center gap-4 p-5 bg-gradient-to-r from-brand-accent/5 to-brand-accent/10 rounded-2xl border border-brand-accent/20">
                             <div className="w-20 h-20 rounded-full overflow-hidden bg-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-3xl border-2 border-brand-accent/30 shadow-lg">
-                                {selectedTeamMember.avatarUrl ? <img src={selectedTeamMember.avatarUrl} alt={`${selectedTeamMember.name} avatar`} className="w-full h-full object-cover" /> : getInitials(selectedTeamMember.name)}
+                                {selectedTeamMember.avatarUrl ? <img src={selectedTeamMember.avatarUrl} alt={`${selectedTeamMember.name} avatar`} className="w-full h-full object-cover"  loading="lazy" decoding="async" /> : getInitials(selectedTeamMember.name)}
                             </div>
                             <div className="flex-1">
                                 <h3 className="font-bold text-xl text-brand-text-light">{selectedTeamMember.name}</h3>
@@ -3340,7 +3334,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projects, setProject
                                         <div className="flex items-start justify-between">
                                             <div className="flex items-center gap-3 flex-1">
                                                 <div className="w-10 h-10 rounded-full overflow-hidden bg-brand-accent/10 flex items-center justify-center text-brand-accent font-bold text-sm border border-brand-accent/20">
-                                                    {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover" /> : getInitials(member.name)}
+                                                    {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover"  loading="lazy" decoding="async" /> : getInitials(member.name)}
                                                 </div>
                                                 <div>
                                                     <p className="font-semibold text-brand-text-light text-sm">{member.name}</p>

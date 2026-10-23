@@ -5,8 +5,8 @@ import { downloadInvoicePdf } from '../../finance/utils/invoicePdf';
 import { DownloadIcon } from '../../../constants';
 import { getProjectWithRelations } from '../../../services/projects';
 import { getClient } from '../../../services/clients';
-import { listPackages } from '../../../services/packages';
-import { getProfile } from '../../../services/profile';
+import { listPackagesForInvoice } from '../../../services/packages';
+import { getPublicProfile } from '../../../services/profile';
 import { useSupabaseRealtimeRefresh } from '../../../hooks/useSupabaseRealtimeRefresh';
 
 interface PublicInvoiceProps {
@@ -28,7 +28,7 @@ const PublicInvoice: React.FC<PublicInvoiceProps> = ({ projectId }) => {
 
     useSupabaseRealtimeRefresh('public-invoice', ['projects', 'project_add_ons', 'clients', 'packages', 'profiles'], () => {
         setRefreshVersion(version => version + 1);
-    });
+    }, { realtime: false, refreshOnFocus: false });
 
     useEffect(() => {
         if (!projectId) {
@@ -44,10 +44,9 @@ const PublicInvoice: React.FC<PublicInvoiceProps> = ({ projectId }) => {
                 setError(null);
 
                 // Fetch everything in parallel
-                const [fetchedProject, fetchedPackages, fetchedProfile] = await Promise.all([
+                const [fetchedProject, fetchedProfile] = await Promise.all([
                     getProjectWithRelations(projectId),
-                    listPackages(),
-                    getProfile(),
+                    getPublicProfile(),
                 ]);
 
                 if (cancelled) return;
@@ -57,6 +56,9 @@ const PublicInvoice: React.FC<PublicInvoiceProps> = ({ projectId }) => {
                     setLoading(false);
                     return;
                 }
+
+                const fetchedPackages = await listPackagesForInvoice(fetchedProject);
+                if (cancelled) return;
 
                 setProject(fetchedProject);
                 setPackages(fetchedPackages);

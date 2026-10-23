@@ -5,6 +5,18 @@ import { getVendorPortfolio } from '../../services/vendorPortfolios';
 import { getVendorProfile } from '../../services/vendorProfile';
 import { useSupabaseRealtimeRefresh } from '../../hooks/useSupabaseRealtimeRefresh';
 
+const PORTFOLIO_IMAGE_FALLBACK = '/assets/images/backgrounds/portal-pengantin-3.jpg';
+
+const handlePortfolioImageError = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    const image = event.currentTarget;
+    if (image.dataset.fallbackApplied === 'true') {
+        image.style.visibility = 'hidden';
+        return;
+    }
+    image.dataset.fallbackApplied = 'true';
+    image.src = PORTFOLIO_IMAGE_FALLBACK;
+};
+
 const PortfolioDetailPage: React.FC = () => {
     const [portfolio, setPortfolio] = useState<VendorPortfolio | null>(null);
     const [vendorName, setVendorName] = useState('');
@@ -16,7 +28,7 @@ const PortfolioDetailPage: React.FC = () => {
 
     useSupabaseRealtimeRefresh('public-portfolio-detail', ['vendor_profiles', 'vendor_portfolios'], () => {
         setRefreshVersion(version => version + 1);
-    });
+    }, { realtime: false, refreshOnFocus: false });
 
     useEffect(() => {
         const hash = window.location.hash;
@@ -122,7 +134,8 @@ const PortfolioDetailPage: React.FC = () => {
                             src={portfolio.cover_image_url}
                             alt={portfolio.title}
                             className="w-full h-full object-cover"
-                        />
+                         loading="eager" decoding="async"
+                         onError={handlePortfolioImageError} />
                         <div className="absolute inset-0 bg-black/25" />
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-white text-center px-4">
                             <span className="text-xs tracking-[0.3em] uppercase text-white/70 mb-3"
@@ -194,7 +207,8 @@ const PortfolioDetailPage: React.FC = () => {
                                     alt={`${portfolio.title} - ${idx + 1}`}
                                     className="w-full h-auto object-contain group-hover:opacity-95 transition-opacity duration-500"
                                     loading="lazy"
-                                />
+                                 decoding="async"
+                                 onError={handlePortfolioImageError} />
                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                                     <div className="bg-white/90 backdrop-blur-sm w-10 h-10 rounded-full flex items-center justify-center shadow-lg">
                                         <ZoomIn className="w-5 h-5 text-[#3d2e22]" />
@@ -276,6 +290,7 @@ const PortfolioDetailPage: React.FC = () => {
                         alt="Full view"
                         className="max-h-[90vh] max-w-[90vw] object-contain"
                         onClick={(e) => e.stopPropagation()}
+                        onError={handlePortfolioImageError}
                     />
 
                     <p className="absolute bottom-5 left-0 right-0 text-center text-white/40 text-xs tracking-widest"

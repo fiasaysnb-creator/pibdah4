@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { CalendarDays, Image as ImageIcon, X } from 'lucide-react';
 import { Gallery, GalleryImage, Profile } from '../../../types';
 import { getPublicGallery } from '../../../services/galleries';
-import { getProfile } from '../../../services/profile';
+import { getPublicContactProfile } from '../../../services/profile';
 import { cleanPhoneNumber } from '../../../constants';
 import { useSupabaseRealtimeRefresh } from '../../../hooks/useSupabaseRealtimeRefresh';
 
@@ -87,7 +87,7 @@ const PublicGallery: React.FC<PublicGalleryProps> = ({ galleryId }) => {
                     console.error('Error fetching gallery:', err);
                     return null;
                 }),
-                getProfile().catch((): null => null)
+                getPublicContactProfile().catch((): null => null)
             ]);
 
             if (!galleryData) {
@@ -135,7 +135,7 @@ const PublicGallery: React.FC<PublicGalleryProps> = ({ galleryId }) => {
         loadGalleryData();
     }, [loadGalleryData]);
 
-    useSupabaseRealtimeRefresh('public-gallery', ['galleries', 'profiles'], loadGalleryData);
+    useSupabaseRealtimeRefresh('public-gallery', ['galleries', 'profiles'], loadGalleryData, { realtime: false, refreshOnFocus: false });
 
     useEffect(() => {
         if (selectedImage) {
@@ -264,7 +264,11 @@ const PublicGallery: React.FC<PublicGalleryProps> = ({ galleryId }) => {
                                                 e.currentTarget.style.opacity = '1';
                                             }}
                                             onError={(e) => {
-                                                e.currentTarget.style.opacity = '1';
+                                                const imageElement = e.currentTarget;
+                                                if (imageElement.dataset.fallbackApplied === 'true') return;
+                                                imageElement.dataset.fallbackApplied = 'true';
+                                                imageElement.src = '/assets/images/backgrounds/detail-pengantin-4.jpg';
+                                                imageElement.style.opacity = '1';
                                             }}
                                             style={{ opacity: 0 }}
                                         />
@@ -341,7 +345,7 @@ const PublicGallery: React.FC<PublicGalleryProps> = ({ galleryId }) => {
                                 src={sanitizeImageUrl(selectedImage.url)}
                                 alt={selectedImage.caption || 'Foto'}
                                 className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                            />
+                             loading="lazy" decoding="async" />
                         </div>
 
                         {selectedImage.caption && (

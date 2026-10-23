@@ -86,7 +86,7 @@ const TeamMemberList: React.FC<TeamMemberListProps> = ({
                             <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-200">
                                 <div className="min-w-0 flex-1 flex items-center gap-2.5">
                                     <span className="w-9 h-9 rounded-full overflow-hidden shrink-0 grad-brand border border-brand-accent/20 flex items-center justify-center text-xs font-bold text-white">
-                                        {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover" /> : member.name?.charAt(0).toUpperCase() || '?'}
+                                        {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover"  loading="lazy" decoding="async" /> : member.name?.charAt(0).toUpperCase() || '?'}
                                     </span>
                                     <div className="min-w-0 flex-1">
                                         <p className="font-bold text-[#2A3547] text-sm leading-tight truncate">
@@ -182,7 +182,7 @@ const TeamMemberList: React.FC<TeamMemberListProps> = ({
                                     <td className="px-3 lg:px-4 py-3.5 font-bold text-[#2A3547] border-r border-slate-100">
                                         <div className="flex items-center gap-2.5 min-w-0">
                                             <span className="w-8 h-8 rounded-full overflow-hidden shrink-0 grad-brand border border-brand-accent/20 flex items-center justify-center text-xs font-bold text-white">
-                                                {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover" /> : member.name?.charAt(0).toUpperCase() || '?'}
+                                                {member.avatarUrl ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover"  loading="lazy" decoding="async" /> : member.name?.charAt(0).toUpperCase() || '?'}
                                             </span>
                                             <span className="truncate">{member.name}</span>
                                         </div>

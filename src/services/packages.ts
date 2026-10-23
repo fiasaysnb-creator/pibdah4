@@ -1,5 +1,6 @@
 import supabase from '../lib/supabaseClient';
-import { Package, PhysicalItem, DurationOption } from '../types';
+import { Package, PhysicalItem, DurationOption, Project } from '../types';
+import { canonicalizeStorageAssetUrl, uploadImageDataUrl } from './storage';
 
 const TABLE = 'packages';
 
@@ -38,7 +39,7 @@ function normalize(row: any): Package {
     defaultTransportCost: row.default_transport_cost ?? undefined,
     photographers: row.photographers ?? undefined,
     videographers: row.videographers ?? undefined,
-    coverImage: row.cover_image ?? undefined,
+    coverImage: row.cover_image ? canonicalizeStorageAssetUrl(row.cover_image) : undefined,
     // Store flexible options in the same duration_prices column for backward compatibility
     durationOptions,
   };
@@ -68,7 +69,48 @@ export async function listPackages(): Promise<Package[]> {
   return (data || []).map(normalize);
 }
 
+/** Load only package rows referenced by an invoice, without downloading every cover image. */
+export async function listPackagesForInvoice(
+  project: Pick<Project, 'packageId' | 'packageName' | 'additionalPackages'>,
+): Promise<Package[]> {
+  const additional = Array.isArray(project.additionalPackages) ? project.additionalPackages : [];
+  const ids = Array.from(new Set([
+    project.packageId,
+    ...additional.map(item => item?.id),
+  ].filter((value): value is string => !!value)));
+  const names = Array.from(new Set([
+    ...(!project.packageId && project.packageName ? [project.packageName] : []),
+    ...additional.filter(item => !item?.id).map(item => item?.name),
+  ].filter((value): value is string => !!value)));
+
+  const columns = 'id,name,price,category,physical_items,digital_items,processing_time,default_printing_cost,default_transport_cost,photographers,videographers,duration_options';
+  const fetchMatching = async (field: 'id' | 'name', values: string[]) => {
+    if (!values.length) return [] as any[];
+    let result = await supabase.from(TABLE).select(columns).in(field, values);
+    if (isMissingPackageColumnError(result.error)) {
+      result = await supabase
+        .from(TABLE)
+        .select(columns.replace(',duration_options', ',duration_prices'))
+        .in(field, values);
+    }
+    if (result.error) throw result.error;
+    return result.data || [];
+  };
+
+  const [byId, byName] = await Promise.all([
+    fetchMatching('id', ids),
+    fetchMatching('name', names),
+  ]);
+  const rows = new Map<string, any>();
+  [...byId, ...byName].forEach(row => rows.set(row.id, row));
+  return Array.from(rows.values()).map(normalize);
+}
+
 export async function createPackage(payload: Omit<Package, 'id' | 'createdAt'>): Promise<Package> {
+  if (payload.coverImage?.startsWith('data:image/')) {
+    payload = { ...payload, coverImage: await uploadImageDataUrl(payload.coverImage, 'package-covers') };
+  }
+
   // First try verbose payload
   let { data, error } = await supabase
     .from(TABLE)
@@ -95,6 +137,10 @@ export async function createPackage(payload: Omit<Package, 'id' | 'createdAt'>):
 }
 
 export async function updatePackage(id: string, patch: Partial<Package>): Promise<Package> {
+  if (patch.coverImage?.startsWith('data:image/')) {
+    patch = { ...patch, coverImage: await uploadImageDataUrl(patch.coverImage, 'package-covers') };
+  }
+
   let { data, error } = await supabase
     .from(TABLE)
     .update(denormalize(patch))

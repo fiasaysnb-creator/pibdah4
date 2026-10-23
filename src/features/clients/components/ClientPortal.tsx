@@ -16,7 +16,7 @@ import SignaturePad from '../../../shared/ui/SignaturePad';
 import { createClientFeedback, updateClientFeedback } from '../../../services/clientFeedback';
 import { getClientByPortalAccessId } from '../../../services/clients';
 import { listProjectsByClientId } from '../../../services/projects';
-import { listProjectMeetings, type ProjectMeeting } from '../../../services/calendarEvents';
+import { listProjectMeetings, parseProjectMeetingNotes, type ProjectMeeting } from '../../../services/calendarEvents';
 import { supabase } from '../../../lib/supabaseClient';
 import { toPublicNameSlug } from '../../../utils/publicRouting';
 import HelpBox from '../../../shared/ui/HelpBox';
@@ -289,7 +289,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({
             {/* Avatar (only if provided) */}
             {client.avatarUrl && (
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl overflow-hidden bg-white/10 border-2 border-white/20 flex items-center justify-center flex-shrink-0 shadow-xl">
-                <img src={client.avatarUrl} alt={`${client.name} avatar`} className="w-full h-full object-cover" />
+                <img src={client.avatarUrl} alt={`${client.name} avatar`} className="w-full h-full object-cover"  loading="lazy" decoding="async" />
               </div>
             )}
 
@@ -430,8 +430,12 @@ const MeetingsTab: React.FC<{ projects: Project[] }> = ({ projects }) => {
     void loadMeetings();
     const channel = supabase
       .channel(`client-portal-meetings-${projects.map(project => project.id).join('-').slice(0, 120)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' }, () => {
-        void loadMeetings();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' }, payload => {
+        const changedRow = (payload.eventType === 'DELETE' ? payload.old : payload.new) as { notes?: string };
+        const meeting = parseProjectMeetingNotes(changedRow?.notes || '');
+        if (meeting && projects.some(project => project.id === meeting.projectId)) {
+          void loadMeetings();
+        }
       })
       .subscribe(status => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -1269,7 +1273,7 @@ const DocumentViewerModal: React.FC<{
         <div className="flex justify-between items-start mb-10 pb-6 border-b-2 border-blue-600">
           <div>
             {profile.logoBase64
-              ? <img src={profile.logoBase64} alt="Logo" className="h-14 object-contain mb-2" />
+              ? <img src={profile.logoBase64} alt="Logo" className="h-14 object-contain mb-2"  loading="lazy" decoding="async" />
               : <h2 className="text-xl font-bold text-blue-600 mb-1">{profile.companyName}</h2>
             }
             <p className="text-xs text-slate-500">{profile.address}</p>
@@ -1311,7 +1315,7 @@ const DocumentViewerModal: React.FC<{
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Penerima,</p>
             <div className="h-16 flex items-center justify-center mb-1">
               {tx.vendorSignature
-                ? <img src={tx.vendorSignature} alt="TTD" className="max-h-full object-contain" />
+                ? <img src={tx.vendorSignature} alt="TTD" className="max-h-full object-contain"  loading="lazy" decoding="async" />
                 : <div className="h-px w-24 bg-slate-200 mt-10 mx-auto" />
               }
             </div>

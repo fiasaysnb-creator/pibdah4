@@ -112,7 +112,7 @@ export const ClientTableView: React.FC<ClientTableViewProps> = ({
                         <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0 flex items-center gap-2">
                                 <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-[#F4F6F9] flex items-center justify-center text-xs font-bold text-[#5A6A85]">
-                                    {client.avatarUrl ? <img src={client.avatarUrl} alt="" className="w-full h-full object-cover" /> : client.name.charAt(0).toUpperCase()}
+                                    {client.avatarUrl ? <img src={client.avatarUrl} alt="" className="w-full h-full object-cover"  loading="lazy" decoding="async" /> : client.name.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">
                                     <p className="font-bold text-xs text-[#2A3547] leading-tight truncate">{client.name}</p>
@@ -225,7 +225,7 @@ export const ClientTableView: React.FC<ClientTableViewProps> = ({
                                 <td className="px-3 lg:px-6 py-3.5">
                                     <div className="flex items-center gap-2.5">
                                         <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-[#F4F6F9] flex items-center justify-center text-xs font-bold text-[#5A6A85]">
-                                            {client.avatarUrl ? <img src={client.avatarUrl} alt="" className="w-full h-full object-cover" /> : client.name.charAt(0).toUpperCase()}
+                                            {client.avatarUrl ? <img src={client.avatarUrl} alt="" className="w-full h-full object-cover"  loading="lazy" decoding="async" /> : client.name.charAt(0).toUpperCase()}
                                         </div>
                                         <div className="min-w-0">
                                             <p className="font-bold text-[#2A3547] text-sm truncate">{client.name}</p>

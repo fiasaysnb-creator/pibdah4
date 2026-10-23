@@ -8,6 +8,17 @@ import { useSupabaseRealtimeRefresh } from '../../hooks/useSupabaseRealtimeRefre
 const FAQ_OPEN_DEFAULT = new Set<string>();
 
 const INITIAL_VISIBLE = 6;
+const PROFILE_IMAGE_FALLBACK = '/assets/images/backgrounds/portal-pengantin-3.jpg';
+
+const handleProfileImageError = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    const image = event.currentTarget;
+    if (image.dataset.fallbackApplied === 'true') {
+        image.style.visibility = 'hidden';
+        return;
+    }
+    image.dataset.fallbackApplied = 'true';
+    image.src = PROFILE_IMAGE_FALLBACK;
+};
 
 const VendorPublicProfile: React.FC = () => {
     const [profile, setProfile] = useState<VendorProfile | null>(null);
@@ -38,7 +49,7 @@ const VendorPublicProfile: React.FC = () => {
         void loadData();
     }, [loadData]);
 
-    useSupabaseRealtimeRefresh('public-vendor-profile', ['vendor_profiles', 'vendor_portfolios'], loadData);
+    useSupabaseRealtimeRefresh('public-vendor-profile', ['vendor_profiles', 'vendor_portfolios'], loadData, { realtime: false, refreshOnFocus: false });
 
     useEffect(() => {
         if (!profile?.hero_images || profile.hero_images.length <= 1) return;
@@ -258,10 +269,10 @@ const VendorPublicProfile: React.FC = () => {
                             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
                                 idx === currentHeroIndex ? 'opacity-100' : 'opacity-0'
                             }`} 
-                        />
+                         loading={idx === currentHeroIndex ? 'eager' : 'lazy'} decoding="async" onError={handleProfileImageError} />
                     ))
                 ) : profile?.hero_image_url ? (
-                    <img src={profile.hero_image_url} alt="Hero" className="absolute inset-0 w-full h-full object-cover" />
+                    <img src={profile.hero_image_url} alt="Hero" className="absolute inset-0 w-full h-full object-cover"  loading="eager" fetchPriority="high" decoding="async" onError={handleProfileImageError} />
                 ) : (
                     <div className="absolute inset-0 bg-gradient-to-b from-[#a3a3a3] to-[#737373]" />
                 )}
@@ -316,7 +327,8 @@ const VendorPublicProfile: React.FC = () => {
                             alt=""
                             className="absolute inset-0 w-full h-full object-cover"
                             loading="lazy"
-                        />
+                         decoding="async"
+                         onError={handleProfileImageError} />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/55 to-black/20" />
                     <div className="relative z-10 max-w-7xl w-full mx-auto px-5 sm:px-10 md:px-16 py-12 sm:py-20">
@@ -384,7 +396,8 @@ const VendorPublicProfile: React.FC = () => {
                                                 alt={portfolio.title}
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                                                 loading="lazy"
-                                            />
+                                             decoding="async"
+                                             onError={handleProfileImageError} />
                                         ) : (
                                             <div className="w-full h-full bg-[#e5e5e5] flex items-center justify-center">
                                                 <span className="text-[#737373] text-xs">No Image</span>
@@ -498,7 +511,7 @@ const VendorPublicProfile: React.FC = () => {
                         <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-8 md:gap-16 opacity-70">
                             {profile.partners.map(partner => (
                                 <div key={partner.id} className="flex flex-col items-center justify-center gap-2 w-24 md:w-32 hover:opacity-100 transition-opacity duration-300">
-                                    <img src={partner.logo_url} alt={partner.name} className="max-h-16 max-w-full object-contain grayscale hover:grayscale-0 transition-all duration-300" />
+                                    <img src={partner.logo_url} alt={partner.name} className="max-h-16 max-w-full object-contain grayscale hover:grayscale-0 transition-all duration-300"  loading="lazy" decoding="async" />
                                 </div>
                             ))}
                         </div>
@@ -554,7 +567,7 @@ const VendorPublicProfile: React.FC = () => {
             {/* ─── CTA Section ─── */}
             <section id="contact" className="relative py-16 sm:py-24 md:py-36 px-5 sm:px-6 overflow-hidden bg-[#171717]">
                 {profile?.hero_image_url && (
-                    <img src={profile.hero_image_url} alt="CTA Background" className="absolute inset-0 w-full h-full object-cover opacity-25" />
+                    <img src={profile.hero_image_url} alt="CTA Background" className="absolute inset-0 w-full h-full object-cover opacity-25"  loading="lazy" decoding="async" onError={handleProfileImageError} />
                 )}
                 <div className="relative z-10 max-w-xl mx-auto text-center">
                     <p className="text-[#a3a3a3] text-[10px] sm:text-xs font-medium tracking-[0.35em] uppercase mb-3 sm:mb-5" style={{ fontFamily: 'Inter, sans-serif' }}>

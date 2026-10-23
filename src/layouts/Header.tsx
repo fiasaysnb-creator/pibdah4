@@ -174,8 +174,7 @@ const Header: React.FC<HeaderProps> = ({
                             height="28"
                             loading="lazy"
                             decoding="async"
-                            className="w-7 h-7 rounded-lg object-cover shadow-xs border border-[#EAEFF4]"
-                        />
+                            className="w-7 h-7 rounded-lg object-cover shadow-xs border border-[#EAEFF4]" />
                     ) : (
                         <img
                             src="/assets/images/logos/logoIcon.svg"
@@ -184,8 +183,7 @@ const Header: React.FC<HeaderProps> = ({
                             height="28"
                             loading="lazy"
                             decoding="async"
-                            className="w-7 h-7 object-contain"
-                        />
+                            className="w-7 h-7 object-contain" />
                     )}
                     <span className="text-sm font-extrabold text-[#2A3547] tracking-tight truncate">
                         {profile?.companyName || 'Vena Pictures'}
@@ -280,7 +278,7 @@ const Header: React.FC<HeaderProps> = ({
                             aria-expanded={isProfileOpen}
                         >
                             {profile?.logoBase64 ? (
-                                <img src={profile.logoBase64} alt="Logo" className="w-full h-full object-cover" />
+                                <img src={profile.logoBase64} alt="Logo" className="w-full h-full object-cover"  loading="lazy" decoding="async" />
                             ) : (
                                 <span className="font-extrabold text-xs sm:text-sm text-white">{getInitials(profile?.fullName || currentUser?.fullName || '')}</span>
                             )}
@@ -291,7 +289,7 @@ const Header: React.FC<HeaderProps> = ({
                                 <div className="p-4 bg-gradient-to-r from-[#F8FAFC] to-[#EEF2F7] border-b border-[#EAEFF4] flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-full grad-brand overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-xs flex-shrink-0">
                                         {profile?.logoBase64 ? (
-                                            <img src={profile.logoBase64} alt="Logo" className="w-full h-full object-cover" />
+                                            <img src={profile.logoBase64} alt="Logo" className="w-full h-full object-cover"  loading="lazy" decoding="async" />
                                         ) : (
                                             getInitials(profile?.fullName || currentUser?.fullName || '')
                                         )}

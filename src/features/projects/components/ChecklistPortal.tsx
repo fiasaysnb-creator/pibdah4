@@ -245,7 +245,7 @@ export default function ChecklistPortal({ projectId }: Props) {
 
         {/* Hero Image */}
         <div className="w-full h-48 sm:h-56 mb-8 rounded-3xl overflow-hidden shadow-2xl border border-white/10 animate-in">
-          <img src="/assets/images/backgrounds/detail-pengantin-4.jpg" alt="Hero" className="w-full h-full object-cover" />
+          <img src="/assets/images/backgrounds/detail-pengantin-4.jpg" alt="Hero" className="w-full h-full object-cover"  loading="lazy" decoding="async" />
         </div>
 
         <header className="mb-8 animate-in" style={{ animationDelay: '0.1s' }}>

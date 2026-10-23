@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-import { compressImage } from './storage';
+import { canonicalizeStorageAssetUrls, compressImage } from './storage';
 import { VendorPortfolio, PortfolioImage } from '../types';
 
 const YOUTUBE_URLS_CACHE_KEY = 'weddfin-portfolio-youtube-urls';
@@ -173,7 +173,7 @@ export const listVendorPortfolios = async (): Promise<VendorPortfolio[]> => {
 
             if (!error && Array.isArray(data)) {
                 const youtubeMap = getLocalYoutubeUrlsMap();
-                const mapped = data.map(p => ({
+                const mapped = data.map(p => canonicalizeStorageAssetUrls({
                     ...p,
                     youtube_url: p.youtube_url || youtubeMap[p.id] || undefined
                 }));
@@ -192,7 +192,7 @@ export const listVendorPortfolios = async (): Promise<VendorPortfolio[]> => {
     // Return stored or default portfolios
     const stored = getStoredPortfolios();
     const youtubeMap = getLocalYoutubeUrlsMap();
-    return stored.map(p => ({
+    return stored.map(p => canonicalizeStorageAssetUrls({
         ...p,
         youtube_url: p.youtube_url || youtubeMap[p.id] || undefined
     }));
@@ -209,10 +209,10 @@ export const getVendorPortfolio = async (id: string): Promise<VendorPortfolio | 
 
             if (!error && data) {
                 const youtubeMap = getLocalYoutubeUrlsMap();
-                return {
+                return canonicalizeStorageAssetUrls({
                     ...data,
                     youtube_url: data.youtube_url || youtubeMap[id] || undefined
-                };
+                });
             }
         } catch (err) {
             console.warn('[vendorPortfolios] Remote portfolio lookup failed:', err);
@@ -331,7 +331,11 @@ export const uploadPortfolioImages = async (
             if (isSupabaseConfigured) {
                 const { error: uploadError } = await supabase.storage
                     .from('gallery-images')
-                    .upload(fileName, processedFile);
+                    .upload(fileName, processedFile, {
+                        contentType: processedFile.type,
+                        cacheControl: '31536000',
+                        upsert: false,
+                    });
 
                 if (!uploadError) {
                     const { data: urlData } = supabase.storage
@@ -341,10 +345,15 @@ export const uploadPortfolioImages = async (
                 }
             }
 
+            if (!imageUrl && isSupabaseConfigured) {
+                throw new Error('Storage URL is unavailable');
+            }
+
             if (!imageUrl) {
                 imageUrl = await fileToBase64(processedFile);
             }
-        } catch {
+        } catch (error) {
+            if (isSupabaseConfigured) throw error;
             imageUrl = await fileToBase64(processedFile);
         }
 
@@ -387,20 +396,31 @@ export const uploadPortfolioCover = async (
         if (isSupabaseConfigured) {
             const { error: uploadError } = await supabase.storage
                 .from('gallery-images')
-                .upload(fileName, processedFile);
+                .upload(fileName, processedFile, {
+                    contentType: processedFile.type,
+                    cacheControl: '31536000',
+                    upsert: false,
+                });
 
             if (!uploadError) {
                 const { data: urlData } = supabase.storage
                     .from('gallery-images')
                     .getPublicUrl(fileName);
                 coverUrl = urlData.publicUrl;
+            } else {
+                throw uploadError;
             }
+        }
+
+        if (!coverUrl && isSupabaseConfigured) {
+            throw new Error('Storage URL is unavailable');
         }
 
         if (!coverUrl) {
             coverUrl = await fileToBase64(processedFile);
         }
-    } catch {
+    } catch (error) {
+        if (isSupabaseConfigured) throw error;
         coverUrl = await fileToBase64(processedFile);
     }
 

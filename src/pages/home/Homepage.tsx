@@ -49,7 +49,7 @@ const Homepage: React.FC = () => {
             {/* Header */}
             <header className="py-4 px-6 md:px-12 flex justify-between items-center bg-brand-surface/80 backdrop-blur-sm sticky top-0 z-50 border-b border-brand-border">
                 <div className="flex items-center gap-2">
-                    <img src="/assets/images/logos/logoIcon.svg" alt="Vena Pictures logo" className="w-8 h-8" width="32" height="32" />
+                    <img src="/assets/images/logos/logoIcon.svg" alt="Vena Pictures logo" className="w-8 h-8" width="32" height="32"  loading="lazy" decoding="async" />
                     <span className="text-xl font-extrabold text-brand-text-light">Vena Pictures</span>
                 </div>
                 <div className="space-x-2">
@@ -220,8 +220,7 @@ const Homepage: React.FC = () => {
                                             width="192"
                                             height="192"
                                             loading="lazy"
-                                            decoding="async"
-                                        />
+                                            decoding="async" />
                                     </picture>
                                 </div>
                             </div>

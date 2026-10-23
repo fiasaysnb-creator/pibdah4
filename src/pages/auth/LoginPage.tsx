@@ -94,7 +94,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, users }) => {
                 <div className="login-card bg-white/80 backdrop-blur-xl p-8 rounded-2xl shadow-xl border border-white/50">
                     <div className="login-header text-center mb-8">
                         <div className="login-logo-wrap flex justify-center mb-6">
-                            <img src="/assets/images/logos/light-logo.svg" alt="Vena Pictures" width="160" height="40" decoding="async" className="h-10 w-auto" />
+                            <img src="/assets/images/logos/light-logo.svg" alt="Vena Pictures" width="160" height="40" decoding="async" className="h-10 w-auto"  loading="lazy" />
                         </div>
                         <h1 className="text-3xl font-bold text-slate-800">Login</h1>
                         <p className="text-sm text-slate-500 mt-2">Hey, masukkan detail Anda untuk masuk ke akun Anda</p>

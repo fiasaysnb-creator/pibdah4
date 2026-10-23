@@ -296,8 +296,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                   height="40"
                   loading="lazy"
                   decoding="async"
-                  className="w-full h-full object-cover"
-                />
+                  className="w-full h-full object-cover" />
               ) : (
                 <img
                   src="/assets/images/logos/logoIcon.svg"
@@ -306,8 +305,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                   height="32"
                   loading="lazy"
                   decoding="async"
-                  className="w-8 h-8 object-contain"
-                />
+                  className="w-8 h-8 object-contain" />
               )}
             </div>
 

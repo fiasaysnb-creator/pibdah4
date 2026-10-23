@@ -35,6 +35,12 @@ export interface UseAuxiliaryDataProps {
    * data yang benar-benar ditampilkan.
    */
   skipVendorOnlyData?: boolean;
+  /** Skip profile/form-specific public data on standalone public pages. */
+  skipPublicSharedData?: boolean;
+  /** Keep profile settings only for public forms that render vendor details. */
+  skipProfileData?: boolean;
+  /** Public pages share only the columns needed to render public content. */
+  publicProfileData?: boolean;
 }
 
 export interface UseAuxiliaryDataReturn {
@@ -81,14 +87,18 @@ export function useAuxiliaryData({
   appDataLoadedClientFeedback,
   setClientFeedback,
   skipVendorOnlyData = false,
+  skipPublicSharedData = false,
+  skipProfileData = false,
+  publicProfileData = false,
 }: UseAuxiliaryDataProps = {}): UseAuxiliaryDataReturn {
   const queryClient = useQueryClient();
 
   // ─── Domain data via React Query ───────────────────────────────────────
   const vendorOnly = { enabled: !skipVendorOnlyData };
   const { data: contractsData } = useContractsQuery(vendorOnly);
-  const { data: promoCodesData } = usePromoCodesQuery();
-  const { data: profileData } = useProfileQuery();
+  const { data: promoCodesData } = usePromoCodesQuery({ enabled: !skipPublicSharedData });
+  const profileKey = publicProfileData ? ['publicProfile'] : ['profile'];
+  const { data: profileData } = useProfileQuery({ enabled: !skipProfileData, publicData: publicProfileData });
   const { data: teamPaymentsData, isLoading: teamPaymentsLoading } = useTeamProjectPaymentsQuery(vendorOnly);
   const { data: teamPaymentRecordsData } = useTeamPaymentRecordsQuery(vendorOnly);
   const { data: notificationsData } = useNotificationsQuery(vendorOnly);
@@ -153,11 +163,11 @@ export function useAuxiliaryData({
   }, [queryClient]);
 
   const setProfile = useCallback<React.Dispatch<React.SetStateAction<Profile>>>((action) => {
-    queryClient.setQueryData<Profile | null>(['profile'], (old) => {
+    queryClient.setQueryData<Profile | null>(profileKey, (old) => {
       const prev = old ?? EMPTY_PROFILE;
       return typeof action === 'function' ? (action as (p: Profile) => Profile)(prev) : action;
     });
-  }, [queryClient]);
+  }, [profileKey, queryClient]);
 
   const handleSetProfile = useCallback((value: React.SetStateAction<Profile>) => {
     setProfile(value);

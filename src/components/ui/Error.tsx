@@ -12,7 +12,7 @@ const Error: FC = () => (
     justifyContent="center"
   >
     <Container maxWidth="md">
-      <img src={ErrorImg} alt="404" style={{ width: '100%', maxWidth: '500px' }} />
+      <img src={ErrorImg} alt="404" style={{ width: '100%', maxWidth: '500px' }}  loading="lazy" decoding="async" />
       <Typography align="center" variant="h1" mb={4}>
         Opps!!!
       </Typography>

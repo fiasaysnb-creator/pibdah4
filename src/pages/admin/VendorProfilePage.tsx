@@ -183,7 +183,7 @@ const EditPortfolioModal: React.FC<EditPortfolioModalProps> = ({ portfolio, cate
             >
               {images.map((img) => (
                 <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden group border border-brand-border">
-                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                  <img src={img.url} alt="" className="w-full h-full object-cover"  loading="lazy" decoding="async" />
                   <button
                     type="button"
                     onClick={() => handleDeleteImage(img.id)}
@@ -595,7 +595,7 @@ const VendorProfilePage: React.FC = () => {
                     </span>
                     {imgUrl ? (
                       <div className="relative aspect-video rounded-xl overflow-hidden border border-brand-border group shadow-sm bg-gray-100">
-                        <img src={imgUrl} alt={`Slide ${slotIdx + 1}`} className="w-full h-full object-cover" />
+                        <img src={imgUrl} alt={`Slide ${slotIdx + 1}`} className="w-full h-full object-cover"  loading="lazy" decoding="async" />
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1">
                           <label className="cursor-pointer px-2 py-1 bg-white text-gray-900 font-medium text-[10px] rounded hover:bg-gray-100 transition-colors">
                             {isUploading ? '...' : 'Ganti'}
@@ -670,7 +670,7 @@ const VendorProfilePage: React.FC = () => {
             <label className="block text-sm font-semibold text-brand-text-primary mb-1.5">Gambar Banner</label>
             {profile.page_banner_image_url ? (
               <div className="relative aspect-[16/9] rounded-xl overflow-hidden border border-brand-border bg-brand-input">
-                <img src={profile.page_banner_image_url} alt="Pratinjau banner halaman" className="w-full h-full object-cover" />
+                <img src={profile.page_banner_image_url} alt="Pratinjau banner halaman" className="w-full h-full object-cover"  loading="lazy" decoding="async" />
                 <div className="absolute inset-0 bg-black/35 flex items-end justify-between p-3">
                   <label className="cursor-pointer px-3 py-2 bg-white text-gray-900 text-sm font-semibold rounded-lg hover:bg-gray-100 transition-colors">
                     {uploadingBannerImage ? 'Mengunggah...' : 'Ganti gambar'}
@@ -885,7 +885,7 @@ const VendorProfilePage: React.FC = () => {
                 </button>
                 <div className="w-20 h-16 flex items-center justify-center my-2 p-1 bg-gray-50 rounded-lg">
                   {partner.logo_url ? (
-                    <img src={partner.logo_url} alt={partner.name} className="max-h-full max-w-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-300" />
+                    <img src={partner.logo_url} alt={partner.name} className="max-h-full max-w-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-300"  loading="lazy" decoding="async" />
                   ) : (
                     <HandshakeIcon className="w-8 h-8 text-gray-300" />
                   )}
@@ -1022,7 +1022,7 @@ const VendorProfilePage: React.FC = () => {
                 {/* Cover */}
                 <div className="aspect-video bg-gray-100 relative overflow-hidden">
                   {portfolio.cover_image_url ? (
-                    <img src={portfolio.cover_image_url} alt="Cover" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img src={portfolio.cover_image_url} alt="Cover" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"  loading="lazy" decoding="async" />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
                       <CameraIcon className="w-8 h-8 mb-2 opacity-40" />
@@ -1133,7 +1133,7 @@ const VendorProfilePage: React.FC = () => {
               <div className="vendor-gallery-scroll grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-48 overflow-y-auto p-1">
                 {newPortfolioImages.map(({ file, previewUrl }) => (
                   <div key={previewUrl} className="relative aspect-square rounded-lg overflow-hidden group border border-brand-border">
-                    <img src={previewUrl} alt={file.name} className="w-full h-full object-cover" />
+                    <img src={previewUrl} alt={file.name} className="w-full h-full object-cover"  loading="lazy" decoding="async" />
                     <button
                       type="button"
                       onClick={() => handleRemoveNewPortfolioImage(previewUrl)}

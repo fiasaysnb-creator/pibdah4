@@ -1008,14 +1008,29 @@ Mohon konfirmasi untuk langkah selanjutnya. Terima kasih! 🙏`;
             <div ref={formRef} className="form-container">
                 {template === 'modern' && (
                     <div className="p-4 sm:p-6 md:p-8 bg-public-surface rounded-2xl border border-public-border hidden md:block">
-                        {userProfile.logoBase64 ? <img src={userProfile.logoBase64} alt="logo" className="h-12 mb-4" /> : <h2 className="text-2xl font-bold text-gradient">{userProfile.companyName}</h2>}
+                        {userProfile.logoBase64 ? <img src={userProfile.logoBase64} alt="logo" className="h-12 mb-4"  loading="lazy" decoding="async" /> : <h2 className="text-2xl font-bold text-gradient">{userProfile.companyName}</h2>}
                         <p className="text-public-text-secondary text-sm mt-4">{userProfile.bio}</p>
                     </div>
                 )}
                 <div className="bg-public-surface p-3 md:p-4 sm:p-6 md:p-8 rounded-2xl shadow-lg border border-public-border">
                     {/* Hero Image */}
                     <div className="w-full h-32 sm:h-48 md:h-64 mb-6 rounded-xl overflow-hidden shadow-md">
-                        <img src={userProfile.publicPageConfig?.backgroundImages?.bookingForm || userProfile.publicPageConfig?.backgroundImages?.eventDetail || "/assets/images/backgrounds/detail-acara-pernikahan.jpg"} alt="Hero" className="w-full h-full object-cover" />
+                        <img
+                            src={userProfile.publicPageConfig?.backgroundImages?.bookingForm || userProfile.publicPageConfig?.backgroundImages?.eventDetail || "/assets/images/backgrounds/detail-acara-pernikahan.jpg"}
+                            alt="Hero"
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                            onError={(event) => {
+                                const imageElement = event.currentTarget;
+                                if (imageElement.dataset.fallbackApplied === 'true') {
+                                    imageElement.style.visibility = 'hidden';
+                                    return;
+                                }
+                                imageElement.dataset.fallbackApplied = 'true';
+                                imageElement.src = '/assets/images/backgrounds/detail-acara-pernikahan.jpg';
+                            }}
+                        />
                     </div>
                     <div className="text-center mb-6 md:mb-8">
                         <h1 className="text-2xl md:text-3xl font-bold text-gradient">{userProfile.companyName}</h1>
@@ -1127,7 +1142,7 @@ Mohon konfirmasi untuk langkah selanjutnya. Terima kasih! 🙏`;
                                                 className="flex w-full items-center gap-3 rounded-lg border border-neutral-300 bg-neutral-50 p-2.5 text-left shadow-none outline-none transition hover:bg-neutral-100 focus:border-black focus:ring-2 focus:ring-neutral-300"
                                             >
                                                 {selectedPackage?.coverImage ? (
-                                                    <img src={selectedPackage.coverImage} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                                                    <img src={selectedPackage.coverImage} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover"  loading="lazy" decoding="async" />
                                                 ) : (
                                                     <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-black">
                                                         <PackageIcon className="h-5 w-5" aria-hidden="true" />
@@ -1186,7 +1201,7 @@ Mohon konfirmasi untuk langkah selanjutnya. Terima kasih! 🙏`;
                                                             }`}
                                                         >
                                                             {pkg.coverImage ? (
-                                                                <img src={pkg.coverImage} alt="" className="row-span-2 h-10 w-10 shrink-0 rounded-lg object-cover sm:row-span-1 sm:h-12 sm:w-12" />
+                                                                <img src={pkg.coverImage} alt="" className="row-span-2 h-10 w-10 shrink-0 rounded-lg object-cover sm:row-span-1 sm:h-12 sm:w-12"  loading="lazy" decoding="async" />
                                                             ) : (
                                                                 <span className="row-span-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-black sm:row-span-1 sm:h-12 sm:w-12">
                                                                     <PackageIcon className="h-5 w-5" aria-hidden="true" />
@@ -1288,7 +1303,7 @@ Mohon konfirmasi untuk langkah selanjutnya. Terima kasih! 🙏`;
                                                     <label key={pkg.id} className={`grid w-full min-w-0 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0.5 rounded-lg border bg-white p-2 text-left shadow-sm transition hover:border-neutral-500 hover:bg-neutral-50 cursor-pointer sm:gap-3 sm:rounded-xl sm:p-2.5 ${formData.selectedAdditionalPackageIds?.includes(pkg.id) ? 'border-neutral-900 ring-1 ring-neutral-300' : 'border-neutral-200'
                                                         }`}>
                                                         {pkg.coverImage ? (
-                                                            <img src={pkg.coverImage} alt="" className="row-span-2 h-10 w-10 shrink-0 rounded-lg object-cover sm:row-span-1 sm:h-12 sm:w-12" />
+                                                            <img src={pkg.coverImage} alt="" className="row-span-2 h-10 w-10 shrink-0 rounded-lg object-cover sm:row-span-1 sm:h-12 sm:w-12"  loading="lazy" decoding="async" />
                                                         ) : (
                                                             <span className="row-span-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-black sm:row-span-1 sm:h-12 sm:w-12">
                                                                 <PackageIcon className="h-5 w-5" aria-hidden="true" />
@@ -1373,7 +1388,7 @@ Mohon konfirmasi untuk langkah selanjutnya. Terima kasih! 🙏`;
                                                             src={paymentProofPreviewUrl}
                                                             alt={`Pratinjau bukti transfer ${paymentProof.name}`}
                                                             className="h-36 w-full rounded-xl border border-neutral-200 object-contain bg-white sm:h-28 sm:w-36"
-                                                        />
+                                                         loading="lazy" decoding="async" />
                                                     ) : (
                                                         <div className="flex h-24 w-full items-center justify-center rounded-xl border border-neutral-200 bg-white text-sm font-bold text-black sm:h-20 sm:w-28">
                                                             PDF

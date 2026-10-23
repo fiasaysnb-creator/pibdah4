@@ -4,7 +4,7 @@ import ContractDocument from '../../contracts/components/ContractDocument';
 import { DownloadIcon } from '../../../constants';
 import { getContract, updateContract } from '../../../services/contracts';
 import { getProjectWithRelations } from '../../../services/projects';
-import { getProfile } from '../../../services/profile';
+import { getPublicProfile } from '../../../services/profile';
 import Modal from '../../../shared/ui/Modal';
 import SignaturePad from '../../../shared/ui/SignaturePad';
 import PDFViewer from '../../../shared/ui/PDFViewer';
@@ -31,7 +31,7 @@ const PublicContract: React.FC<PublicContractProps> = ({ contractId }) => {
 
     useSupabaseRealtimeRefresh('public-contract', ['contracts', 'projects', 'project_add_ons', 'profiles'], () => {
         setRefreshVersion(version => version + 1);
-    });
+    }, { realtime: false, refreshOnFocus: false });
 
     useEffect(() => {
         if (!contractId) {
@@ -60,7 +60,7 @@ const PublicContract: React.FC<PublicContractProps> = ({ contractId }) => {
 
                 const [fetchedProject, fetchedProfile] = await Promise.all([
                     getProjectWithRelations(fetchedContract.projectId),
-                    getProfile(),
+                    getPublicProfile(),
                 ]);
 
                 if (cancelled) return;

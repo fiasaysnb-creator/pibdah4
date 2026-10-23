@@ -645,7 +645,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                     {formData.dpProofUrl && (
                       <div className="flex items-center gap-3 rounded-xl border border-brand-border p-3">
                         <a href={formData.dpProofUrl} target="_blank" rel="noopener noreferrer" title="Lihat bukti transfer DP">
-                          <img src={formData.dpProofUrl} alt="Bukti transfer DP" className="h-16 w-20 rounded-lg border border-brand-border object-cover" />
+                          <img src={formData.dpProofUrl} alt="Bukti transfer DP" className="h-16 w-20 rounded-lg border border-brand-border object-cover"  loading="lazy" decoding="async" />
                         </a>
                         <div className="min-w-0 flex-1">
                           <p className="break-words text-xs font-semibold text-brand-text-primary">Bukti Transfer DP</p>
@@ -667,7 +667,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                       return (
                         <div key={`${proof.url}-${index}`} className="flex items-center gap-3 rounded-xl border border-brand-border p-3">
                           <a href={proof.url} target="_blank" rel="noopener noreferrer" title="Lihat bukti pembayaran">
-                            <img src={proof.url} alt={`Bukti pembayaran ${index + 1}`} className="h-16 w-20 rounded-lg border border-brand-border object-cover" />
+                            <img src={proof.url} alt={`Bukti pembayaran ${index + 1}`} className="h-16 w-20 rounded-lg border border-brand-border object-cover"  loading="lazy" decoding="async" />
                           </a>
                           <div className="min-w-0 flex-1">
                             <p className="break-words text-xs font-semibold text-brand-text-primary">Bukti Pembayaran {index + 1}</p>

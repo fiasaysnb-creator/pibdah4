@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-import { compressImage } from './storage';
+import { canonicalizeStorageAssetUrls, compressImage } from './storage';
 import { VendorProfile } from '../types';
 
 const LOCAL_STORAGE_KEY = 'weddfin-vendor-profile';
@@ -29,6 +29,7 @@ const fileToBase64 = (file: File): Promise<string> => {
 
 export const getVendorProfile = async (): Promise<VendorProfile | null> => {
     const sanitizeProfile = (p: any): VendorProfile => {
+        p = canonicalizeStorageAssetUrls(p);
         const heroImages = Array.isArray(p.hero_images)
             ? p.hero_images.filter(Boolean)
             : (p.hero_image_url ? [p.hero_image_url] : []);
@@ -200,7 +201,11 @@ export const uploadVendorImage = async (file: File, path: string): Promise<strin
         if (isSupabaseConfigured) {
             const { error: uploadError } = await supabase.storage
                 .from('gallery-images')
-                .upload(fileName, processedFile);
+                .upload(fileName, processedFile, {
+                    contentType: processedFile.type,
+                    cacheControl: '31536000',
+                    upsert: false,
+                });
 
             if (!uploadError) {
                 const { data: urlData } = supabase.storage
@@ -210,14 +215,15 @@ export const uploadVendorImage = async (file: File, path: string): Promise<strin
                 if (urlData?.publicUrl) {
                     return urlData.publicUrl;
                 }
-            } else {
-                console.warn('[vendorProfile] Supabase storage upload failed, falling back to base64:', uploadError);
+            } else if (uploadError) {
+                throw uploadError;
             }
         }
     } catch (err) {
-        console.warn('[vendorProfile] Storage upload exception, falling back to base64:', err);
+        console.error('[vendorProfile] Storage upload failed:', err);
+        if (isSupabaseConfigured) throw err;
     }
 
-    // Fallback to Base64 data URL
+    // Local-only fallback; never store image data in Supabase rows when Storage fails.
     return await fileToBase64(processedFile);
 };

@@ -204,7 +204,7 @@ const ClientForm: React.FC<ClientFormProps> = ({
                     <div className="flex items-center gap-3">
                         <div className="w-14 h-14 rounded-full overflow-hidden shrink-0 border border-[#EAEFF4] bg-[#F4F6F9] flex items-center justify-center text-lg font-bold text-[#5A6A85]">
                             {formData.avatarUrl ? (
-                                <img src={formData.avatarUrl} alt="Foto profil pengantin" className="w-full h-full object-cover" />
+                                <img src={formData.avatarUrl} alt="Foto profil pengantin" className="w-full h-full object-cover"  loading="lazy" decoding="async" />
                             ) : (
                                 formData.clientName?.charAt(0).toUpperCase() || '?'
                             )}
@@ -672,7 +672,7 @@ const ClientForm: React.FC<ClientFormProps> = ({
                                 {formData.dpProofFile && <p className="break-all text-[11px] font-medium text-[#2A3547]">{formData.dpProofFile.name}</p>}
                                 {formData.dpProofUrl && !formData.dpProofFile && (
                                     <a href={formData.dpProofUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[11px] font-semibold text-brand-accent underline underline-offset-2">
-                                        <img src={formData.dpProofUrl} alt="Pratinjau bukti transfer DP" className="h-12 w-16 rounded-md border border-[#EAEFF4] object-cover" />
+                                        <img src={formData.dpProofUrl} alt="Pratinjau bukti transfer DP" className="h-12 w-16 rounded-md border border-[#EAEFF4] object-cover"  loading="lazy" decoding="async" />
                                         Lihat bukti transfer saat ini
                                     </a>
                                 )}

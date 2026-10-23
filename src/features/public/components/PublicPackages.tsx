@@ -888,7 +888,17 @@ const PublicPackages: React.FC<PublicPackagesProps> = ({ userProfile: initialUse
                     <header className="text-center mb-16 widget-animate">
                         {/* Hero Image */}
                         <div className="w-full h-56 sm:h-72 md:h-96 mb-8 rounded-3xl overflow-hidden shadow-2xl border border-brand-border/60">
-                            <img src={userProfile.publicPageConfig?.backgroundImages?.portalPengantin || "/assets/images/backgrounds/portal-pengantin-3.jpg"} alt="Hero" className="w-full h-full object-cover" />
+                            <img
+                                src={userProfile.publicPageConfig?.backgroundImages?.portalPengantin || "/assets/images/backgrounds/portal-pengantin-3.jpg"}
+                                alt="Hero"
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                                decoding="async"
+                                onError={(event) => {
+                                    event.currentTarget.onerror = null;
+                                    event.currentTarget.src = '/assets/images/backgrounds/portal-pengantin-3.jpg';
+                                }}
+                            />
                         </div>
                         {publicPageConfig?.introduction && (
                             <p className="text-base md:text-lg text-brand-text-secondary mt-4 max-w-3xl mx-auto leading-relaxed">{publicPageConfig.introduction}</p>
@@ -909,7 +919,7 @@ const PublicPackages: React.FC<PublicPackagesProps> = ({ userProfile: initialUse
                                             alt={`Gallery image ${index + 1}`}
                                             loading="lazy"
                                             className="w-full h-auto object-cover rounded-none shadow-none"
-                                        />
+                                         decoding="async" />
                                     </div>
                                 ))}
                             </div>
@@ -1099,9 +1109,15 @@ const PublicPackages: React.FC<PublicPackagesProps> = ({ userProfile: initialUse
                                                             alt={pkg.name}
                                                             loading="lazy"
                                                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                                                            decoding="async"
                                                             onError={(e) => {
-                                                                const target = e.target as HTMLImageElement;
-                                                                target.style.display = 'none';
+                                                                const target = e.currentTarget;
+                                                                if (target.dataset.fallbackApplied === 'true') {
+                                                                    target.style.display = 'none';
+                                                                    return;
+                                                                }
+                                                                target.dataset.fallbackApplied = 'true';
+                                                                target.src = '/assets/images/backgrounds/portal-pengantin-3.jpg';
                                                             }}
                                                         />
                                                     </div>

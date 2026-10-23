@@ -176,7 +176,7 @@ const PublicLeadForm: React.FC<PublicLeadFormProps> = ({ setLeads, userProfile, 
                         src={userProfile.publicPageConfig?.backgroundImages?.leadForm || userProfile.publicPageConfig?.backgroundImages?.bookingForm || '/assets/images/backgrounds/detail-acara-pernikahan.jpg'}
                         alt="Background form inquiry"
                         className="w-full h-full object-cover"
-                    />
+                     loading="lazy" decoding="async" />
                 </div>
                 {/* Header */}
                 <div className="pt-9 pb-6 px-6 sm:px-10 text-center">
