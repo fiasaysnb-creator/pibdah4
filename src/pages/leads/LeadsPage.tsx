@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Kanban, Table, SlidersHorizontal, ChevronDown, ChevronUp, X, Copy, ExternalLink, Package as PackageIconLucide, MapPin } from 'lucide-react';
 import { MobileCollapsibleSection } from '../../components/ui/MobileProgressiveDisclosure';
+import TablePagination from '../../shared/ui/TablePagination';
 
 // Helper function to escape special regex characters
 const escapeRegExp = (string: string) => {
@@ -811,6 +812,18 @@ export const Leads: React.FC<LeadsProps> = ({
 
         return true;
     }), [resolvedLeads, searchTerm, sourceFilter, cityFilter, dateFrom, dateTo, activeCardFilter]);
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, sourceFilter, cityFilter, dateFrom, dateTo, activeCardFilter, mobileStatusTab]);
+
+    const paginatedLeads = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredLeads.slice(start, start + itemsPerPage);
+    }, [filteredLeads, currentPage, itemsPerPage]);
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, leadId: string) => {
         e.dataTransfer.setData("leadId", leadId);
@@ -1721,7 +1734,7 @@ export const Leads: React.FC<LeadsProps> = ({
                                                     <p>Tidak ada Calon Pengantin yang cocok dengan filter.</p>
                                                 </td>
                                             </tr>
-                                        ) : filteredLeads.map((lead, idx) => {
+                                        ) : paginatedLeads.map((lead, idx) => {
                                             const sc = statusConfig[lead.status] ?? { color: '#64748b', title: lead.status };
                                             const isHot = new Date(lead.date) > new Date(Date.now() - 24 * 60 * 60 * 1000);
                                             return (
@@ -1731,7 +1744,7 @@ export const Leads: React.FC<LeadsProps> = ({
                                                     onClick={() => handleOpenModal('edit', lead)}
                                                 >
                                                     {/* # */}
-                                                    <td className="px-4 py-3 text-brand-text-secondary text-xs !border-0">{idx + 1}</td>
+                                                    <td className="px-4 py-3 text-brand-text-secondary text-xs !border-0">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
                                                     {/* Nama */}
                                                     <td className="px-4 py-3 !border-0">
                                                         <div className="flex items-center gap-2">
@@ -1866,12 +1879,16 @@ export const Leads: React.FC<LeadsProps> = ({
                                     </tbody>
                                 </table>
                             </div>
-                            {/* Table footer */}
-                            {filteredLeads.length > 0 && (
-                                <div className="px-4 py-3 border-t border-brand-border bg-brand-bg/50 text-xs text-brand-text-secondary text-right">
-                                    Menampilkan {filteredLeads.length} dari {leads.length} calon pengantin
-                                </div>
-                            )}
+                            {/* Table footer with Pagination */}
+                            <TablePagination
+                                currentPage={currentPage}
+                                totalItems={filteredLeads.length}
+                                itemsPerPage={itemsPerPage}
+                                onPageChange={setCurrentPage}
+                                onItemsPerPageChange={setItemsPerPage}
+                                label="calon pengantin"
+                                pageSizeOptions={[10, 20, 50]}
+                            />
                         </div>
                     )}
                 </>

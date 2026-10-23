@@ -4,6 +4,7 @@ import { formatCurrency } from '../../../utils/currency';
 import { DownloadIcon, PencilIcon, Trash2Icon, ArrowDownIcon } from '../../../constants';
 import { SlidersHorizontal, ChevronDown, ChevronUp, Eye, X, FileSpreadsheet } from 'lucide-react';
 import { MobileCollapsibleSection } from '../../../components/ui/MobileProgressiveDisclosure';
+import TablePagination from '../../../shared/ui/TablePagination';
 
 interface CategoryTotals {
     income: { [key: string]: number };
@@ -85,6 +86,17 @@ const TransactionsTab: React.FC<TransactionsTabProps> = ({
 }) => {
     const [mobileDateFilterOpen, setMobileDateFilterOpen] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [filters.searchTerm, filters.dateFrom, filters.dateTo, categoryFilter]);
+
+    const paginatedTransactions = React.useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredTransactions.slice(start, start + itemsPerPage);
+    }, [filteredTransactions, currentPage, itemsPerPage]);
 
     const allIncomeTotal: number = Object.keys(categoryTotals.income).reduce(
         (sum: number, key: string) => sum + categoryTotals.income[key],
@@ -305,7 +317,7 @@ const TransactionsTab: React.FC<TransactionsTabProps> = ({
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredTransactions.map(t => {
+                            {paginatedTransactions.map(t => {
                                 const subDescription = getTransactionSubDescription(t);
                                 return (
                                     <tr key={t.id} className="border-t border-[#EAEFF4]">
@@ -379,11 +391,11 @@ const TransactionsTab: React.FC<TransactionsTabProps> = ({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#EAEFF4]">
-                            {filteredTransactions.map((t, index) => {
+                            {paginatedTransactions.map((t, index) => {
                                 const subDescription = getTransactionSubDescription(t);
                                 return (
                                     <tr key={t.id} className="hover:bg-[#F4F6F9]/50 transition-colors">
-                                        <td className="p-3 text-center text-[#5A6A85] font-bold">{index + 1}</td>
+                                        <td className="p-3 text-center text-[#5A6A85] font-bold">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                         <td className="p-3 text-[#5A6A85] font-medium whitespace-nowrap">{new Date(t.date).toLocaleDateString('id-ID')}</td>
                                         <td className="p-3">
                                             <p className="font-bold text-[#2A3547]">{t.description}</p>
@@ -439,6 +451,16 @@ const TransactionsTab: React.FC<TransactionsTabProps> = ({
                         <p className="text-center py-10 text-[#5A6A85] text-sm">Tidak ada transaksi yang cocok.</p>
                     )}
                 </div>
+
+                <TablePagination
+                    currentPage={currentPage}
+                    totalItems={filteredTransactions.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                    onItemsPerPageChange={setItemsPerPage}
+                    label="transaksi"
+                    pageSizeOptions={[10, 20, 50]}
+                />
 
                 {hasMore && filteredTransactions.length >= 10 && (
                     <div className="mt-6 flex justify-center pb-2">

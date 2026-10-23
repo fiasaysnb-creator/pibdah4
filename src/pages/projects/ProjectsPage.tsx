@@ -29,6 +29,7 @@ import ChatModal from '../../features/communication/components/ChatModal';
 import ShareMessageModal from '../../features/communication/components/ShareMessageModal';
 import ProjectBriefingModal from '../../features/projects/components/ProjectBriefingModal';
 import ProjectStatModals from '../../features/projects/components/ProjectStatModals';
+import TablePagination from '../../shared/ui/TablePagination';
 
 import { useProjectFilters } from '../../features/projects/hooks/useProjectFilters';
 import { useProjectBriefing } from '../../features/projects/hooks/useProjectBriefing';
@@ -142,6 +143,18 @@ export const Projects: React.FC<ProjectsProps> = ({
         completedAndCancelledProjects,
         displayProjects
     } = useProjectFilters(projects);
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, dateFrom, dateTo, statusFilter, projectListTab]);
+
+    const paginatedDisplayProjects = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return displayProjects.slice(startIndex, startIndex + itemsPerPage);
+    }, [displayProjects, currentPage, itemsPerPage]);
 
     const {
         isBriefingModalOpen,
@@ -677,7 +690,7 @@ export const Projects: React.FC<ProjectsProps> = ({
                             </div>
                         </div>
                         <ProjectListView
-                            projects={displayProjects}
+                            projects={paginatedDisplayProjects}
                             handleOpenDetailModal={handleOpenDetailModal}
                             handleOpenForm={handleOpenForm}
                             handleProjectDelete={handleProjectDelete}
@@ -685,6 +698,15 @@ export const Projects: React.FC<ProjectsProps> = ({
                             clients={clients}
                             handleQuickStatusChange={handleQuickStatusChange}
                             handleSendMessage={handleSendMessage}
+                        />
+                        <TablePagination
+                            currentPage={currentPage}
+                            totalItems={displayProjects.length}
+                            itemsPerPage={itemsPerPage}
+                            onPageChange={setCurrentPage}
+                            onItemsPerPageChange={setItemsPerPage}
+                            label="acara"
+                            pageSizeOptions={[10, 20, 50]}
                         />
                     </div>
                 ) : (

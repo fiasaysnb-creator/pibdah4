@@ -16,6 +16,7 @@ import {
     UsersIcon,
 } from '../../../constants';
 import { MobileExpandableExtra } from '../../../components/ui/MobileProgressiveDisclosure';
+import TablePagination from '../../../shared/ui/TablePagination';
 
 interface TeamMemberListProps {
     members: TeamMember[];
@@ -53,11 +54,23 @@ const TeamMemberList: React.FC<TeamMemberListProps> = ({
     const nameHeader = groupLabel === 'vendor' ? 'Nama Vendor' : 'Nama';
     const roleHeader = groupLabel === 'vendor' ? 'Bidang / Layanan' : 'Peran / Posisi';
 
+    const [currentPage, setCurrentPage] = React.useState(1);
+    const [itemsPerPage, setItemsPerPage] = React.useState(10);
+
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [members.length, groupLabel]);
+
+    const paginatedMembers = React.useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return members.slice(start, start + itemsPerPage);
+    }, [members, currentPage, itemsPerPage]);
+
     return (
         <div className="bg-white rounded-2xl shadow-[0_9px_17.5px_rgba(0,0,0,0.05)] border border-slate-200 overflow-hidden transition-all duration-300">
             {/* Mobile cards */}
             <div className="md:hidden p-3 space-y-3 bg-[#F8FAFC]">
-                {members.map(member => {
+                {paginatedMembers.map(member => {
                     const unpaidFee = getUnpaidFee(member.id);
 
                     const categoryBadgeClass =
@@ -156,7 +169,7 @@ const TeamMemberList: React.FC<TeamMemberListProps> = ({
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 bg-white">
-                        {members.map((member, index) => {
+                        {paginatedMembers.map((member, index) => {
                             const unpaidFee = getUnpaidFee(member.id);
                             return (
                                 <tr
@@ -164,7 +177,7 @@ const TeamMemberList: React.FC<TeamMemberListProps> = ({
                                     className="hover:bg-[#F8FAFC] transition-colors"
                                 >
                                     <td className="px-3 lg:px-4 py-3.5 text-center font-semibold text-[#5A6A85] border-r border-slate-100">
-                                        {index + 1}
+                                        {(currentPage - 1) * itemsPerPage + index + 1}
                                     </td>
                                     <td className="px-3 lg:px-4 py-3.5 font-bold text-[#2A3547] border-r border-slate-100">
                                         <div className="flex items-center gap-2.5 min-w-0">
@@ -231,6 +244,16 @@ const TeamMemberList: React.FC<TeamMemberListProps> = ({
                     </tbody>
                 </table>
             </div>
+
+            <TablePagination
+                currentPage={currentPage}
+                totalItems={members.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={setItemsPerPage}
+                label={groupLabel === 'vendor' ? 'vendor' : 'anggota tim'}
+                pageSizeOptions={[10, 20, 50]}
+            />
         </div>
     );
 };
