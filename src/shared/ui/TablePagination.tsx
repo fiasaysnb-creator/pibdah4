@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export interface TablePaginationProps {
@@ -23,6 +23,11 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
   className = '',
 }) => {
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+
+  useEffect(() => {
+    if (currentPage > totalPages) onPageChange(totalPages);
+    else if (currentPage < 1) onPageChange(1);
+  }, [currentPage, totalPages, onPageChange]);
 
   // If no items at all, don't show navigation
   if (totalItems === 0) return null;

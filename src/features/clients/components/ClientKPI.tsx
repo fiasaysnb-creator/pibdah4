@@ -285,6 +285,12 @@ const ClientReports: React.FC<ClientReportsProps> = ({
 
     const totalPages = Math.ceil(searchedAndSortedClients.length / itemsPerPage);
 
+    useEffect(() => {
+        const lastPage = Math.max(1, totalPages);
+        if (currentPage > lastPage) setCurrentPage(lastPage);
+        else if (currentPage < 1) setCurrentPage(1);
+    }, [currentPage, totalPages]);
+
     const paginatedClients = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return searchedAndSortedClients.slice(startIndex, startIndex + itemsPerPage);
