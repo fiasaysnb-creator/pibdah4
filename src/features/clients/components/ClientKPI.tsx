@@ -479,6 +479,88 @@ const ClientReports: React.FC<ClientReportsProps> = ({
     const directRevenueShare = totalRevenue > 0 ? ((directRevenue / totalRevenue) * 100).toFixed(1) : '0';
     const vendorRevenueShare = totalRevenue > 0 ? ((vendorRevenue / totalRevenue) * 100).toFixed(1) : '0';
 
+    // The direct-vs-vendor report is an event report: during a date filter,
+    // include clients with projects in that period rather than clients whose
+    // registration date happens to fall in the same month.
+    const typeReportClients = useMemo(() => {
+        if (!dateFrom && !dateTo) return filteredClients;
+        const projectClientIds = new Set(filteredProjects.map(project => project.clientId));
+        return clients.filter(client => projectClientIds.has(client.id));
+    }, [clients, filteredClients, filteredProjects, dateFrom, dateTo]);
+    const typeReportDirectClients = useMemo(
+        () => typeReportClients.filter(client => !client.clientType || (client.clientType as string) === ClientType.DIRECT),
+        [typeReportClients],
+    );
+    const typeReportVendorClients = useMemo(
+        () => typeReportClients.filter(client => (client.clientType as string) === ClientType.VENDOR),
+        [typeReportClients],
+    );
+    const typeReportClientIds = useMemo(() => new Set(typeReportClients.map(client => client.id)), [typeReportClients]);
+    const typeReportProjects = useMemo(
+        () => filteredProjects.filter(project => typeReportClientIds.has(project.clientId)),
+        [filteredProjects, typeReportClientIds],
+    );
+    const typeReportDirectIds = useMemo(() => new Set(typeReportDirectClients.map(client => client.id)), [typeReportDirectClients]);
+    const typeReportVendorIds = useMemo(() => new Set(typeReportVendorClients.map(client => client.id)), [typeReportVendorClients]);
+    const typeReportDirectProjects = useMemo(() => typeReportProjects.filter(project => typeReportDirectIds.has(project.clientId)), [typeReportProjects, typeReportDirectIds]);
+    const typeReportVendorProjects = useMemo(() => typeReportProjects.filter(project => typeReportVendorIds.has(project.clientId)), [typeReportProjects, typeReportVendorIds]);
+    const typeReportDirectRevenue = typeReportDirectProjects.reduce((sum, project) => sum + project.totalCost, 0);
+    const typeReportVendorRevenue = typeReportVendorProjects.reduce((sum, project) => sum + project.totalCost, 0);
+    const typeReportRevenue = typeReportProjects.reduce((sum, project) => sum + project.totalCost, 0);
+    const typeReportAvgDirectRevenue = typeReportDirectClients.length ? Math.round(typeReportDirectRevenue / typeReportDirectClients.length) : 0;
+    const typeReportAvgVendorRevenue = typeReportVendorClients.length ? Math.round(typeReportVendorRevenue / typeReportVendorClients.length) : 0;
+    const typeReportAvgRevenuePerClient = typeReportClients.length ? Math.round(typeReportRevenue / typeReportClients.length) : 0;
+    const typeReportDirectShare = typeReportClients.length ? ((typeReportDirectClients.length / typeReportClients.length) * 100).toFixed(0) : '0';
+    const typeReportVendorShare = typeReportClients.length ? ((typeReportVendorClients.length / typeReportClients.length) * 100).toFixed(0) : '0';
+    const typeReportDirectRevenueShare = typeReportRevenue ? ((typeReportDirectRevenue / typeReportRevenue) * 100).toFixed(1) : '0';
+    const typeReportVendorRevenueShare = typeReportRevenue ? ((typeReportVendorRevenue / typeReportRevenue) * 100).toFixed(1) : '0';
+    const typeReportClientsInTable = useMemo(() => {
+        let result = [...typeReportClients];
+        if (statusFilter !== 'all') result = result.filter(client => client.status === statusFilter);
+        if (clientTypeFilter !== 'all') {
+            result = result.filter(client => {
+                const isDirect = !client.clientType || (client.clientType as string) === ClientType.DIRECT;
+                return clientTypeFilter === 'direct' ? isDirect : !isDirect;
+            });
+        }
+        if (cityFilter !== 'all') {
+            result = result.filter(client => extractCityFromAddress(client.address || client.homeAddress || '') === cityFilter);
+        }
+        if (packageFilter !== 'all') {
+            const matchingClientIds = new Set(
+                filteredProjects
+                    .filter(project => (project.packageName || '').toLowerCase().trim() === packageFilter.toLowerCase().trim())
+                    .map(project => project.clientId),
+            );
+            result = result.filter(client => matchingClientIds.has(client.id));
+        }
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            result = result.filter(client =>
+                client.name.toLowerCase().includes(query) ||
+                client.email.toLowerCase().includes(query) ||
+                (client.address || client.homeAddress || '').toLowerCase().includes(query),
+            );
+        }
+        result.sort((a, b) => {
+            switch (sortBy) {
+                case 'name': return a.name.localeCompare(b.name);
+                case 'date': return new Date(b.since).getTime() - new Date(a.since).getTime();
+                case 'value':
+                    return filteredProjects.filter(project => project.clientId === b.id).reduce((sum, project) => sum + project.totalCost, 0)
+                        - filteredProjects.filter(project => project.clientId === a.id).reduce((sum, project) => sum + project.totalCost, 0);
+                case 'status': return a.status.localeCompare(b.status);
+                default: return 0;
+            }
+        });
+        return result;
+    }, [typeReportClients, statusFilter, clientTypeFilter, cityFilter, packageFilter, filteredProjects, searchQuery, sortBy]);
+
+    // City reporting follows the event period when one is selected, just like
+    // package and team reporting. The general client list remains registration-date based.
+    const cityReportClients = typeReportClients;
+    const citySearchedClients = typeReportClientsInTable;
+
     // ── 2. Daerah & Kota Pengantin Terbanyak ──
     const cityStats = useMemo(() => {
         const map: Record<string, {
@@ -491,7 +573,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
             leads: Lead[];
         }> = {};
 
-        filteredClients.forEach(c => {
+        cityReportClients.forEach(c => {
             const city = extractCityFromAddress(c.address || c.homeAddress || '');
             if (!map[city]) {
                 map[city] = { name: city, clientCount: 0, leadCount: 0, projectCount: 0, totalRevenue: 0, clients: [], leads: [] };
@@ -510,7 +592,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
         });
 
         filteredProjects.forEach(p => {
-            const client = filteredClients.find(c => c.id === p.clientId);
+            const client = cityReportClients.find(c => c.id === p.clientId);
             const targetCity = client ? extractCityFromAddress(client.address || client.homeAddress || '') : extractCityFromAddress(p.location || '');
             if (map[targetCity]) {
                 map[targetCity].projectCount += 1;
@@ -525,12 +607,12 @@ const ClientReports: React.FC<ClientReportsProps> = ({
             if (bTotal !== aTotal) return bTotal - aTotal;
             return b.totalRevenue - a.totalRevenue;
         });
-        const totalCount = filteredClients.length;
+        const totalCount = cityReportClients.length;
         return list.map(item => ({
             ...item,
             percentage: totalCount > 0 ? (item.clientCount / totalCount) * 100 : (item.leadCount > 0 ? 100 : 0)
         }));
-    }, [filteredClients, filteredLeads, filteredProjects]);
+    }, [cityReportClients, filteredLeads, filteredProjects]);
 
     const topCity = cityStats.find(c => c.clientCount > 0) || cityStats[0] || { name: 'Semua Kota', clientCount: 0, leadCount: 0, percentage: 0, totalRevenue: 0, clients: [] as Client[], leads: [] as Lead[] };
 
@@ -720,6 +802,18 @@ const ClientReports: React.FC<ClientReportsProps> = ({
         };
     }, { projectValue: 0, expense: 0, netProfit: 0 });
 
+    const typeReportClientTableTotals = typeReportClientsInTable.reduce((totals, client) => {
+        const projectValue = filteredProjects
+            .filter(project => project.clientId === client.id)
+            .reduce((sum, project) => sum + project.totalCost, 0);
+        const transactionTotals = clientTransactionTotals.get(client.id) || { income: 0, expense: 0, expenses: [] };
+        return {
+            projectValue: totals.projectValue + projectValue,
+            expense: totals.expense + transactionTotals.expense,
+            netProfit: totals.netProfit + transactionTotals.income - transactionTotals.expense,
+        };
+    }, { projectValue: 0, expense: 0, netProfit: 0 });
+
     const topTeamJob = useMemo(() => {
         return [...teamStats].sort((a, b) => b.jobCount - a.jobCount)[0] || {
             id: '', name: 'Belum Ada', jobCount: 0, totalFee: 0, role: '-', category: 'Tim' as const, paidFee: 0, unpaidFee: 0, projects: []
@@ -791,7 +885,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
     // Export functionality
     const handleExportToCSV = () => {
         const headers = ['Nama', 'Email', 'Telepon', 'Status', 'Terdaftar', 'Total Nilai'];
-        const rows = filteredClients.map(client => {
+        const rows = typeReportClientsInTable.map(client => {
             const totalValue = filteredProjects.filter(p => p.clientId === client.id).reduce((sum, p) => sum + p.totalCost, 0);
             return [
                 client.name,
@@ -865,9 +959,9 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                         { header: 'Share Omzet', width: 1, align: 'right' },
                     ],
                     rows: [
-                        ['Langsung (Direct)', directClients.length, directProjects.length, directRevenue, avgDirectRevenue, `${directRevenueShare}%`],
-                        ['Vendor / WO', vendorClients.length, vendorProjects.length, vendorRevenue, avgVendorRevenue, `${vendorRevenueShare}%`],
-                        ['TOTAL', filteredClients.length, filteredProjects.length, totalRevenue, avgRevenuePerClient, '100%'],
+                        ['Langsung (Direct)', typeReportDirectClients.length, typeReportDirectProjects.length, typeReportDirectRevenue, typeReportAvgDirectRevenue, `${typeReportDirectRevenueShare}%`],
+                        ['Vendor / WO', typeReportVendorClients.length, typeReportVendorProjects.length, typeReportVendorRevenue, typeReportAvgVendorRevenue, `${typeReportVendorRevenueShare}%`],
+                        ['TOTAL', typeReportClients.length, typeReportProjects.length, typeReportRevenue, typeReportAvgRevenuePerClient, '100%'],
                     ],
                 },
                 {
@@ -884,7 +978,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                         { header: 'Status Bayar', width: 0.8 },
                         { header: 'Tanggal Acara', width: 0.9 },
                     ],
-                    rows: searchedAndSortedClients.map(client => {
+                    rows: typeReportClientsInTable.map(client => {
                         const ledger = buildClientLedger(
                             client,
                             filteredProjects,
@@ -923,11 +1017,11 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                 : '-',
                         ];
                     }).concat([[
-                        `TOTAL (${searchedAndSortedClients.length} pengantin)`,
+                        `TOTAL (${typeReportClientsInTable.length} pengantin)`,
                         '', '', '', '',
-                        clientTableTotals.projectValue,
-                        clientTableTotals.expense,
-                        clientTableTotals.netProfit,
+                        typeReportClientTableTotals.projectValue,
+                        typeReportClientTableTotals.expense,
+                        typeReportClientTableTotals.netProfit,
                         '', '',
                     ]]),
                     emptyText: 'Tidak ada data pengantin pada periode ini.',
@@ -1572,19 +1666,19 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                 onClick={() => setClientTypeFilter('all')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${clientTypeFilter === 'all' ? 'bg-brand-accent text-white' : 'bg-brand-bg text-brand-text-secondary border border-brand-border/60'}`}
                             >
-                                Semua ({filteredClients.length})
+                                Semua ({typeReportClients.length})
                             </button>
                             <button
                                 onClick={() => setClientTypeFilter('direct')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${clientTypeFilter === 'direct' ? 'bg-emerald-600 text-white' : 'bg-brand-bg text-brand-text-secondary border border-brand-border/60'}`}
                             >
-                                Langsung ({directClients.length})
+                                Langsung ({typeReportDirectClients.length})
                             </button>
                             <button
                                 onClick={() => setClientTypeFilter('vendor')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${clientTypeFilter === 'vendor' ? 'bg-sky-600 text-white' : 'bg-brand-bg text-brand-text-secondary border border-brand-border/60'}`}
                             >
-                                Vendor ({vendorClients.length})
+                                Vendor ({typeReportVendorClients.length})
                             </button>
                         </div>
                     </div>
@@ -1593,33 +1687,33 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                         <div className="p-4 bg-emerald-600 text-white rounded-2xl">
                             <div className="flex justify-between items-start">
                                 <p className="text-xs font-semibold text-white">Pengantin Langsung</p>
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white text-emerald-700 font-bold whitespace-nowrap">{directShare}% Total</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white text-emerald-700 font-bold whitespace-nowrap">{typeReportDirectShare}% Total</span>
                             </div>
-                            <p className="text-2xl font-bold text-white mt-2">{directClients.length} <span className="text-xs font-normal text-white/80">pengantin</span></p>
-                            <p className="text-xs text-white/85 mt-1">Omzet: <span className="font-semibold text-white">{formatCurrency(directRevenue)}</span> ({directRevenueShare}%)</p>
-                            <p className="text-[11px] text-white/80 mt-0.5">Rata-rata: {formatCurrency(avgDirectRevenue)} / acara</p>
+                            <p className="text-2xl font-bold text-white mt-2">{typeReportDirectClients.length} <span className="text-xs font-normal text-white/80">pengantin</span></p>
+                            <p className="text-xs text-white/85 mt-1">Omzet: <span className="font-semibold text-white">{formatCurrency(typeReportDirectRevenue)}</span> ({typeReportDirectRevenueShare}%)</p>
+                            <p className="text-[11px] text-white/80 mt-0.5">Rata-rata: {formatCurrency(typeReportAvgDirectRevenue)} / acara</p>
                         </div>
 
                         <div className="p-4 bg-sky-600 text-white rounded-2xl">
                             <div className="flex justify-between items-start">
                                 <p className="text-xs font-semibold text-white">Pengantin Vendor / WO</p>
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white text-sky-700 font-bold whitespace-nowrap">{vendorShare}% Total</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white text-sky-700 font-bold whitespace-nowrap">{typeReportVendorShare}% Total</span>
                             </div>
-                            <p className="text-2xl font-bold text-white mt-2">{vendorClients.length} <span className="text-xs font-normal text-white/80">pengantin</span></p>
-                            <p className="text-xs text-white/85 mt-1">Omzet: <span className="font-semibold text-white">{formatCurrency(vendorRevenue)}</span> ({vendorRevenueShare}%)</p>
-                            <p className="text-[11px] text-white/80 mt-0.5">Rata-rata: {formatCurrency(avgVendorRevenue)} / acara</p>
+                            <p className="text-2xl font-bold text-white mt-2">{typeReportVendorClients.length} <span className="text-xs font-normal text-white/80">pengantin</span></p>
+                            <p className="text-xs text-white/85 mt-1">Omzet: <span className="font-semibold text-white">{formatCurrency(typeReportVendorRevenue)}</span> ({typeReportVendorRevenueShare}%)</p>
+                            <p className="text-[11px] text-white/80 mt-0.5">Rata-rata: {formatCurrency(typeReportAvgVendorRevenue)} / acara</p>
                         </div>
 
                         <div className="p-4 bg-brand-surface border border-brand-border rounded-2xl">
                             <p className="text-xs font-semibold text-brand-text-secondary">Total Seluruh Acara</p>
-                            <p className="text-2xl font-bold text-brand-accent mt-2">{filteredProjects.length} <span className="text-xs font-normal text-brand-text-secondary">proyek</span></p>
-                            <p className="text-xs text-brand-text-secondary mt-1">Total Omzet: <span className="font-semibold text-brand-text-light">{formatCurrency(totalRevenue)}</span></p>
-                            <p className="text-[11px] text-brand-text-secondary mt-0.5">Rata-rata: {formatCurrency(avgRevenuePerClient)} / klien</p>
+                            <p className="text-2xl font-bold text-brand-accent mt-2">{typeReportProjects.length} <span className="text-xs font-normal text-brand-text-secondary">proyek</span></p>
+                            <p className="text-xs text-brand-text-secondary mt-1">Total Omzet: <span className="font-semibold text-brand-text-light">{formatCurrency(typeReportRevenue)}</span></p>
+                            <p className="text-[11px] text-brand-text-secondary mt-0.5">Rata-rata: {formatCurrency(typeReportAvgRevenuePerClient)} / klien</p>
                         </div>
 
                         <div className="p-4 bg-brand-surface border border-brand-border rounded-2xl">
                             <p className="text-xs font-semibold text-brand-text-secondary">Analisis Akuisisi</p>
-                            <p className="text-2xl font-bold text-emerald-600 mt-2">{directClients.length >= vendorClients.length ? 'Direct Lebih Banyak' : 'Vendor Lebih Banyak'}</p>
+                            <p className="text-2xl font-bold text-emerald-600 mt-2">{typeReportDirectClients.length >= typeReportVendorClients.length ? 'Direct Lebih Banyak' : 'Vendor Lebih Banyak'}</p>
                             <p className="text-xs text-brand-text-secondary mt-1">Direct: Margin optimal tanpa potongan mitra</p>
                             <p className="text-[11px] text-brand-text-secondary mt-0.5">Vendor: Volume kerja sama dengan WO</p>
                         </div>
@@ -1630,7 +1724,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                             <h4 className="text-sm font-bold text-brand-text-light">
                                 Rincian Pengantin ({clientTypeFilter === 'all' ? 'Semua Tipe' : clientTypeFilter === 'direct' ? 'Langsung' : 'Vendor'})
                             </h4>
-                            <span className="text-xs text-brand-text-secondary whitespace-nowrap">{searchedAndSortedClients.length} data ditemukan</span>
+                            <span className="text-xs text-brand-text-secondary whitespace-nowrap">{typeReportClientsInTable.length} data ditemukan</span>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="report-table kpi-detail-table w-full min-w-[1498px] table-fixed text-left text-xs">
@@ -1664,7 +1758,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-brand-border/50">
-                                    {searchedAndSortedClients.map(c => {
+                                    {typeReportClientsInTable.map(c => {
                                         const {
                                             isDirect,
                                             totalVal,
@@ -1769,7 +1863,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                             </tr>
                                         );
                                     })}
-                                    {searchedAndSortedClients.length === 0 && (
+                                    {typeReportClientsInTable.length === 0 && (
                                         <tr>
                                             <td colSpan={9} className="p-8 text-center text-brand-text-secondary">
                                                 Tidak ada data pengantin untuk filter ini.
@@ -1779,11 +1873,11 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                 </tbody>
                                 <tfoot>
                                     <tr className="border-t-2 border-brand-accent bg-brand-bg font-bold text-brand-text-primary">
-                                        <td colSpan={4} className="p-3">TOTAL ({searchedAndSortedClients.length} pengantin)</td>
-                                        <td className="p-3 text-right tabular-nums whitespace-nowrap">{formatCurrency(clientTableTotals.projectValue)}</td>
-                                        <td className="p-3 text-right tabular-nums whitespace-nowrap">{formatCurrency(clientTableTotals.expense)}</td>
-                                        <td className={`p-3 text-right tabular-nums whitespace-nowrap ${clientTableTotals.netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                                            {formatCurrency(clientTableTotals.netProfit)}
+                                        <td colSpan={4} className="p-3">TOTAL ({typeReportClientsInTable.length} pengantin)</td>
+                                        <td className="p-3 text-right tabular-nums whitespace-nowrap">{formatCurrency(typeReportClientTableTotals.projectValue)}</td>
+                                        <td className="p-3 text-right tabular-nums whitespace-nowrap">{formatCurrency(typeReportClientTableTotals.expense)}</td>
+                                        <td className={`p-3 text-right tabular-nums whitespace-nowrap ${typeReportClientTableTotals.netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                                            {formatCurrency(typeReportClientTableTotals.netProfit)}
                                         </td>
                                         <td colSpan={2} className="p-3" />
                                     </tr>
@@ -1822,7 +1916,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                         >
                             <span className="font-semibold">Semua Kota</span>
                             <span className={`text-[11px] ${cityFilter === 'all' ? 'text-white/85' : 'text-brand-text-secondary'}`}>
-                                {filteredClients.length} pengantin · {filteredLeads.length} calon
+                                {cityReportClients.length} pengantin · {filteredLeads.length} calon
                             </span>
                         </button>
                         {cityStats.map(c => (
@@ -1928,11 +2022,11 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                             <h4 className="text-sm font-bold text-brand-text-light mb-3 flex items-center justify-between">
                                 <span>Pengantin di {cityFilter === 'all' ? 'Semua Kota' : `Kota "${cityFilter}"`}</span>
                                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-600 text-white">
-                                    {searchedAndSortedClients.length} pengantin
+                                    {citySearchedClients.length} pengantin
                                 </span>
                             </h4>
                             <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-                                {searchedAndSortedClients.map(c => {
+                                {citySearchedClients.map(c => {
                                     const cProjects = filteredProjects.filter(p => p.clientId === c.id);
                                     const totalVal = cProjects.reduce((sum, p) => sum + p.totalCost, 0);
                                     return (
@@ -1950,7 +2044,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                         </div>
                                     );
                                 })}
-                                {searchedAndSortedClients.length === 0 && (
+                                {citySearchedClients.length === 0 && (
                                     <p className="text-center text-xs text-brand-text-secondary py-8">Tidak ada pengantin di kota ini.</p>
                                 )}
                             </div>

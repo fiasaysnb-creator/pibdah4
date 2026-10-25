@@ -932,8 +932,6 @@ export const Clients: React.FC<ClientsProps> = ({
                     clients={clients}
                     projects={projects}
                     transactions={transactions}
-                    monthFilter={monthFilter}
-                    setMonthFilter={setMonthFilter}
                 />
             )}
 

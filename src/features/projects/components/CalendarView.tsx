@@ -842,35 +842,57 @@ interface AgendaViewProps {
 }
 
 const AgendaView: React.FC<AgendaViewProps> = ({ agendaByDate, profile, clients, onEventClick, emptyMessage = 'Tidak ada acara pada bulan ini.' }) => (
-    <div className="p-4 md:p-6 lg:p-10 max-w-4xl mx-auto custom-scrollbar overflow-x-hidden">
-        {agendaByDate.map(([dateString, eventsOnDate]) => (
-            <div key={dateString} className="mb-10 animate-fade-in relative">
-                <div className="sticky top-0 z-10 bg-brand-surface/90 backdrop-blur-md py-3 -mx-4 px-4 md:mx-0 md:px-0 mb-4 border-b border-brand-border/40">
-                    <h3 className="font-bold text-base md:text-lg text-brand-text-light">{(() => { const _d = new Date(dateString); const _wd = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']; const _mo = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']; return `${_wd[_d.getDay()]} ${_d.getDate()} ${_mo[_d.getMonth()]}`; })()}</h3>
-                </div>
-                <div className="relative pl-10 md:pl-16 border-l-2 border-brand-border/40 ml-2 md:ml-4">
-                    {eventsOnDate.map(event => {
-                        const bgColor = getEventColor(event, profile);
-                        const client = clients.find(item => item.id === event.clientId);
-                        return (
-                            <div key={event.id} className="relative mb-6 group">
-                                <div className="absolute -left-[3.5rem] md:-left-[5rem] top-2 font-semibold text-[10px] md:text-xs text-brand-text-primary bg-white/60 px-1.5 py-0.5 rounded shadow-sm scale-90 md:scale-100 origin-right">{event.startTime || 'All Day'}</div>
-                                <div className="absolute -left-[0.65rem] top-2.5 w-4 h-4 rounded-full border-4 border-brand-surface shadow-sm ring-2 ring-transparent group-hover:ring-brand-accent/30 transition-all" style={{ backgroundColor: bgColor }}></div>
-                                <div onClick={() => onEventClick(event)} className="ml-4 md:ml-6 p-4 md:p-5 rounded-2xl cursor-pointer glass-card card-hover-lift shadow-sm transition-all" style={{ borderLeft: `4px solid ${bgColor}` }}>
-                                    <h4 className="font-bold text-sm md:text-base text-brand-text-light">{event.projectName}</h4>
-                                    <div className="text-xs md:text-sm font-medium text-brand-text-secondary mt-1 flex items-center gap-1.5">
-                                        {event.clientId !== 'INTERNAL' && <ClientAvatar client={client} name={event.clientName || 'Pengantin'} className="w-5 h-5" />}
-                                        <span>{event.clientId === 'INTERNAL' ? event.projectType : (event.clientName || event.projectType)}</span>
-                                        {event.location && ` • ${event.location}`}
-                                    </div>
-                                </div>
-                            </div>
-                        )
-                    })}
-                </div>
-            </div>
-        ))}
-        {agendaByDate.length === 0 && <p className="text-center text-brand-text-secondary py-16">{emptyMessage}</p>}
+    <div className="mx-auto max-w-5xl space-y-6 p-3 custom-scrollbar overflow-x-hidden sm:p-5 lg:p-7">
+        {agendaByDate.map(([dateString, eventsOnDate]) => {
+            const date = new Date(dateString);
+            const dateLabel = date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            return (
+                <section key={dateString} className="animate-fade-in">
+                    <h3 className="sticky top-0 z-10 mb-3 border-b border-brand-border bg-brand-surface py-2 text-sm font-bold text-brand-text-primary">{dateLabel}</h3>
+                    <div className="space-y-3">
+                        {eventsOnDate.map(event => {
+                            const eventDate = event.date ? new Date(`${event.date.slice(0, 10)}T00:00:00`) : date;
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const daysAway = Math.ceil((eventDate.getTime() - today.getTime()) / 86400000);
+                            const countdown = daysAway === 0 ? 'Hari Ini' : daysAway > 0 ? `${daysAway} Hari Lagi` : 'Selesai';
+                            const client = clients.find(item => item.id === event.clientId);
+                            const eventColor = getEventColor(event, profile);
+                            const eventType = event.projectType || 'Acara';
+                            const secondary = event.clientId === 'INTERNAL'
+                                ? event.location || eventType
+                                : [client?.name || event.clientName || 'Pengantin', event.location].filter(Boolean).join(' · ');
+                            return (
+                                <button
+                                    key={event.id}
+                                    type="button"
+                                    onClick={() => onEventClick(event)}
+                                    className="group flex w-full min-w-0 items-center gap-3 rounded-xl border border-brand-border bg-white p-3 text-left shadow-sm transition-colors hover:border-brand-accent sm:gap-4 sm:p-3.5"
+                                >
+                                    <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl text-white" style={{ backgroundColor: eventColor }}>
+                                        <span className="text-[10px] font-bold uppercase leading-tight">{eventDate.toLocaleDateString('id-ID', { month: 'short' })}</span>
+                                        <span className="text-xl font-extrabold leading-tight">{eventDate.getDate()}</span>
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-sm font-bold text-brand-text-primary group-hover:text-brand-accent">{event.projectName}</span>
+                                        <span className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-[10px] font-semibold uppercase text-brand-text-secondary">
+                                            <span className="shrink-0">{eventType}</span>
+                                            {secondary && <span className="truncate font-medium normal-case">· {secondary}</span>}
+                                        </span>
+                                        {event.startTime && <span className="mt-1 block text-[10px] text-brand-text-secondary">{event.startTime}{event.endTime ? ` – ${event.endTime}` : ''}</span>}
+                                    </span>
+                                    <span className="flex shrink-0 flex-col items-end gap-1">
+                                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold text-white ${daysAway < 0 ? 'bg-slate-600' : daysAway === 0 ? 'bg-red-600' : 'bg-blue-600'}`}>{countdown}</span>
+                                        <span className="max-w-24 truncate rounded-full bg-slate-600 px-2 py-0.5 text-[10px] font-medium text-white">{event.status || 'Terjadwal'}</span>
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </section>
+            );
+        })}
+        {agendaByDate.length === 0 && <p className="py-16 text-center text-sm text-brand-text-secondary">{emptyMessage}</p>}
     </div>
 );
 

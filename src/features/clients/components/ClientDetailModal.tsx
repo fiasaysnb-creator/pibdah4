@@ -150,7 +150,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 }) => {
   const uiTextOverrides = useUiTextOverrides();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'events' | 'payments'>('events');
+  const [activeTab, setActiveTab] = useState<'events' | 'payments' | 'invoice'>('events');
   const [newPayments, setNewPayments] = useState<{ [key: string]: { amount: string; destinationCardId: string } }>({});
   const [paymentProofFiles, setPaymentProofFiles] = useState<Record<string, File | null>>({});
   const [savingPaymentProjectId, setSavingPaymentProjectId] = useState<string | null>(null);
@@ -715,9 +715,10 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
   // ── tab config ────────────────────────────────────────────────────────────
 
-  const tabs: { key: 'events' | 'payments'; label: string; icon: React.ReactNode }[] = [
+  const tabs: { key: 'events' | 'payments' | 'invoice'; label: string; icon: React.ReactNode }[] = [
     { key: 'events', label: `${customizeUiText('client.detail.tab.events', 'Acara Pernikahan', uiTextOverrides)} (${totalProjects})`, icon: <FolderKanbanIcon className="w-4 h-4" /> },
     { key: 'payments', label: customizeUiText('client.detail.tab.payments', 'Pembayaran & Transaksi', uiTextOverrides), icon: <HistoryIcon className="w-4 h-4" /> },
+    { key: 'invoice', label: `Invoice (${totalProjects})`, icon: <FileTextIcon className="w-4 h-4" /> },
   ];
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -849,6 +850,80 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
           </Suspense>
         )}
 
+        {activeTab === 'invoice' && (
+          <div className="space-y-4 animate-fade-in">
+            {clientProjects.length === 0 && <p className="rounded-xl border border-brand-border bg-brand-surface py-10 text-center text-sm text-brand-text-secondary">Belum ada invoice untuk pengantin ini.</p>}
+            {clientProjects.map((p, projectIndex) => {
+              const pkg = packages.find(item => item.id === p.packageId || (p.packageName && item.name.trim().toLowerCase() === p.packageName.trim().toLowerCase())) || null;
+              const durationOption = pkg?.durationOptions?.find(option => option.label === p.durationSelection);
+              const teamComposition = durationOption?.photographers || pkg?.photographers;
+              const packageDescriptionItems = [...(pkg?.digitalItems || [])];
+              if (teamComposition?.trim()) packageDescriptionItems.unshift(`Jumlah Tim: ${teamComposition}`);
+              const selectedAddOns = (p.addOns || []).filter(item => item && (item.name || item.id));
+              const selectedPackageIds = new Set(packages.map(item => item.id));
+              const additionalPackages = p.additionalPackages?.length
+                ? p.additionalPackages
+                : selectedAddOns.filter(item => item.id && selectedPackageIds.has(item.id) && item.id !== p.packageId);
+              const additionalPackageIds = new Set(additionalPackages.map(item => item.id));
+              const regularAddOns = selectedAddOns.filter(item => (!item.id || !selectedPackageIds.has(item.id)) && !additionalPackageIds.has(item.id));
+              const packagePrice = p.totalCost + (Number(p.discountAmount) || 0)
+                - (p.customCosts?.reduce((sum, item) => sum + Number(item.amount || 0), 0) || 0)
+                - regularAddOns.reduce((sum, item) => sum + Number(item.price || 0), 0)
+                - additionalPackages.reduce((sum, item) => sum + Number(item.price || 0), 0)
+                - Number(p.transportCost || 0);
+              const remainingBalance = p.totalCost - p.amountPaid;
+              const eventDateLabel = p.date ? new Date(p.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Tanggal belum ditentukan';
+
+              return (
+                <article key={p.id} className="overflow-hidden rounded-2xl border border-brand-border bg-brand-surface shadow-sm">
+                  <header className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-border bg-brand-bg/60 px-4 py-3">
+                    <div className="min-w-0"><h4 className="truncate text-sm font-bold text-brand-text-primary">{p.projectName}</h4><p className="text-[10px] text-brand-text-secondary">PRJ-{p.id.slice(-6).toUpperCase()} · {eventDateLabel}</p></div>
+                    <span className="rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-bold text-white">Invoice #{projectIndex + 1}</span>
+                  </header>
+                  <div className="space-y-3 p-3 sm:p-5">
+                    <details open={openCostDetails[p.id] ?? true} onToggle={event => { const isOpen = event.currentTarget.open; setOpenCostDetails(current => current[p.id] === isOpen ? current : { ...current, [p.id]: isOpen }); }} className="overflow-hidden rounded-xl border border-brand-border bg-white">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 bg-blue-600 px-4 py-3 text-xs font-bold text-white [&::-webkit-details-marker]:hidden">
+                        <span>Rincian biaya</span><span className="flex items-center gap-2">{formatCurrency(p.totalCost)}<ChevronDown className="h-4 w-4" /></span>
+                      </summary>
+                      <div className="space-y-2.5 border-t border-brand-border px-4 py-3 text-xs">
+                        <div>
+                          <div className="flex items-center justify-between gap-3"><span className="font-medium text-brand-text-secondary">Paket utama {p.packageName || pkg?.name ? <strong className="text-brand-text-primary">({p.packageName || pkg?.name})</strong> : null}</span><strong className="shrink-0 text-brand-text-primary">{formatCurrency(packagePrice)}</strong></div>
+                          {p.durationSelection && <p className="mt-1 pl-2 text-[11px] italic text-brand-accent">{p.durationSelection}</p>}
+                          {packageDescriptionItems.length > 0 && <ul className="mt-1.5 space-y-0.5 border-l-2 border-brand-accent pl-2.5">{packageDescriptionItems.map((item, index) => <li key={index} className="text-[10px] text-brand-text-secondary">· {item}</li>)}</ul>}
+                        </div>
+                        {additionalPackages.map((item, index) => {
+                          const additionalPackage = packages.find(candidate => candidate.id === item.id);
+                          const deliverables = [...(additionalPackage?.digitalItems || []), ...(additionalPackage?.physicalItems || []).map(physical => physical.name)].filter(Boolean);
+                          return <div key={item.id || index} className="group/addpkg relative pr-6"><div className="flex justify-between gap-3"><span className="text-brand-text-secondary">Paket tambahan · {item.name || additionalPackage?.name}</span><strong className="shrink-0">{formatCurrency(Number(item.price || 0))}</strong></div><button type="button" onClick={event => { event.preventDefault(); handleDeleteAdditionalPackage(p.id, index); }} className="absolute right-0 top-0 rounded p-0.5 text-red-600 opacity-0 transition-opacity group-hover/addpkg:opacity-100" title="Hapus paket tambahan"><Trash2Icon className="h-3.5 w-3.5" /></button>{deliverables.map((deliverable, deliverableIndex) => <p key={deliverableIndex} className="pl-2 text-[10px] text-brand-text-secondary">· {deliverable}</p>)}</div>;
+                        })}
+                        {regularAddOns.map((item, index) => <div key={item.id || item.name || index} className="flex justify-between gap-3"><span className="text-brand-text-secondary">+ {item.name} (Add-on)</span><strong className="shrink-0">{formatCurrency(Number(item.price || 0))}</strong></div>)}
+                        {Number(p.transportCost) > 0 && <div className="flex justify-between gap-3"><span className="text-brand-text-secondary">+ Biaya transport</span><strong>{formatCurrency(Number(p.transportCost))}</strong></div>}
+                        {(p.customCosts || []).map(charge => {
+                          const editing = editingChargeId === charge.id;
+                          return <div key={charge.id} className="border-t border-brand-border pt-2">
+                            {editing ? <div className="flex flex-col gap-2 sm:flex-row">
+                              <input type="text" value={editChargeData.name} onChange={event => setEditChargeData(current => ({ ...current, name: event.target.value }))} className="min-w-0 flex-1 rounded-lg border border-brand-border bg-white p-2 text-xs" placeholder="Nama biaya" />
+                              <RupiahInput value={editChargeData.amount} onChange={value => setEditChargeData(current => ({ ...current, amount: value }))} className="w-full rounded-lg border border-brand-border bg-white p-2 text-xs sm:w-32" placeholder="0" />
+                              <div className="flex gap-1"><button type="button" onClick={() => handleSaveEditCharge(p.id)} className="rounded-lg bg-emerald-700 p-2 text-white" title="Simpan"><CheckIcon className="h-3.5 w-3.5" /></button><button type="button" onClick={() => setEditingChargeId(null)} className="rounded-lg bg-red-700 p-2 text-white" title="Batal"><XIcon className="h-3.5 w-3.5" /></button></div>
+                            </div> : <div className="flex items-center justify-between gap-3"><span className="min-w-0 text-brand-text-secondary">{charge.description}</span><div className="flex shrink-0 items-center gap-2"><strong>{Number(charge.amount) === 0 ? 'Rp 0' : formatCurrency(charge.amount)}</strong><button type="button" onClick={() => handleStartEditCharge(charge)} className="text-blue-700" title="Edit biaya"><PencilIcon className="h-3.5 w-3.5" /></button><button type="button" onClick={() => handleDeleteCharge(p.id, charge.id)} className="text-red-700" title="Hapus biaya"><Trash2Icon className="h-3.5 w-3.5" /></button></div></div>}
+                          </div>;
+                        })}
+                        {Number(p.discountAmount) > 0 && <div className="flex justify-between gap-3 border-t border-brand-border pt-2 text-red-600"><span>Diskon</span><strong>−{formatCurrency(Number(p.discountAmount))}</strong></div>}
+                      </div>
+                    </details>
+                    <div className="grid grid-cols-3 gap-2"><FinancePill label="Total" value={formatCurrency(p.totalCost)} color="neutral" /><FinancePill label="Terbayar" value={formatCurrency(p.amountPaid)} color="green" /><FinancePill label="Sisa" value={formatCurrency(remainingBalance)} color={remainingBalance > 0 ? 'red' : 'green'} /></div>
+                    <div className="client-detail-action-group flex flex-wrap items-center justify-end gap-2">
+                      {p.dpProofUrl && <a href={p.dpProofUrl} target="_blank" rel="noopener noreferrer" className="button-secondary inline-flex items-center gap-1.5 !px-3 !py-2 text-xs"><CreditCardIcon className="h-4 w-4" />Bukti DP</a>}
+                      <button type="button" onClick={() => onViewInvoice(p)} className="button-primary inline-flex items-center gap-1.5 !px-3 !py-2 text-xs"><FileTextIcon className="h-4 w-4" />Invoice PDF</button>
+                      <button type="button" onClick={() => { if (window.confirm(`Hapus acara “${p.projectName}”? Data acara ini akan dihapus dan tindakan ini tidak dapat dibatalkan.`)) onDeleteProject(p.id); }} className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-red-300 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"><Trash2Icon className="h-4 w-4" />Hapus Acara</button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+
         {/* ════════════════════════════════════════════════════════════════
             TAB: PAYMENTS
         ════════════════════════════════════════════════════════════════ */}
@@ -957,21 +1032,6 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
               const displayProjectName = eventDateLabel && projectNameWithoutPrefix.endsWith(eventDateLabel)
                 ? projectNameWithoutPrefix.slice(0, -eventDateLabel.length).replace(/[\s,–—-]+$/, '').trim()
                 : projectNameWithoutPrefix;
-              const pkg = packages.find(pkg => pkg.id === p.packageId || (p.packageName && pkg.name.trim().toLowerCase() === p.packageName.trim().toLowerCase())) || null;
-              const selectedDurationOption = pkg?.durationOptions?.find(option => option.label === p.durationSelection);
-              const teamComposition = selectedDurationOption?.photographers || pkg?.photographers;
-              const packageDescriptionItems = [...(pkg?.digitalItems || [])];
-              if (teamComposition?.trim()) packageDescriptionItems.unshift(`Jumlah Tim: ${teamComposition}`);
-              const selectedAddOns = (p.addOns || []).filter(a => a && (a.name || a.id));
-              const selectedPackageIds = new Set(packages.map(packageItem => packageItem.id));
-              const additionalPackages = p.additionalPackages?.length
-                ? p.additionalPackages
-                : selectedAddOns.filter(item => item.id && selectedPackageIds.has(item.id) && item.id !== p.packageId);
-              const additionalPackageIds = new Set(additionalPackages.map(item => item.id));
-              const regularAddOns = selectedAddOns.filter(item =>
-                (!item.id || !selectedPackageIds.has(item.id)) && !additionalPackageIds.has(item.id),
-              );
-
               return (
                 <div key={p.id} className="relative">
                   {/* Project number connector line (skip last) */}
@@ -1444,248 +1504,6 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                     </SectionTitle>
                   </div>
 
-                  {/* ── PROJECT CARD ──────────────────────────────────── */}
-                  <div className="bg-brand-surface rounded-2xl border border-brand-border shadow-sm overflow-hidden">
-
-                    <div className="p-3 sm:p-5 space-y-3 sm:space-y-5">
-
-                      {/* Cost breakdown */}
-                      <details
-                        open={openCostDetails[p.id] ?? true}
-                        onToggle={e => {
-                          const isOpen = e.currentTarget.open;
-                          setOpenCostDetails(prev => (prev[p.id] === isOpen ? prev : { ...prev, [p.id]: isOpen }));
-                        }}
-                        className="rounded-xl bg-slate-50 border border-slate-100 overflow-hidden"
-                      >
-                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 bg-blue-600 px-4 py-3 text-xs font-bold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
-                          <span>Rincian biaya</span>
-                          <span className="flex items-center gap-2">
-                            {formatCurrency(p.totalCost)}
-                            <ChevronDown className="h-4 w-4 text-white" />
-                          </span>
-                        </summary>
-                        <div className="border-t border-slate-200 px-4 py-3 space-y-2.5">
-                          {/* Base package */}
-                          <div>
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="text-brand-text-secondary font-medium">
-                                Package Utama {p.packageName || pkg?.name ? (
-                                  <span className="font-bold text-brand-text-light">({p.packageName || pkg?.name})</span>
-                                ) : ''}
-                              </span>
-                              <span className="font-bold text-brand-text-light">
-                                {formatCurrency(
-                                  p.totalCost
-                                  + (Number(p.discountAmount) || 0)
-                                  - (p.customCosts?.reduce((s, c) => s + c.amount, 0) || 0)
-                                  - regularAddOns.reduce((s, a) => s + (Number(a.price) || 0), 0)
-                                  - additionalPackages.reduce((s, packageItem) => s + (Number(packageItem.price) || 0), 0)
-                                  - (Number(p.transportCost) || 0)
-                                )}
-                              </span>
-                            </div>
-
-                            {((p as any).durationSelection || '').trim() && (
-                              <p className="text-[11px] text-brand-accent font-medium mt-1 pl-2.5 italic">
-                                {(p as any).durationSelection}
-                              </p>
-                            )}
-                            {packageDescriptionItems.length > 0 && (
-                              <ul className="mt-1.5 pl-2.5 space-y-0.5 border-l-2 border-brand-accent/30 my-1">
-                                {packageDescriptionItems.map((item, idx) => (
-                                  <li key={idx} className="flex items-start gap-1.5 text-[10px] text-brand-text-secondary">
-                                    <span className="text-brand-accent font-bold mt-px">·</span>
-                                    <span>{item}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-
-                          {/* Additional packages */}
-                          {additionalPackages.map((item, index) => {
-                            const additionalPackage = packages.find(packageItem => packageItem.id === item.id);
-                            const deliverables = [
-                              ...(additionalPackage?.digitalItems || []),
-                              ...(additionalPackage?.physicalItems || []).map(physicalItem => physicalItem.name),
-                            ].filter(Boolean);
-
-                            return (
-                              <div key={item.id || index} className="group/addpkg relative">
-                                <div className="flex justify-between items-center text-xs pr-6">
-                                  <span className="text-brand-text-secondary font-medium">
-                                    Package Tambahan <span className="font-bold text-brand-text-light">({item.name || additionalPackage?.name})</span>
-                                  </span>
-                                  <span className="font-semibold text-brand-text-light">{formatCurrency(Number(item.price || 0))}</span>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    handleDeleteAdditionalPackage(p.id, index);
-                                  }}
-                                  className="absolute top-0 right-0 text-red-500 opacity-0 group-hover/addpkg:opacity-100 transition-opacity p-0.5 hover:bg-red-600/10 rounded"
-                                  title="Hapus Package Tambahan"
-                                >
-                                  <Trash2Icon className="w-3.5 h-3.5" />
-                                </button>
-                                {deliverables.length > 0 && (
-                                  <ul className="mt-1.5 pl-2.5 space-y-0.5 border-l-2 border-brand-accent/30 my-1">
-                                    {deliverables.map((deliverable, deliverableIndex) => (
-                                      <li key={`${item.id}-${deliverableIndex}`} className="flex items-start gap-1.5 text-[10px] text-brand-text-secondary">
-                                        <span className="text-brand-accent font-bold mt-px">·</span>
-                                        <span>{deliverable}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </div>
-                            );
-                          })}
-
-                          {/* Add-ons */}
-                          {regularAddOns.map((a, idx) => (
-                            <div key={a.id || a.name || idx} className="flex justify-between items-center text-xs">
-                              <span className="text-brand-text-secondary">+ {a.name} <span className="opacity-60">(Add-on)</span></span>
-                              <span className="font-semibold text-brand-text-light">{formatCurrency(Number(a.price || 0))}</span>
-                            </div>
-                          ))}
-
-                          {/* Transport */}
-                          {p.transportCost && Number(p.transportCost) > 0 && (
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="text-brand-text-secondary">+ Biaya Transport</span>
-                              <span className="font-semibold text-brand-text-light">{formatCurrency(Number(p.transportCost))}</span>
-                            </div>
-                          )}
-
-                          {/* Custom costs */}
-                          {p.customCosts && p.customCosts.length > 0 && (
-                            <div className="pt-1 space-y-1.5 border-t border-slate-200">
-                              {p.customCosts.map(c => {
-                                const isEditing = editingChargeId === c.id;
-                                const isZero = Number(c.amount) === 0;
-                                return (
-                                  <div key={c.id} className={`rounded-xl px-3 py-2 border transition-all group/charge ${isZero ? 'bg-green-600/5 border-green-600/20' : 'bg-orange-600/5 border-orange-600/20'}`}>
-                                    {isEditing ? (
-                                      <div className="flex flex-col sm:flex-row gap-2">
-                                        <input
-                                          type="text"
-                                          value={editChargeData.name}
-                                          onChange={e => setEditChargeData({ ...editChargeData, name: e.target.value })}
-                                          className="flex-grow p-1.5 text-xs bg-white border border-brand-border rounded-lg text-brand-text-light focus:border-brand-accent outline-none"
-                                          placeholder="Nama biaya..."
-                                        />
-                                        <div className="flex items-center gap-1.5">
-                                          <RupiahInput
-                                            value={editChargeData.amount}
-                                            onChange={val => setEditChargeData({ ...editChargeData, amount: val })}
-                                            className="w-full sm:w-28 p-1.5 text-xs bg-white border border-brand-border rounded-lg text-brand-text-light focus:border-brand-accent outline-none"
-                                            placeholder="0"
-                                          />
-                                          <button
-                                            type="button"
-                                            onClick={() => setEditChargeData({ ...editChargeData, amount: '0' })}
-                                            className="px-2 py-1 text-[10px] font-bold rounded bg-white hover:bg-green-600/10 text-slate-600 hover:text-green-700 border border-slate-200 whitespace-nowrap"
-                                            title="Ubah ke Rp 0"
-                                          >
-                                            Rp 0
-                                          </button>
-                                        </div>
-                                        <div className="flex gap-1">
-                                          <button onClick={() => handleSaveEditCharge(p.id)} className="p-1.5 bg-green-600/10 text-green-700 rounded-lg hover:bg-green-600/20 transition-all" title="Simpan">
-                                            <CheckIcon className="w-3.5 h-3.5" />
-                                          </button>
-                                          <button onClick={() => setEditingChargeId(null)} className="p-1.5 bg-red-600/10 text-red-600 rounded-lg hover:bg-red-600/20 transition-all" title="Batal">
-                                            <XIcon className="w-3.5 h-3.5" />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <div className="flex justify-between items-center text-xs">
-                                        <div className="flex items-center gap-2 flex-wrap min-w-0">
-                                          <span className={`font-semibold ${isZero ? 'text-green-800' : 'text-orange-700'} truncate`}>
-                                            + {c.description}
-                                          </span>
-                                          {isZero && (
-                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider solid-green text-white">
-                                              Gratis / Rp 0
-                                            </span>
-                                          )}
-                                          <div className="flex items-center gap-0.5 opacity-0 group-hover/charge:opacity-100 transition-all flex-shrink-0">
-                                            <button onClick={() => handleStartEditCharge(c)} className="p-1 text-blue-500 hover:text-blue-700 active:scale-90 transition-all" title="Edit">
-                                              <PencilIcon className="w-3 h-3" />
-                                            </button>
-                                            <button onClick={() => handleDeleteCharge(p.id, c.id)} className="p-1 text-red-400 hover:text-red-600 active:scale-90 transition-all" title="Hapus">
-                                              <Trash2Icon className="w-3 h-3" />
-                                            </button>
-                                          </div>
-                                        </div>
-                                        <span className={`font-bold flex-shrink-0 ml-2 ${isZero ? 'text-green-700 font-mono' : 'text-orange-700'}`}>
-                                          {isZero ? 'Rp 0' : formatCurrency(c.amount)}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {Number(p.discountAmount) > 0 && (
-                            <div className="flex justify-between items-center border-t border-slate-200 pt-2 text-xs text-red-600">
-                              <span>Diskon</span>
-                              <span className="font-semibold">-{formatCurrency(Number(p.discountAmount))}</span>
-                            </div>
-                          )}
-
-                        </div>
-                      </details>
-
-                      {/* Payment summary */}
-                      <div className="grid grid-cols-3 gap-2">
-                        <FinancePill label="Total" value={formatCurrency(p.totalCost)} color="neutral" />
-                        <FinancePill label="Terbayar" value={formatCurrency(p.amountPaid)} color="green" />
-                        <FinancePill label="Sisa" value={formatCurrency(remainingBalance)} color={remainingBalance > 0 ? 'red' : 'green'} />
-                      </div>
-
-                      {/* Action buttons */}
-                      <div className="client-detail-action-group flex flex-nowrap items-center justify-end gap-1 sm:gap-2 pt-1">
-                        {p.dpProofUrl && (
-                          <a
-                            href={p.dpProofUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-auto max-w-full button-secondary !py-1.5 !px-2 sm:!py-2 sm:!px-3 text-[10px] sm:text-xs inline-flex items-center justify-center gap-1"
-                          >
-                            <CreditCardIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-brand-accent" />
-                            <span className="sm:hidden">Bukti DP</span><span className="hidden sm:inline">Bukti DP</span>
-                          </a>
-                        )}
-                        <button
-                          onClick={() => onViewInvoice(p)}
-                          className="w-auto max-w-full button-primary !py-1.5 !px-2 sm:!py-2 sm:!px-3 text-[10px] sm:text-xs inline-flex items-center justify-center gap-1"
-                        >
-                          <FileTextIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                          <span className="sm:hidden">Invoice</span><span className="hidden sm:inline">Invoice PDF</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Hapus acara “${p.projectName}”? Data acara ini akan dihapus dan tindakan ini tidak dapat dibatalkan.`)) {
-                              onDeleteProject(p.id);
-                            }
-                          }}
-                          className="inline-flex min-h-9 items-center justify-center gap-1 rounded-xl border border-red-200 px-2 py-1.5 text-[10px] sm:px-3 sm:py-2 sm:text-[11px] sm:gap-1.5 font-bold text-red-700 transition-all hover:border-red-300 hover:bg-red-50 active:scale-95"
-                          title="Hapus Acara"
-                          aria-label={`Hapus acara ${p.projectName}`}
-                        >
-                          <Trash2Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          <span className="sm:hidden">Hapus</span><span className="hidden sm:inline">Hapus Acara</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
                   {/* ── LEDGER: KLIEN + TIM + BIAYA (SATU TABEL) ─────── */}
                   <div className="mt-3 overflow-hidden rounded-xl border border-brand-border bg-brand-surface">
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-brand-border bg-brand-bg/60 px-3 py-2.5">
