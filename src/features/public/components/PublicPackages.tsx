@@ -15,6 +15,7 @@ import { mergeTransaction, mergeById } from '../utils/publicBookingWrites';
 import { hydrateForm, readPackagesDraft, writePackagesDraft, clearPublicDrafts } from '../utils/publicDraftStore';
 import { getPackageTerms } from '../../packages/packageTerms';
 import { getWorkflows } from '../../packages/workflows';
+import { generateUUID } from '../../../utils/uuid';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
@@ -447,7 +448,7 @@ const PublicPackages: React.FC<PublicPackagesProps> = ({ userProfile: initialUse
                 status: ClientStatus.ACTIVE,
                 clientType: ClientType.DIRECT,
                 lastContact: new Date().toISOString(),
-                portalAccessId: crypto.randomUUID(),
+                portalAccessId: generateUUID(),
             });
 
             dpProofUrl = await proofPromise;
@@ -1666,7 +1667,7 @@ const PublicPackages: React.FC<PublicPackagesProps> = ({ userProfile: initialUse
                                             className="input-field"
                                             placeholder="Contoh: 250.000"
                                         />
-                                        <label htmlFor="transportCost" className="input-label">Fee Transport (Opsional)</label>
+                                        <label htmlFor="transportCost" className="input-label">Biaya Transport (Opsional)</label>
                                     </div>
                                 </div>
 
@@ -1700,7 +1701,7 @@ const PublicPackages: React.FC<PublicPackagesProps> = ({ userProfile: initialUse
                                         ))}
                                         {Number(formData.transportCost) > 0 && (
                                             <div className="flex justify-between items-center text-brand-text-secondary pl-2">
-                                                <span>+ Fee Transport</span>
+                                                <span>+ Biaya Transport</span>
                                                 <span className="font-semibold text-brand-text-primary">{formatCurrency(Number(formData.transportCost) || 0)}</span>
                                             </div>
                                         )}

@@ -547,8 +547,7 @@ const buildWorkbook = (context: FinanceExportContext, subject: string) => {
     workbook.creator = companyName;
     workbook.created = now;
     workbook.modified = now;
-    workbook.subject = subject;
-    workbook.title = `Export ${companyName}`;
+    Object.assign(workbook, { subject, title: `Export ${companyName}` });
     return { workbook, companyName, generatedAt: now };
 };
 
@@ -565,7 +564,7 @@ const downloadWorkbook = async (workbook: ExcelJS.Workbook, filename: string) =>
     URL.revokeObjectURL(url);
 };
 
-const formatCsvValue = (value: CellValue, column: ColumnDefinition) => {
+const formatCsvValue = (value: CellValue, column: ColumnDefinition): string | number => {
     if (value == null) return '';
     if (column.type === 'date') {
         return value instanceof Date
@@ -576,13 +575,13 @@ const formatCsvValue = (value: CellValue, column: ColumnDefinition) => {
     return typeof value === 'string' ? value : String(value);
 };
 
-const toCsvPayload = (columns: ColumnDefinition[], rows: ExportRow[]) => ({
+const toCsvPayload = (columns: ColumnDefinition[], rows: ExportRow[]): { headers: string[]; data: (string | number)[][] } => ({
     headers: columns.map((column) => column.header),
     data: rows.map((row) => columns.map((column) => formatCsvValue(row[column.key], column))),
 });
 
 const makeCsvRow = (columns: ColumnDefinition[], values: Partial<Record<string, CellValue>>) =>
-    columns.map((column) => values[column.key] ?? '');
+    columns.map((column) => formatCsvValue(values[column.key], column));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Export: Transaksi (tab Transaksi)

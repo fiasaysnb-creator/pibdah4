@@ -1,4 +1,4 @@
-import { Client, Project, Transaction, Lead, TeamMember, TeamProjectPayment, TeamPaymentRecord, Contract, PromoCode } from '../types';
+import { Client, Project, Transaction, Lead, TeamMember, TeamProjectPayment, TeamPaymentRecord, PromoCode } from '../types';
 
 /**
  * Safely parse date string to timestamp number.
@@ -198,18 +198,6 @@ export function sortTeamPayments(payments: TeamProjectPayment[]): TeamProjectPay
 export function sortTeamPaymentRecords(records: TeamPaymentRecord[]): TeamPaymentRecord[] {
   return [...records].sort((a, b) => {
     return compareTimestampsDesc(a.date, b.date, a.id, b.id);
-  });
-}
-
-/**
- * CONTRACT SORTING
- * Default: ORDER BY created_at DESC, id DESC
- */
-export function sortContracts(contracts: Contract[]): Contract[] {
-  return [...contracts].sort((a, b) => {
-    const dateA = a.createdAt || a.signingDate;
-    const dateB = b.createdAt || b.signingDate;
-    return compareTimestampsDesc(dateA, dateB, a.id, b.id);
   });
 }
 

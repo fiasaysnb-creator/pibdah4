@@ -86,6 +86,7 @@ export function getCategoryConfig(notif: Notification): CategoryConfig {
   ) {
     return {
       label: 'LEADS',
+      badgeText: 'LEADS',
       badgeBg: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300',
       iconBg: 'bg-indigo-600 text-white shadow-indigo-200 dark:shadow-none',
       iconColor: 'text-indigo-600 dark:text-indigo-400',
@@ -104,6 +105,7 @@ export function getCategoryConfig(notif: Notification): CategoryConfig {
   ) {
     return {
       label: 'PEMBAYARAN',
+      badgeText: 'PEMBAYARAN',
       badgeBg: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300',
       iconBg: 'bg-emerald-600 text-white shadow-emerald-200 dark:shadow-none',
       iconColor: 'text-emerald-600 dark:text-emerald-400',
@@ -120,6 +122,7 @@ export function getCategoryConfig(notif: Notification): CategoryConfig {
   ) {
     return {
       label: 'BOOKING',
+      badgeText: 'BOOKING',
       badgeBg: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
       iconBg: 'bg-blue-600 text-white shadow-blue-200 dark:shadow-none',
       iconColor: 'text-blue-600 dark:text-blue-400',
@@ -136,6 +139,7 @@ export function getCategoryConfig(notif: Notification): CategoryConfig {
   ) {
     return {
       label: 'PENGINGAT',
+      badgeText: 'PENGINGAT',
       badgeBg: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300',
       iconBg: 'bg-amber-600 text-white shadow-amber-200 dark:shadow-none',
       iconColor: 'text-amber-600 dark:text-amber-400',
@@ -152,6 +156,7 @@ export function getCategoryConfig(notif: Notification): CategoryConfig {
   ) {
     return {
       label: 'PERINGATAN',
+      badgeText: 'PERINGATAN',
       badgeBg: 'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-300',
       iconBg: 'bg-rose-600 text-white shadow-rose-200 dark:shadow-none',
       iconColor: 'text-rose-600 dark:text-rose-400',
@@ -169,6 +174,7 @@ export function getCategoryConfig(notif: Notification): CategoryConfig {
   ) {
     return {
       label: 'TIM & ULASAN',
+      badgeText: 'TIM & ULASAN',
       badgeBg: 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
       iconBg: 'bg-purple-600 text-white shadow-purple-200 dark:shadow-none',
       iconColor: 'text-purple-600 dark:text-purple-400',
@@ -179,6 +185,7 @@ export function getCategoryConfig(notif: Notification): CategoryConfig {
   // Default / Umum (Biru Netral)
   return {
     label: 'INFO',
+    badgeText: 'INFO',
     badgeBg: 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300',
     iconBg: 'bg-sky-600 text-white shadow-sky-200 dark:shadow-none',
     iconColor: 'text-sky-600 dark:text-sky-400',

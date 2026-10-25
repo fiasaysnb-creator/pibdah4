@@ -16,7 +16,6 @@ const PERSISTED_QUERY_KEYS = new Set([
   'calendarEvents',
   'clientFeedback',
   'dashboardStats',
-  'contracts',
   'promoCodes',
   'profile',
   'teamProjectPayments',

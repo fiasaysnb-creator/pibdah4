@@ -136,39 +136,61 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
           <p className="text-sm text-brand-text-secondary">Belum ada catatan kinerja.</p>
         </div>
       ) : (
-        [...member.performanceNotes]
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-          .map((note) => (
-            <div
-              key={note.id}
-              className="flex justify-between items-start gap-2.5 p-2.5 bg-brand-bg border border-brand-border rounded-xl hover:border-brand-border/80 transition-colors sm:p-3.5"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                  <span
-                    className={`inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold rounded-full border sm:px-2 sm:text-[10px] ${getNoteTypeClass(note.type)}`}
-                  >
-                    {note.type}
-                  </span>
-                  <span className="text-[10px] text-brand-text-secondary sm:text-xs">
-                    {new Date(note.date).toLocaleDateString('id-ID', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </span>
-                </div>
-                <p className="text-sm text-brand-text-primary leading-relaxed">{note.note}</p>
-              </div>
-              <button
-                onClick={() => onDeleteNote(note.id)}
-                className="shrink-0 p-1.5 rounded-lg text-brand-text-secondary hover:text-red-400 hover:bg-red-500/10 transition-all"
-                aria-label="Hapus catatan"
-              >
-                <Trash2Icon className="w-4 h-4" />
-              </button>
-            </div>
-          ))
+        <div className="overflow-hidden rounded-xl border border-brand-border">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-xs sm:text-sm">
+              <thead className="bg-brand-bg">
+                <tr className="border-b border-brand-border">
+                  <th className="px-2.5 py-2 text-left text-[9px] font-black uppercase tracking-widest text-brand-text-secondary sm:px-3 sm:text-[10px]">Tipe</th>
+                  <th className="hidden px-2.5 py-2 text-left text-[9px] font-black uppercase tracking-widest text-brand-text-secondary sm:table-cell sm:px-3 sm:text-[10px]">Tanggal</th>
+                  <th className="px-2.5 py-2 text-left text-[9px] font-black uppercase tracking-widest text-brand-text-secondary sm:px-3 sm:text-[10px]">Catatan</th>
+                  <th className="w-10 px-2.5 py-2 sm:px-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-brand-border/60">
+                {[...member.performanceNotes]
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .map((note) => (
+                    <tr key={note.id} className="hover:bg-brand-bg/40">
+                      <td className="px-2.5 py-2.5 align-top sm:px-3">
+                        <span
+                          className={`inline-flex items-center whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[9px] font-bold sm:px-2 sm:text-[10px] ${getNoteTypeClass(note.type)}`}
+                        >
+                          {note.type}
+                        </span>
+                      </td>
+                      <td className="hidden whitespace-nowrap px-2.5 py-2.5 align-top text-[10px] text-brand-text-secondary sm:table-cell sm:px-3 sm:text-xs">
+                        {new Date(note.date).toLocaleDateString('id-ID', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </td>
+                      <td className="px-2.5 py-2.5 align-top text-brand-text-primary sm:px-3">
+                        <p className="text-sm leading-relaxed">{note.note}</p>
+                        <p className="mt-0.5 text-[10px] text-brand-text-secondary sm:hidden">
+                          {new Date(note.date).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </p>
+                      </td>
+                      <td className="px-2.5 py-2.5 align-top text-right sm:px-3">
+                        <button
+                          onClick={() => onDeleteNote(note.id)}
+                          className="shrink-0 p-1.5 rounded-lg text-brand-text-secondary hover:text-red-400 hover:bg-red-500/10 transition-all"
+                          aria-label="Hapus catatan"
+                        >
+                          <Trash2Icon className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   </div>

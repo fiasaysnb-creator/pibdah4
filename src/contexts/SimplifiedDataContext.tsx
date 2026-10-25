@@ -203,7 +203,6 @@ export const SimplifiedDataProvider: React.FC<{ children: React.ReactNode }> = (
       queryClient.invalidateQueries({ queryKey: ['calendarEvents'] }),
       refetchClientFeedback(),
       refetchDashboardStats(),
-      queryClient.invalidateQueries({ queryKey: ['contracts'] }),
       queryClient.invalidateQueries({ queryKey: ['promoCodes'] }),
       queryClient.invalidateQueries({ queryKey: ['profile'] }),
       queryClient.invalidateQueries({ queryKey: ['teamProjectPayments'] }),
@@ -340,12 +339,6 @@ export const SimplifiedDataProvider: React.FC<{ children: React.ReactNode }> = (
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'project_team_assignments' }, () => {
         scheduleInvalidation('projects');
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wedding_day_checklists' }, () => {
-        scheduleInvalidation('projects');
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'contracts' }, () => {
-        scheduleInvalidation('contracts');
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'promo_codes' }, () => {
         scheduleInvalidation('promoCodes');

@@ -57,7 +57,7 @@ export async function createNotification(
     try {
       let vendorId = payload.vendor_id;
       if (!vendorId) {
-        const prof = await getProfile().catch(() => null);
+        const prof = await getProfile().catch((): null => null);
         vendorId = prof?.id;
       }
       if (vendorId) {

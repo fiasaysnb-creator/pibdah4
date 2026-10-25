@@ -175,7 +175,7 @@ const FreelancerPortal: React.FC<FreelancerPortalProps> = ({ accessId, teamMembe
                     <section className="avoid-break">
                         <h3 className="font-semibold text-slate-800 mb-3">Rincian Pembayaran</h3>
                         <table className="w-full text-left responsive-table invoice-table">
-                            <thead className="invoice-table-header"><tr className="border-b-2 border-slate-200"><th className="p-3 text-sm font-semibold uppercase text-slate-500 text-center w-12">No</th><th className="p-3 text-sm font-semibold uppercase text-slate-500">Acara Pernikahan</th><th className="p-3 text-sm font-semibold uppercase text-slate-500">Peran</th><th className="p-3 text-sm font-semibold uppercase text-slate-500 text-right">Fee</th></tr></thead>
+                            <thead className="invoice-table-header"><tr className="border-b-2 border-slate-200"><th className="p-3 text-sm font-semibold uppercase text-slate-500 text-center w-12">No</th><th className="p-3 text-sm font-semibold uppercase text-slate-500">Acara Pernikahan</th><th className="p-3 text-sm font-semibold uppercase text-slate-500">Peran</th><th className="p-3 text-sm font-semibold uppercase text-slate-500 text-right">Pembayaran</th></tr></thead>
                             <tbody className="divide-y divide-slate-200 invoice-table-body">
                                 {projectsBeingPaid.map((p, index) => {
                                     const project = projects.find(proj => proj.id === p.projectId);
@@ -184,7 +184,7 @@ const FreelancerPortal: React.FC<FreelancerPortalProps> = ({ accessId, teamMembe
                                             <td data-label="No" className="p-3 text-center font-medium text-slate-500">{index + 1}</td>
                                             <td data-label="Acara Pernikahan" className="p-3 font-semibold text-slate-800">{project?.projectName || 'N/A'}</td>
                                             <td data-label="Peran" className="p-3 text-slate-600">{project?.team.find(t => t.memberId === member.id)?.role || member.role}</td>
-                                            <td data-label="Fee" className="p-3 text-right text-slate-800">{formatDocumentCurrency(p.fee)}</td>
+                                            <td data-label="Pembayaran" className="p-3 text-right text-slate-800">{formatDocumentCurrency(p.fee)}</td>
                                         </tr>
                                     );
                                 })}
@@ -278,7 +278,7 @@ return (
                             >
                                 <TabIcon className="h-4 w-4" />
                                 <span className="hidden sm:inline">{tab.label}</span>
-                                <span className="sm:hidden">{tab.id === 'projects' ? 'Acara' : tab.id === 'payments' ? 'Fee' : tab.id === 'performance' ? 'Kinerja' : 'Dasbor'}</span>
+                                <span className="sm:hidden">{tab.id === 'projects' ? 'Acara' : tab.id === 'payments' ? 'Pembayaran' : tab.id === 'performance' ? 'Kinerja' : 'Dasbor'}</span>
                             </button>
                         );
                     })}
@@ -371,8 +371,8 @@ const DashboardTab: React.FC<{ member: TeamMember, projects: Project[], teamProj
         <div className="space-y-6">
             <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
                 {[
-                    { label: 'Fee Diterima', value: formatDisplayCurrency(stats.paidFee), icon: DollarSignIcon, note: 'Total pembayaran lunas', tone: 'solid-green text-white' },
-                    { label: 'Fee Pending', value: formatDisplayCurrency(stats.unpaidFee), icon: ClockIcon, note: 'Menunggu pembayaran', tone: 'solid-orange text-white' },
+                    { label: 'Pembayaran Diterima', value: formatDisplayCurrency(stats.paidFee), icon: DollarSignIcon, note: 'Total pembayaran lunas', tone: 'solid-green text-white' },
+                    { label: 'Pembayaran Pending', value: formatDisplayCurrency(stats.unpaidFee), icon: ClockIcon, note: 'Menunggu pembayaran', tone: 'solid-orange text-white' },
                     { label: 'Acara Aktif', value: stats.activeProjects, icon: CalendarIcon, note: 'Dalam penugasan', tone: 'solid-cyan text-white' },
                     { label: 'Acara Selesai', value: stats.completedProjects, icon: CheckSquareIcon, note: 'Penugasan tuntas', tone: 'solid-purple text-white' },
                 ].map(stat => (
@@ -586,7 +586,7 @@ const PaymentsTab: React.FC<{ member: TeamMember, projects: Project[], teamProje
                             </span>
                         </div>
                         <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-                            <span className="text-xs text-slate-500">Fee</span>
+                            <span className="text-xs text-slate-500">Pembayaran</span>
                             <span className="text-sm font-semibold text-slate-900">{formatDisplayCurrency(p.fee)}</span>
                         </div>
                         {paymentRecord && (
@@ -609,7 +609,7 @@ const PaymentsTab: React.FC<{ member: TeamMember, projects: Project[], teamProje
         </div>
         <div className="overflow-x-auto">
         <table className="freelancer-payment-table w-full min-w-[680px] text-sm">
-            <thead className="bg-slate-50"><tr><th className="p-3 text-center font-medium text-slate-500 w-12">No</th><th className="p-3 text-left font-medium text-slate-500">Acara Pernikahan</th><th className="p-3 text-left font-medium text-slate-500">Tanggal</th><th className="p-3 text-right font-medium text-slate-500">Fee</th><th className="p-3 text-center font-medium text-slate-500">Status &amp; Aksi</th></tr></thead>
+            <thead className="bg-slate-50"><tr><th className="p-3 text-center font-medium text-slate-500 w-12">No</th><th className="p-3 text-left font-medium text-slate-500">Acara Pernikahan</th><th className="p-3 text-left font-medium text-slate-500">Tanggal</th><th className="p-3 text-right font-medium text-slate-500">Pembayaran</th><th className="p-3 text-center font-medium text-slate-500">Status &amp; Aksi</th></tr></thead>
             <tbody className="divide-y divide-slate-200">
                 {teamProjectPayments.filter(p => p.teamMemberId === member.id).map((p, index) => {
                     const isPaid = p.status === 'Paid';

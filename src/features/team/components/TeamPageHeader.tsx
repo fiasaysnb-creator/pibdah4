@@ -12,6 +12,8 @@ import { SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
 interface TeamPageHeaderProps {
     dateFrom: string;
     dateTo: string;
+    monthFilter: string;
+    onMonthChange: (value: string) => void;
     onDateFromChange: (value: string) => void;
     onDateToChange: (value: string) => void;
     onResetDateRange: () => void;
@@ -22,6 +24,8 @@ interface TeamPageHeaderProps {
 const TeamPageHeader: React.FC<TeamPageHeaderProps> = ({
     dateFrom,
     dateTo,
+    monthFilter,
+    onMonthChange,
     onDateFromChange,
     onDateToChange,
     onResetDateRange,
@@ -73,6 +77,13 @@ const TeamPageHeader: React.FC<TeamPageHeaderProps> = ({
             {mobileDateOpen && (
                 <div className="sm:hidden mt-3 pt-3 border-t border-slate-200 grid grid-cols-2 gap-2 animate-fade-in">
                     <input
+                        type="month"
+                        value={monthFilter}
+                        onChange={e => onMonthChange(e.target.value)}
+                        className="rounded-lg border border-slate-200 bg-[#F8FAFC] text-[#2A3547] p-2 text-xs w-full focus:outline-none focus:border-brand-accent col-span-2"
+                        title="Filter per bulan"
+                    />
+                    <input
                         type="date"
                         value={dateFrom}
                         onChange={e => onDateFromChange(e.target.value)}
@@ -101,11 +112,19 @@ const TeamPageHeader: React.FC<TeamPageHeaderProps> = ({
             <div className="hidden sm:flex sm:flex-row flex-wrap w-full items-center justify-between gap-3">
                 <div>
                     <h1 className="text-lg font-extrabold text-[#2A3547] tracking-tight">Manajemen Tim & Vendor</h1>
-                    <p className="text-xs text-[#5A6A85] mt-0.5">Kelola anggota tim internal, mitra vendor, dan pembayaran fee acara.</p>
+                    <p className="text-xs text-[#5A6A85] mt-0.5">Kelola anggota tim internal, mitra vendor, dan pembayaran acara.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2.5">
                     <div className="flex items-center gap-2 bg-[#F8FAFC] px-3 py-1.5 rounded-xl border border-slate-200">
                         <CalendarIcon className="w-4 h-4 text-[#5A6A85] flex-shrink-0" />
+                        <input
+                            type="month"
+                            value={monthFilter}
+                            onChange={e => onMonthChange(e.target.value)}
+                            className="bg-white rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-[#2A3547] focus:outline-none focus:border-brand-accent"
+                            title="Filter per bulan"
+                        />
+                        <span className="text-xs text-[#5A6A85] font-medium">|</span>
                         <input
                             type="date"
                             value={dateFrom}
@@ -121,7 +140,7 @@ const TeamPageHeader: React.FC<TeamPageHeaderProps> = ({
                             className="bg-white rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-[#2A3547] focus:outline-none focus:border-brand-accent"
                             title="Sampai tanggal"
                         />
-                        {(dateFrom || dateTo) && (
+                        {(dateFrom || dateTo || monthFilter) && (
                             <button
                                 onClick={onResetDateRange}
                                 className="text-xs text-red-600 font-semibold hover:underline px-1"

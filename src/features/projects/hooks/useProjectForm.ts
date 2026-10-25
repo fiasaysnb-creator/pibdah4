@@ -29,6 +29,7 @@ import {
     updateTransaction as updateTransactionRow,
     deleteTransaction as deleteTransactionRow
 } from '../../../services/transactions';
+import { generateUUID } from '../../../utils/uuid';
 import { syncClientStatusFromProjects } from '../../../services/clients';
 
 const ensureOnlineOrNotify = (showNotification: (message: string) => void): boolean => {
@@ -527,7 +528,6 @@ export function useProjectForm({
                     ...projectData,
                     ...savedProjectResult.value,
                     team: projectData.team,
-                    weddingDayChecklist: originalProject.weddingDayChecklist,
                     addOns: originalProject.addOns,
                 };
                 if (assignmentsResult.status === 'fulfilled' && assignmentsResult.value.length > 0) {
@@ -627,7 +627,7 @@ export function useProjectForm({
                 };
             }
             return {
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 projectId: projectData.id,
                 teamMemberName: teamMember.name,
                 teamMemberId: teamMember.memberId,

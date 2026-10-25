@@ -102,7 +102,7 @@ export type ProjectMeeting = {
 export async function listProjectMeetings(projectId: string): Promise<ProjectMeeting[]> {
   const { data, error } = await supabase
     .from(TABLE)
-    .select('id,title,event_type,date,start_time,end_time,team,location,notes,tasks,created_at,updated_at')
+    .select('id,title,event_type,date,start_time,end_time,team,location,notes,tasks,created_at')
     // The project id is the first JSON property written by encodeProjectMeetingNotes.
     // Filter at PostgREST so the portal doesn't download every calendar event per project.
     .ilike('notes', `${PROJECT_MEETING_NOTE_PREFIX}%${JSON.stringify({ projectId })}%`)

@@ -65,8 +65,6 @@ describe('DataPengantinHub', () => {
         setPockets={() => undefined}
         promoCodes={[]}
         setPromoCodes={() => undefined}
-        contracts={[]}
-        setContracts={() => undefined}
         appData={null}
         initialAction={null}
         setInitialAction={() => undefined}

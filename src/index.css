@@ -259,10 +259,42 @@ button img,
     word-break: normal !important;
   }
 
-  :is(.invoice-container, .printable-content, .printable-area, .print-invoice, .contract-document, .pdf-viewer) :is(th, td, th p, td p) {
+  :is(.invoice-container, .printable-content, .printable-area, .print-invoice, .pdf-viewer) :is(th, td, th p, td p) {
     white-space: normal !important;
     overflow-wrap: break-word !important;
     word-break: break-word !important;
+  }
+}
+
+/* ========================================
+   DESKTOP (≥1280px): TABEL RINCIAN (KPI)
+   Kolom melebar mengikuti isi, teks tetap
+   satu baris lurus (tidak mengerucut ke bawah).
+   ======================================== */
+@media screen and (min-width: 1280px) {
+  table.kpi-detail-table {
+    table-layout: auto !important;
+    width: max-content !important;
+    min-width: 100% !important;
+  }
+
+  table.kpi-detail-table col {
+    width: auto !important;
+  }
+
+  table.kpi-detail-table :is(th, td, th p, td p, th span, td span) {
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+
+  table.kpi-detail-table td span {
+    min-width: auto !important;
+  }
+
+  table.kpi-detail-table :is(td p.truncate, td span.truncate) {
+    overflow: visible !important;
+    text-overflow: clip !important;
   }
 }
 

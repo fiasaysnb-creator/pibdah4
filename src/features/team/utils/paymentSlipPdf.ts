@@ -274,8 +274,9 @@ export const buildPaymentSlipPdf = async (input: PaymentSlipPdfInput): Promise<j
     }
 
     setFont(8.5, 'bold');
-    ink(COLORS.text);
-    doc.text(formatCurrency(payment.fee), CONTENT_RIGHT - cellPadX, y + cellPadY + 8.5 * PT_TO_MM, {
+    // Pembayaran ke tim = pengeluaran, ditandai merah tanpa tanda minus.
+    ink(COLORS.red);
+    doc.text(formatCurrency(Math.abs(Number(payment.fee) || 0)), CONTENT_RIGHT - cellPadX, y + cellPadY + 8.5 * PT_TO_MM, {
       align: 'right',
     });
 
@@ -291,7 +292,7 @@ export const buildPaymentSlipPdf = async (input: PaymentSlipPdfInput): Promise<j
   stroke(COLORS.label);
   doc.setLineWidth(0.5);
   doc.line(CONTENT_LEFT, y, CONTENT_RIGHT, y);
-  const totalValue = formatCurrency(record.totalAmount);
+  const totalValue = formatCurrency(Math.abs(Number(record.totalAmount) || 0));
   setFont(13, 'bold');
   const totalValueW = doc.getTextWidth(totalValue);
   const totalBaseline = y + totalH / 2 + (13 * PT_TO_MM) / 2;
@@ -299,7 +300,8 @@ export const buildPaymentSlipPdf = async (input: PaymentSlipPdfInput): Promise<j
   ink(COLORS.label);
   doc.text('TOTAL', CONTENT_RIGHT - cellPadX - totalValueW - 6, totalBaseline, { align: 'right' });
   setFont(13, 'bold');
-  ink(accent);
+  // Total pembayaran tim = pengeluaran, ditandai merah.
+  ink(COLORS.red);
   doc.text(totalValue, CONTENT_RIGHT - cellPadX, totalBaseline, { align: 'right' });
   y += totalH;
 

@@ -26,6 +26,7 @@ import {
 } from '../../../services/transactions';
 import { syncClientStatusFromProjects } from '../../../services/clients';
 import { getProgressForStatus } from '../utils/projectHelpers';
+import { generateUUID } from '../../../utils/uuid';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -337,7 +338,6 @@ export function useProjectEditMode({
                     ...savedProject,
                     ...sectionUpdate,
                     team: originalProject.team,
-                    weddingDayChecklist: originalProject.weddingDayChecklist,
                     addOns: originalProject.addOns,
                 } as Project;
                 setProjects(prev =>
@@ -454,7 +454,6 @@ export function useProjectEditMode({
                 ...projectData,
                 ...savedProjectResult.value,
                 team: projectData.team,
-                weddingDayChecklist: originalProject.weddingDayChecklist,
                 addOns: originalProject.addOns,
             };
             if (assignmentsResult.status === 'fulfilled' && assignmentsResult.value.length > 0) {
@@ -555,7 +554,7 @@ export function useProjectEditMode({
                     };
                 }
                 return {
-                    id: crypto.randomUUID(),
+                    id: generateUUID(),
                     projectId: projectData.id,
                     teamMemberName: teamMember.name,
                     teamMemberId: teamMember.memberId,

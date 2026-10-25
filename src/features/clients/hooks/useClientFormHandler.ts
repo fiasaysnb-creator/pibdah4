@@ -20,6 +20,7 @@ import { findCardIdByMeta } from '../../../services/cards';
 import { uploadDpProof } from '../../../services/storage';
 import { ensureOnlineOrNotify, initialFormState, ClientFormData, CustomFormItem } from '../utils/clientHelpers';
 import { DocumentToView } from './useClientDocumentActions';
+import { generateUUID } from '../../../utils/uuid';
 
 interface UseClientFormHandlerParams {
     clients: Client[];
@@ -87,17 +88,44 @@ export const useClientFormHandler = ({
                 mostRecentProj ||
                 (client as any).mostRecentProject ||
                 null;
+            const latestProject = targetProject ? projects.find(p => p.id === targetProject.id) : undefined;
             const freshProject = targetProject
-                ? (projects.find(p => p.id === targetProject.id) || targetProject)
+                ? {
+                    ...targetProject,
+                    ...(latestProject || {}),
+                    addOns: latestProject?.addOns?.length ? latestProject.addOns : (targetProject.addOns || []),
+                    additionalPackages: latestProject?.additionalPackages?.length
+                        ? latestProject.additionalPackages
+                        : (targetProject.additionalPackages || []),
+                }
                 : null;
             setSelectedProject(freshProject);
 
             // 3. Reconstruct add-ons and custom items
             const standardAddOnIds: string[] = [];
             const additionalPackageIds: string[] = [];
+            const storedAddOnPrices: Record<string, number> = {};
+            const storedAdditionalPackagePrices: Record<string, number> = {};
             const customItemsList: CustomFormItem[] = [];
+            const mainPackageId = freshProject?.packageId || packages.find(
+                item => item.name?.toLowerCase().trim() === freshProject?.packageName?.toLowerCase().trim()
+            )?.id;
+            const projectAddOns = freshProject?.addOns || [];
+            const packageIds = new Set(packages.map(item => item.id));
+            const projectAdditionalPackages = freshProject?.additionalPackages?.length
+                ? freshProject.additionalPackages
+                : projectAddOns.filter((item: any) => item.id && packageIds.has(item.id) && item.id !== mainPackageId);
+            const projectAdditionalPackageIds = new Set(projectAdditionalPackages.map((item: any) => item.id));
+            const projectRegularAddOnTotal = projectAddOns
+                .filter((item: any) => (!item.id || !packageIds.has(item.id)) && !projectAdditionalPackageIds.has(item.id))
+                .reduce((sum: number, item: any) => sum + (Number(item.price) || 0), 0);
+            const projectAdditionalPackageTotal = projectAdditionalPackages
+                .reduce((sum: number, item: any) => sum + (Number(item.price) || 0), 0);
             freshProject?.additionalPackages?.forEach((packageItem: AddOn) => {
-                if (packageItem.id) additionalPackageIds.push(packageItem.id);
+                if (packageItem.id) {
+                    additionalPackageIds.push(packageItem.id);
+                    storedAdditionalPackagePrices[packageItem.id] = Number(packageItem.price) || 0;
+                }
             });
             if (freshProject?.addOns && Array.isArray(freshProject.addOns)) {
                 freshProject.addOns.forEach((a: any) => {
@@ -107,10 +135,13 @@ export const useClientFormHandler = ({
                     const matchedPkg = packages.find(
                         pkg => pkg.id === a.id || pkg.name?.toLowerCase().trim() === a.name?.toLowerCase().trim()
                     );
-                    if (matchedStd) {
-                        standardAddOnIds.push(matchedStd.id);
-                    } else if (matchedPkg && matchedPkg.id !== freshProject.packageId) {
+                    if (matchedPkg?.id === mainPackageId) return;
+                    if (matchedPkg && matchedPkg.id !== mainPackageId) {
                         if (!additionalPackageIds.includes(matchedPkg.id)) additionalPackageIds.push(matchedPkg.id);
+                        storedAdditionalPackagePrices[matchedPkg.id] = Number(a.price ?? matchedPkg.price) || 0;
+                    } else if (matchedStd) {
+                        standardAddOnIds.push(matchedStd.id);
+                        storedAddOnPrices[matchedStd.id] = Number(a.price ?? matchedStd.price) || 0;
                     } else {
                         customItemsList.push({
                             id: a.id || `custom-${Math.random().toString(36).substr(2, 9)}`,
@@ -152,6 +183,20 @@ export const useClientFormHandler = ({
             );
             const initialCardId = existingDpTx?.cardId || '';
 
+            // Rebuild harga package sebelum diskon dari total tersimpan. Nilai
+            // unit_price lama bisa tertinggal dari total acara yang sebenarnya.
+            const storedUnitPrice = (freshProject as any)?.unitPrice;
+            const reconstructedPackagePrice = freshProject
+                ? Math.max(0,
+                    Number(freshProject.totalCost || 0)
+                    + (Number(freshProject.discountAmount) || 0)
+                    - (freshProject.customCosts?.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0) || 0)
+                    - projectRegularAddOnTotal
+                    - projectAdditionalPackageTotal
+                    - (Number(freshProject.transportCost) || 0)
+                )
+                : undefined;
+
             setFormData({
                 clientId: freshClient.id,
                 clientName: freshClient.name || '',
@@ -168,13 +213,20 @@ export const useClientFormHandler = ({
                 date: sanitizeDate(freshProject?.date),
                 packageId: resolvedPackageId,
                 selectedAdditionalPackageIds: additionalPackageIds,
+                selectedAdditionalPackagePriceOverrides: storedAdditionalPackagePrices,
                 selectedAddOnIds: standardAddOnIds,
+                selectedAddOnPriceOverrides: storedAddOnPrices,
                 customItems: customItemsList,
+                preservedProjectExtras: (freshProject?.customCosts?.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0) || 0)
+                    + (Number(freshProject?.transportCost) || 0),
                 durationSelection: (freshProject as any)?.durationSelection || '',
-                unitPrice: (freshProject as any)?.unitPrice,
+                unitPrice: reconstructedPackagePrice ?? (storedUnitPrice !== undefined && storedUnitPrice !== null
+                    ? Number(storedUnitPrice)
+                    : undefined),
                 address: freshProject?.address || freshClient.address || '',
                 homeAddress: freshClient.homeAddress || '',
                 dp: freshProject?.amountPaid !== undefined && freshProject?.amountPaid !== null ? String(freshProject.amountPaid) : '',
+                dpProofFile: null,
                 dpDestinationCardId: initialCardId,
                 dpProofUrl: freshProject?.dpProofUrl || '',
                 notes: freshProject?.notes || '',
@@ -241,6 +293,9 @@ export const useClientFormHandler = ({
                 selectedAddOnIds: checked
                     ? [...prev.selectedAddOnIds, id]
                     : prev.selectedAddOnIds.filter(addOnId => addOnId !== id),
+                selectedAddOnPriceOverrides: checked
+                    ? prev.selectedAddOnPriceOverrides
+                    : Object.fromEntries(Object.entries(prev.selectedAddOnPriceOverrides).filter(([addOnId]) => addOnId !== id)),
             }));
         } else {
             setFormData(prev => {
@@ -347,7 +402,7 @@ export const useClientFormHandler = ({
                         since: new Date().toISOString().split('T')[0],
                         status: ClientStatus.ACTIVE,
                         lastContact: new Date().toISOString(),
-                        portalAccessId: crypto.randomUUID(),
+                        portalAccessId: generateUUID(),
                         address: formData.address || undefined,
                         homeAddress: formData.homeAddress || undefined,
                     } as Omit<Client, 'id'>);
@@ -589,14 +644,22 @@ export const useClientFormHandler = ({
             // Selected add-ons + custom items + additional packages
             const selectedAdditionalPackages = packages.filter(p => formData.selectedAdditionalPackageIds?.includes(p.id));
             const selectedAddOns = addOns.filter(addon => formData.selectedAddOnIds.includes(addon.id));
-            const additionalPackageRecords = selectedAdditionalPackages.map(pkg => ({ id: pkg.id, name: pkg.name, price: pkg.price }));
+            const additionalPackageRecords = selectedAdditionalPackages.map(pkg => ({
+                id: pkg.id,
+                name: pkg.name,
+                price: formData.selectedAdditionalPackagePriceOverrides?.[pkg.id] ?? pkg.price,
+            }));
             const customItems = (formData.customItems || []).map(ci => ({
                 id: ci.id,
                 name: ci.name.trim(),
                 price: Math.max(0, Number(ci.price) || 0),
             }));
             const allProjectAddOns = [
-                ...selectedAddOns.map(a => ({ id: a.id, name: a.name, price: a.price })),
+                ...selectedAddOns.map(a => ({
+                    id: a.id,
+                    name: a.name,
+                    price: formData.selectedAddOnPriceOverrides?.[a.id] ?? a.price,
+                })),
                 ...customItems,
             ];
 
@@ -610,9 +673,10 @@ export const useClientFormHandler = ({
                     : (selectedPackage?.price ?? fallbackPrice);
 
             const totalAddOnsPrice =
-                selectedAddOns.reduce((sum, addon) => sum + addon.price, 0) +
-                selectedAdditionalPackages.reduce((sum, pkg) => sum + pkg.price, 0) +
-                customItems.reduce((sum, item) => sum + item.price, 0);
+                selectedAddOns.reduce((sum, addon) => sum + (formData.selectedAddOnPriceOverrides?.[addon.id] ?? addon.price), 0) +
+                selectedAdditionalPackages.reduce((sum, pkg) => sum + (formData.selectedAdditionalPackagePriceOverrides?.[pkg.id] ?? pkg.price), 0) +
+                customItems.reduce((sum, item) => sum + item.price, 0) +
+                (Number(formData.preservedProjectExtras) || 0);
 
             const totalBeforeDiscount = packagePriceChosen + totalAddOnsPrice;
             let finalDiscountAmount = 0;

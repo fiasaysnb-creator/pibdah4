@@ -3,7 +3,7 @@ import {
   VendorProfile, VendorPortfolio, PortfolioImage,
   VendorProfileFaq, VendorProfilePartner, VendorProfileVideo
 } from '../../types';
-import { getVendorProfile, createOrUpdateVendorProfile, uploadVendorImage } from '../../services/vendorProfile';
+import { getVendorProfile, createOrUpdateVendorProfile, uploadVendorImage, updateVendorHeroImages, deleteVendorImage } from '../../services/vendorProfile';
 import {
   listVendorPortfolios, createVendorPortfolio, deleteVendorPortfolio,
   uploadPortfolioCover, uploadPortfolioImages, updateVendorPortfolio, getVendorPortfolio
@@ -314,36 +314,76 @@ const VendorProfilePage: React.FC = () => {
 
   // ─── Hero Images Handlers (Up to 3 images) ───
   const handleHeroSlotUpload = async (e: React.ChangeEvent<HTMLInputElement>, slotIndex: number) => {
-    if (!e.target.files || e.target.files.length === 0) return;
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('File slide harus berupa gambar.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Ukuran gambar maksimal 10 MB.');
+      return;
+    }
+
+    let uploadedUrl = '';
     try {
+      setMessage('');
       setUploadingHeroSlot(slotIndex);
-      const url = await uploadVendorImage(e.target.files[0], `vendor/hero-slot-${slotIndex}`);
+      uploadedUrl = await uploadVendorImage(file, `vendor/hero-slot-${slotIndex}`);
       const current = [...(profile.hero_images || [])];
+      const previousUrl = current[slotIndex];
       while (current.length <= slotIndex) {
         current.push('');
       }
-      current[slotIndex] = url;
+      current[slotIndex] = uploadedUrl;
       const filtered = current.filter(Boolean).slice(0, 3);
-      setProfile(prev => ({
-        ...prev,
-        hero_images: filtered,
-        hero_image_url: filtered[0] || '',
-      }));
-    } catch {
-      alert('Gagal upload gambar hero');
+      const saved = await updateVendorHeroImages(filtered);
+      setProfile(prev => ({ ...prev, ...saved, hero_images: filtered, hero_image_url: filtered[0] || '' }));
+      if (previousUrl && previousUrl !== uploadedUrl) {
+        try { await deleteVendorImage(previousUrl); }
+        catch (cleanupError) { console.warn('[VendorProfile] Previous hero cleanup failed:', cleanupError); }
+      }
+      setMessage('Slide berhasil diunggah dan disimpan.');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error: any) {
+      if (uploadedUrl) {
+        try { await deleteVendorImage(uploadedUrl); } catch {}
+      }
+      console.error('[VendorProfile] Hero upload failed:', error);
+      setMessage(error?.message || 'Gagal mengunggah dan menyimpan gambar hero.');
     } finally {
       setUploadingHeroSlot(null);
     }
   };
 
-  const handleDeleteHeroSlot = (slotIndex: number) => {
+  const handleDeleteHeroSlot = async (slotIndex: number) => {
     const current = [...(profile.hero_images || [])];
+    const imageUrl = current[slotIndex];
+    if (!imageUrl || uploadingHeroSlot !== null) return;
+    if (!window.confirm(`Hapus gambar Slide ${slotIndex + 1}? File akan dihapus dari penyimpanan dan database.`)) return;
     current.splice(slotIndex, 1);
-    setProfile(prev => ({
-      ...prev,
-      hero_images: current,
-      hero_image_url: current[0] || '',
-    }));
+    setUploadingHeroSlot(slotIndex);
+    setMessage('');
+    try {
+      const saved = await updateVendorHeroImages(current);
+      setProfile(prev => ({ ...prev, ...saved, hero_images: current, hero_image_url: current[0] || '' }));
+      try {
+        await deleteVendorImage(imageUrl);
+      } catch (error: any) {
+        console.warn('[VendorProfile] Hero storage deletion failed:', error);
+        setMessage(`Gagal menghapus file storage. Slide sudah dihapus dari database: ${error?.message || 'Coba lagi.'}`);
+        return;
+      }
+      setMessage('Slide berhasil dihapus. Slot sekarang dapat diunggah kembali.');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error: any) {
+      console.error('[VendorProfile] Hero deletion failed:', error);
+      setMessage(error?.message || 'Gagal menghapus slide dari database.');
+    } finally {
+      setUploadingHeroSlot(null);
+    }
   };
 
   // ─── Video Handlers ───
@@ -594,17 +634,20 @@ const VendorProfilePage: React.FC = () => {
                       Slide {slotIdx + 1} {slotIdx === 0 ? '(Utama)' : ''}
                     </span>
                     {imgUrl ? (
-                      <div className="relative aspect-video rounded-xl overflow-hidden border border-brand-border group shadow-sm bg-gray-100">
-                        <img src={imgUrl} alt={`Slide ${slotIdx + 1}`} className="w-full h-full object-cover"  loading="lazy" decoding="async" />
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1">
-                          <label className="cursor-pointer px-2 py-1 bg-white text-gray-900 font-medium text-[10px] rounded hover:bg-gray-100 transition-colors">
-                            {isUploading ? '...' : 'Ganti'}
-                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleHeroSlotUpload(e, slotIdx)} disabled={isUploading} />
+                      <div className="space-y-1.5">
+                        <div className="aspect-video rounded-xl overflow-hidden border border-brand-border shadow-sm bg-gray-100">
+                          <img src={imgUrl} alt={`Slide ${slotIdx + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <label className="flex cursor-pointer items-center justify-center rounded-lg bg-brand-accent/10 px-2 py-1.5 text-[10px] font-semibold text-brand-accent hover:bg-brand-accent/20">
+                            {isUploading ? 'Menyimpan...' : 'Ganti'}
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleHeroSlotUpload(e, slotIdx)} disabled={uploadingHeroSlot !== null} />
                           </label>
                           <button
                             type="button"
-                            onClick={() => handleDeleteHeroSlot(slotIdx)}
-                            className="px-2 py-1 bg-red-600 text-white font-medium text-[10px] rounded hover:bg-red-700 transition-colors"
+                            onClick={() => void handleDeleteHeroSlot(slotIdx)}
+                            disabled={uploadingHeroSlot !== null}
+                            className="rounded-lg bg-red-50 px-2 py-1.5 text-[10px] font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60"
                           >
                             Hapus
                           </button>
@@ -620,7 +663,7 @@ const VendorProfilePage: React.FC = () => {
                             <span className="text-[10px] text-brand-text-secondary">+ Upload</span>
                           </>
                         )}
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleHeroSlotUpload(e, slotIdx)} disabled={isUploading} />
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleHeroSlotUpload(e, slotIdx)} disabled={uploadingHeroSlot !== null} />
                       </label>
                     )}
                   </div>

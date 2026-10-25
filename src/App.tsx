@@ -324,8 +324,6 @@ function App() {
                   notifications={auxData.notifications}
                   promoCodes={auxData.promoCodes}
                   setPromoCodes={auxData.setPromoCodes}
-                  contracts={auxData.contracts}
-                  setContracts={auxData.setContracts}
                   teamProjectPayments={auxData.teamProjectPayments}
                   setTeamProjectPayments={auxData.setTeamProjectPayments}
                   teamPaymentRecords={auxData.teamPaymentRecords}

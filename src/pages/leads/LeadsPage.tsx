@@ -22,6 +22,7 @@ import { findCardIdByMeta } from '../../services/cards';
 import { upsertProfile } from '../../services/profile';
 import { listGalleries } from '../../services/galleries';
 import { buildPublicShareUrl, getGalleryPublicRouteId, toPublicNameSlug } from '../../utils/publicRouting';
+import { generateUUID } from '../../utils/uuid';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
@@ -983,7 +984,7 @@ export const Leads: React.FC<LeadsProps> = ({
                     since: new Date().toISOString().split('T')[0],
                     status: ClientStatus.ACTIVE,
                     lastContact: new Date().toISOString(),
-                    portalAccessId: crypto.randomUUID(),
+                    portalAccessId: generateUUID(),
                     address: formData.address || undefined,
                 } as Omit<Client, 'id'>);
                 setClients(prev => [createdClient, ...prev]);
@@ -2062,44 +2063,6 @@ export const Leads: React.FC<LeadsProps> = ({
                             </p>
 
                             <div className="space-y-3">
-                                {/* Semua Wilayah */}
-                                <div className="border border-[#EAEFF4] rounded-xl p-3.5 bg-[#F9FBFC] hover:border-[#5D87FF]/40 transition-all space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <p className="font-bold text-xs sm:text-sm text-[#2A3547]">
-                                            Semua Wilayah (Katalog Lengkap)
-                                        </p>
-                                        <span className="text-[10px] font-semibold bg-[#5D87FF]/10 text-[#5D87FF] px-2 py-0.5 rounded-md">
-                                            Lengkap
-                                        </span>
-                                    </div>
-                                    <p className="text-[11px] text-[#5A6A85] font-mono break-all bg-white px-2 py-1 rounded border border-[#EAEFF4]">
-                                        {typeof window !== 'undefined' ? `${window.location.origin}/#/public-packages` : '/#/public-packages'}
-                                    </p>
-                                    <div className="flex items-center gap-2 pt-1">
-                                        <a
-                                            href="/#/public-packages"
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#5D87FF] hover:bg-[#4570EA] text-white text-xs font-bold transition-colors cursor-pointer"
-                                        >
-                                            <ExternalLink className="w-3.5 h-3.5" />
-                                            <span>Buka Halaman</span>
-                                        </a>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const url = `${window.location.origin}/#/public-packages`;
-                                                navigator.clipboard.writeText(url);
-                                                showNotification('Tautan berhasil disalin!');
-                                            }}
-                                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#EAEFF4] bg-white hover:bg-[#F4F6F9] text-[#2A3547] text-xs font-semibold transition-colors cursor-pointer"
-                                        >
-                                            <Copy className="w-3.5 h-3.5 text-[#5A6A85]" />
-                                            <span>Salin Tautan</span>
-                                        </button>
-                                    </div>
-                                </div>
-
                                 {/* Per Region (termasuk wilayah kustom dari paket & add-on) */}
                                 {unionRegions.map((r) => {
                                     const regionUrl = typeof window !== 'undefined'
@@ -2278,9 +2241,13 @@ const ShareMessageModal: React.FC<ShareMessageModalProps> = ({ type, lead, userP
 
     const [selectedRegion, setSelectedRegion] = useState<string>(() => {
         const loc = (lead.location || '').toLowerCase().trim();
-        if (!loc) return '';
-        const found = regions.find(r => r.value.toLowerCase() === loc || r.label.toLowerCase() === loc || loc.includes(r.value.toLowerCase()));
-        return found ? found.value : '';
+        if (loc) {
+            const found = regions.find(r => r.value.toLowerCase() === loc || r.label.toLowerCase() === loc || loc.includes(r.value.toLowerCase()));
+            if (found) return found.value;
+        }
+        // Tanpa opsi "Semua Wilayah": default ke wilayah pertama agar tautan
+        // yang dikirim selalu spesifik wilayah, tidak salah kirim ke semua.
+        return regions[0]?.value || '';
     });
 
     // Load galleries from Pricelist Upload (ViewType.GALLERY)
@@ -2503,17 +2470,6 @@ const ShareMessageModal: React.FC<ShareMessageModalProps> = ({ type, lead, userP
                         {packageSource === 'public-packages' && (
                             <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200/80">
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleSelectRegion('')}
-                                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-center truncate ${
-                                            selectedRegion === ''
-                                                ? 'bg-[#5D87FF] text-white shadow-xs'
-                                                : 'bg-white text-[#5A6A85] hover:bg-slate-100 border border-[#EAEFF4]'
-                                        }`}
-                                    >
-                                        Semua Wilayah
-                                    </button>
                                     {regions.map((r) => (
                                         <button
                                             key={r.value}

@@ -144,7 +144,7 @@ const PORTAL_STYLES = `
       line-height: 1.2;
     }
 
-    :is(#root:not(:has(main[data-mobile-ui-scale-excluded="true"], #invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer)), .app-modal-dialog:not(:has(#invoice, .invoice-document-mobile, .print-invoice, .printable-content, .contract-document, .pdf-viewer))) button:not(.bottom-nav button).portal-tab-button {
+    :is(#root:not(:has(main[data-mobile-ui-scale-excluded="true"], #invoice, .invoice-document-mobile, .print-invoice, .printable-content, .pdf-viewer)), .app-modal-dialog:not(:has(#invoice, .invoice-document-mobile, .print-invoice, .printable-content, .pdf-viewer))) button:not(.bottom-nav button).portal-tab-button {
       min-height: 44px !important;
     }
 
@@ -391,6 +391,7 @@ const ClientPortal: React.FC<ClientPortalProps> = ({
         packages={packages}
         client={client}
         projects={clientProjects}
+        transactions={transactions}
       />
     </div>
   );
@@ -1217,8 +1218,8 @@ const FeedbackTab: React.FC<{
 
 const DocumentViewerModal: React.FC<{
   viewingDocument: any; onClose: any; profile: Profile;
-  packages: Package[]; client: Client; projects: Project[];
-}> = ({ viewingDocument, onClose, profile, packages, client, projects }) => {
+  packages: Package[]; client: Client; projects: Project[]; transactions: Transaction[];
+}> = ({ viewingDocument, onClose, profile, packages, client, projects, transactions }) => {
   const [isSigning, setIsSigning] = useState(false);
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   const [downloadError, setDownloadError] = useState('');

@@ -29,6 +29,7 @@ import {
   DocumentToView,
 } from '../../features/clients/hooks/useClientDocumentActions';
 import { updateProject as updateProjectInDb } from '../../services/projects';
+import { updateTransaction as updateTransactionInDb } from '../../services/transactions';
 import { updateTeamPaymentRecord as updateTeamPaymentRecordInDb } from '../../services/teamPaymentRecords';
 import { useFinance } from '../../features/finance/hooks/useFinance';
 
@@ -278,9 +279,8 @@ const InvoicePage: React.FC<InvoicePageProps> = ({
             ? {
                 ...p,
                 ...savedProject,
-                // Defensive safeguard: preserve existing team and checklist if not populated in savedProject
+                // Defensive safeguard: preserve existing team if not populated in savedProject
                 team: (savedProject.team && savedProject.team.length > 0) ? savedProject.team : p.team,
-                weddingDayChecklist: savedProject.weddingDayChecklist || p.weddingDayChecklist,
               }
             : p,
         );

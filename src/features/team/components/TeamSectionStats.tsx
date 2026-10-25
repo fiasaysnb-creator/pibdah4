@@ -75,7 +75,7 @@ const TeamSectionStats: React.FC<TeamSectionStatsProps> = ({
                 >
                     <ModernStatCard
                         icon={<AlertCircleIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />}
-                        title={isVendor ? 'Fee Vendor' : 'Fee Tim'}
+                        title={isVendor ? 'Pembayaran Vendor' : 'Pembayaran Tim'}
                         value={stats.totalUnpaid}
                         subtitle="Belum dibayar"
                         iconColorVariant="error"

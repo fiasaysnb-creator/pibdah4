@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Lead, LeadStatus, ContactChannel } from '../../../types';
 import { createSuggestion } from '../../../services/suggestions';
+import { generateUUID } from '../../../utils/uuid';
 
 interface SuggestionFormProps {
     setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
@@ -29,7 +30,7 @@ const SuggestionForm: React.FC<SuggestionFormProps> = ({ setLeads }) => {
 
             // Backward-compat: tetap dorong ke leads state agar metrik lama tetap berjalan
             const newLead: Lead = {
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 name: name,
                 contactChannel: ContactChannel.SUGGESTION_FORM,
                 location: 'Form Online',

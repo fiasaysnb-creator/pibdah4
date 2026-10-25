@@ -78,7 +78,7 @@ const UnpaidContent: React.FC<{
     (p) => p.status === 'Unpaid' && memberIds.has(p.teamMemberId),
   );
 
-  if (unpaid.length === 0) return <EmptyState message="Tidak ada fee yang belum dibayar." />;
+  if (unpaid.length === 0) return <EmptyState message="Tidak ada pembayaran yang belum dibayar." />;
 
   return (
     <div className="space-y-2">
@@ -290,13 +290,13 @@ const PerformanceContent: React.FC<{ groupMembers: TeamMember[] }> = ({ groupMem
 
 const MODAL_TITLES: Record<string, string> = {
   'team-total': 'Daftar Semua Tim',
-  'team-unpaid': 'Rincian Fee Tim Belum Dibayar',
+  'team-unpaid': 'Rincian Pembayaran Tim Belum Dibayar',
   'team-topRated': 'Peringkat Tim',
   'team-events': 'Rincian Acara Pernikahan (Tim)',
   'team-payments': 'Rincian Pembayaran (Tim)',
   'team-performance': 'Rincian Kinerja (Tim)',
   'vendor-total': 'Daftar Semua Vendor',
-  'vendor-unpaid': 'Rincian Fee Vendor Belum Dibayar',
+  'vendor-unpaid': 'Rincian Pembayaran Vendor Belum Dibayar',
   'vendor-topRated': 'Peringkat Vendor',
   'vendor-events': 'Rincian Acara Pernikahan (Vendor)',
   'vendor-payments': 'Rincian Pembayaran (Vendor)',

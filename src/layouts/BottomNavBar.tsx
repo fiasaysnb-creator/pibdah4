@@ -16,7 +16,6 @@ import {
   LightbulbIcon,
   ImageIcon,
   UserCircleIcon,
-  FileSpreadsheetIcon,
 } from "../constants";
 
 export { MoreGridIcon, ChevronDownIcon };
@@ -35,8 +34,7 @@ export const MoreMenuSheet: React.FC<{
       items: [
         { view: ViewType["Calon Pengantin"], label: "Calon Pengantin", icon: StarIcon },
         { view: ViewType.BOOKING, label: "Booking", icon: CalendarIcon },
-        { view: ViewType.TEAM, label: "Tim / Vendor", icon: BriefcaseIcon },
-        { view: ViewType.CONTRACTS, label: "Kontrak", icon: FileTextIcon },
+        { view: ViewType.TEAM, label: "Pembayaran", icon: BriefcaseIcon },
       ],
     },
     {
@@ -55,7 +53,6 @@ export const MoreMenuSheet: React.FC<{
       items: [
         { view: ViewType.VENDOR_PROFILE, label: "Profil Vendor", icon: UserCircleIcon },
         { view: ViewType.BIO_LINKS, label: "Link Publik", icon: LinkIcon },
-        { view: ViewType.MIGRATION, label: "Import Data Excel", icon: FileSpreadsheetIcon },
         { view: ViewType.SETTINGS, label: "Pengaturan", icon: SettingsIcon },
       ],
     },
@@ -222,7 +219,6 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
     ViewType["Calon Pengantin"],
     ViewType.BOOKING,
     ViewType.TEAM,
-    ViewType.CONTRACTS,
     ViewType.PACKAGES,
     ViewType.CLIENT_REPORTS,
     ViewType.CALENDAR,

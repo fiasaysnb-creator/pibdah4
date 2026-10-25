@@ -24,12 +24,13 @@ import {
     updateTeamMember as updateTeamMemberRow,
     deleteTeamMember as deleteTeamMemberRow,
 } from '../../../services/teamMembers';
+import { generateUUID } from '../../../utils/uuid';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type TeamMemberFormData = Omit<TeamMember, 'id' | 'rating' | 'performanceNotes' | 'portalAccessId'>;
 
-export type DetailTab = 'projects' | 'payments' | 'performance' | 'create-payment';
+export type DetailTab = 'projects' | 'salary' | 'payments' | 'performance' | 'create-payment';
 
 export interface QrModalContent {
     title: string;
@@ -152,7 +153,7 @@ export const useTeamMembers = ({
                         ...formData,
                         rating: 0,
                         performanceNotes: [],
-                        portalAccessId: crypto.randomUUID(),
+                        portalAccessId: generateUUID(),
                     };
                     const created = await createTeamMemberRow(payload);
                     setTeamMembers(prev => [...prev, created]);
@@ -307,7 +308,7 @@ export const useTeamMembers = ({
             try {
                 let accessId = member.portalAccessId;
                 if (!accessId) {
-                    accessId = crypto.randomUUID();
+                    accessId = generateUUID();
                     try {
                         const updated = await updateTeamMemberRow(member.id, {
                             portalAccessId: accessId,

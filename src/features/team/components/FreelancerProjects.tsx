@@ -1,5 +1,4 @@
 import React from 'react';
-import { CalendarDays, CheckCircle2, CircleAlert, Clock3, MapPin } from 'lucide-react';
 import { TeamProjectPayment, Project } from '../../../types';
 import { formatDate } from '../utils/teamUtils';
 
@@ -20,14 +19,11 @@ interface UnpaidTeamPaymentsSectionProps {
 
 interface FreelancerProjectsProps {
   projects: Project[];
+  /** Bila diisi, kolom "Gaji" (fee anggota untuk acara tsb) ditampilkan. */
+  memberId?: string;
 }
 
 const getDateKey = (date: string) => date?.slice(0, 10) || '';
-
-const getTodayKey = () => {
-  const today = new Date();
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-};
 
 const getProjectStatusClassName = (status: string) => {
   const normalizedStatus = status.trim().toLocaleLowerCase('id-ID');
@@ -42,6 +38,9 @@ const getProjectStatusClassName = (status: string) => {
   }
   return 'border-slate-200 bg-slate-50 text-slate-600';
 };
+
+const thClass = 'px-2.5 py-2 text-left text-[9px] font-black uppercase tracking-widest text-brand-text-secondary sm:px-3 sm:text-[10px]';
+const tdClass = 'px-2.5 py-2.5 align-middle text-brand-text-primary sm:px-3';
 
 export const UnpaidTeamPaymentsSection: React.FC<UnpaidTeamPaymentsSectionProps> = ({
   unpaidProjects,
@@ -64,10 +63,10 @@ export const UnpaidTeamPaymentsSection: React.FC<UnpaidTeamPaymentsSectionProps>
   };
 
   return (
-    <section className="space-y-3 border-t border-brand-border pt-4">
+    <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h4 className="text-xs font-bold text-brand-text-primary sm:text-sm">Fee Belum Dibayar</h4>
+          <h4 className="text-xs font-bold text-brand-text-primary sm:text-sm">Pembayaran Belum Dibayar</h4>
           <p className="text-[10px] text-brand-text-secondary sm:text-xs">Pilih acara untuk membuat pembayaran.</p>
         </div>
         <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700">
@@ -77,45 +76,52 @@ export const UnpaidTeamPaymentsSection: React.FC<UnpaidTeamPaymentsSectionProps>
 
       {unpaidProjects.length === 0 ? (
         <p className="rounded-lg border border-dashed border-brand-border px-3 py-3 text-center text-xs text-brand-text-secondary">
-          Semua fee sudah lunas.
+          Semua pembayaran sudah lunas.
         </p>
       ) : (
         <>
-          <div className="overflow-hidden rounded-lg border border-brand-border">
-            <div className="grid grid-cols-[1.25rem_1fr_auto_auto] items-center gap-2 border-b border-brand-border bg-brand-bg/60 px-2.5 py-2 sm:px-4 sm:gap-3 sm:py-2.5">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={handleSelectAll}
-                aria-label="Pilih semua fee belum dibayar"
-                className="h-3.5 w-3.5 cursor-pointer rounded accent-blue-500 sm:h-4 sm:w-4"
-              />
-              <span className="text-[9px] font-black uppercase tracking-widest text-brand-text-secondary sm:text-[10px]">Acara</span>
-              <span className="hidden whitespace-nowrap text-[9px] font-black uppercase tracking-widest text-brand-text-secondary sm:block">Tanggal</span>
-              <span className="text-right text-[9px] font-black uppercase tracking-widest text-brand-text-secondary sm:text-[10px]">Fee</span>
-            </div>
-            <div className="divide-y divide-brand-border/50">
-              {unpaidProjects.map(payment => {
-                const projectName = projects.find(project => project.id === payment.projectId)?.projectName ?? 'Acara tidak ditemukan';
-                const isSelected = projectsToPay.includes(payment.id);
-                return (
-                  <label
-                    key={payment.id}
-                    className={`grid cursor-pointer grid-cols-[1.25rem_1fr_auto_auto] items-center gap-2 px-2.5 py-2.5 transition-colors sm:px-4 sm:gap-3 ${isSelected ? 'bg-blue-500/10 hover:bg-blue-500/15' : 'hover:bg-brand-bg/40'}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => onToggleProject(payment.id)}
-                      aria-label={`Pilih fee ${projectName}`}
-                      className="h-3.5 w-3.5 rounded accent-blue-500 sm:h-4 sm:w-4"
-                    />
-                    <span className="truncate text-xs font-semibold text-brand-text-primary sm:text-sm">{projectName}</span>
-                    <span className="hidden whitespace-nowrap text-[10px] text-brand-text-secondary sm:block">{formatDate(payment.date)}</span>
-                    <span className="whitespace-nowrap text-right text-[11px] font-bold text-brand-text-primary sm:text-sm">{formatCurrency(payment.fee)}</span>
-                  </label>
-                );
-              })}
+          <div className="overflow-hidden rounded-xl border border-brand-border">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-xs sm:text-sm">
+                <thead className="bg-brand-bg/60">
+                  <tr className="border-b border-brand-border">
+                    <th className="w-8 px-2.5 py-2 sm:px-3">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={handleSelectAll}
+                        aria-label="Pilih semua Pembayaran belum dibayar"
+                        className="h-3.5 w-3.5 cursor-pointer rounded accent-blue-500 sm:h-4 sm:w-4"
+                      />
+                    </th>
+                    <th className={thClass}>Acara</th>
+                    <th className={`${thClass} hidden whitespace-nowrap sm:table-cell`}>Tanggal</th>
+                    <th className={`${thClass} text-right`}>Pembayaran</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-brand-border/50">
+                  {unpaidProjects.map(payment => {
+                    const projectName = projects.find(project => project.id === payment.projectId)?.projectName ?? 'Acara tidak ditemukan';
+                    const isSelected = projectsToPay.includes(payment.id);
+                    return (
+                      <tr key={payment.id} className={isSelected ? 'bg-blue-500/10' : 'hover:bg-brand-bg/40'}>
+                        <td className="px-2.5 py-2.5 sm:px-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => onToggleProject(payment.id)}
+                            aria-label={`Pilih fee ${projectName}`}
+                            className="h-3.5 w-3.5 cursor-pointer rounded accent-blue-500 sm:h-4 sm:w-4"
+                          />
+                        </td>
+                        <td className={`${tdClass} font-semibold`}>{projectName}</td>
+                        <td className={`${tdClass} hidden whitespace-nowrap text-brand-text-secondary sm:table-cell`}>{formatDate(payment.date)}</td>
+                        <td className={`${tdClass} whitespace-nowrap text-right font-bold`}>{formatCurrency(payment.fee)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -138,136 +144,58 @@ export const UnpaidTeamPaymentsSection: React.FC<UnpaidTeamPaymentsSectionProps>
   );
 };
 
-const ProjectEventGroup: React.FC<{
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  iconClassName: string;
-  projects: Project[];
-  emptyMessage: string;
-  statusLabel?: string;
-}> = ({ title, description, icon, iconClassName, projects, emptyMessage, statusLabel }) => (
-  <section className="space-y-2.5">
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}>
-          {icon}
-        </span>
-        <div className="min-w-0">
-          <h4 className="text-xs font-bold text-brand-text-primary sm:text-sm">{title}</h4>
-          <p className="text-[10px] text-brand-text-secondary sm:text-xs">{description}</p>
-        </div>
-      </div>
-      <span className="shrink-0 rounded-full bg-brand-bg px-2 py-0.5 text-[10px] font-bold tabular-nums text-brand-text-secondary">
-        {projects.length}
-      </span>
-    </div>
+const FreelancerProjects: React.FC<FreelancerProjectsProps> = ({ projects, memberId }) => {
+  const showFee = Boolean(memberId);
 
-    {projects.length === 0 ? (
-      <p className="rounded-lg border border-dashed border-brand-border px-3 py-3 text-center text-xs text-brand-text-secondary">
-        {emptyMessage}
+  const rows = [...projects]
+    .filter((project) => project.status !== 'Dibatalkan')
+    .sort((left, right) => getDateKey(right.date).localeCompare(getDateKey(left.date)));
+
+  if (rows.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed border-brand-border px-3 py-6 text-center text-xs text-brand-text-secondary">
+        Belum ada acara untuk anggota ini.
       </p>
-    ) : (
-      <div className="space-y-2">
-        {projects.map((project) => (
-          <article key={project.id} className="flex items-start gap-3 rounded-lg border border-brand-border bg-white p-3">
-            <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-brand-accent" />
-            <div className="min-w-0 flex-1">
-              <p className="break-words text-xs font-semibold text-brand-text-primary sm:text-sm">
-                {project.projectName}
-              </p>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-brand-text-secondary sm:text-xs">
-                {project.date && <span>{formatDate(project.date)}</span>}
-                {project.location && (
-                  <span className="inline-flex min-w-0 items-center gap-1">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    <span className="break-words">{project.location}</span>
-                  </span>
-                )}
-              </div>
-            </div>
-            <span className={`max-w-[96px] shrink-0 rounded-full border px-2 py-0.5 text-right text-[9px] font-semibold leading-tight sm:max-w-none sm:text-[10px] ${getProjectStatusClassName(statusLabel || project.status)}`}>
-              {statusLabel || project.status}
-            </span>
-          </article>
-        ))}
-      </div>
-    )}
-  </section>
-);
-
-const FreelancerProjects: React.FC<FreelancerProjectsProps> = ({
-  projects,
-}) => {
-  const todayKey = getTodayKey();
-  const memberProjects = projects.filter((project) => project.status !== 'Dibatalkan');
-  const completedProjects = memberProjects
-    .filter((project) => project.status === 'Selesai')
-    .sort((left, right) => getDateKey(right.date).localeCompare(getDateKey(left.date)));
-  const activeProjects = memberProjects.filter((project) => project.status !== 'Selesai');
-  const upcomingProjects = activeProjects
-    .filter((project) => getDateKey(project.date) >= todayKey)
-    .sort((left, right) => getDateKey(left.date).localeCompare(getDateKey(right.date)));
-  const overdueProjects = activeProjects
-    .filter((project) => getDateKey(project.date) && getDateKey(project.date) < todayKey)
-    .sort((left, right) => getDateKey(right.date).localeCompare(getDateKey(left.date)));
-  const undatedProjects = activeProjects.filter((project) => !getDateKey(project.date));
+    );
+  }
 
   return (
-    <div className="space-y-4 sm:space-y-5">
-      <div className="flex gap-2">
-        <div className="min-w-0 flex-1 rounded-lg border border-blue-200 bg-blue-50 px-1.5 py-2 text-center sm:px-2">
-          <p className="text-sm font-black text-blue-700">{upcomingProjects.length}</p>
-          <p className="text-[9px] font-semibold text-blue-700 sm:text-[10px]">Mendatang</p>
-        </div>
-        <div className="min-w-0 flex-1 rounded-lg border border-emerald-200 bg-emerald-50 px-1.5 py-2 text-center sm:px-2">
-          <p className="text-sm font-black text-emerald-700">{completedProjects.length}</p>
-          <p className="text-[9px] font-semibold text-emerald-700 sm:text-[10px]">Selesai</p>
-        </div>
-        <div className="min-w-0 flex-1 rounded-lg border border-amber-200 bg-amber-50 px-1.5 py-2 text-center sm:px-2">
-          <p className="text-sm font-black text-amber-700">{overdueProjects.length + undatedProjects.length}</p>
-          <p className="text-[9px] font-semibold text-amber-700 sm:text-[10px]">Perlu dicek</p>
-        </div>
+    <div className="overflow-hidden rounded-xl border border-brand-border">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-xs sm:text-sm">
+          <thead className="bg-brand-bg">
+            <tr className="border-b border-brand-border">
+              <th className={`${thClass} whitespace-nowrap`}>Tanggal</th>
+              <th className={thClass}>Acara</th>
+              <th className={`${thClass} hidden md:table-cell`}>Lokasi</th>
+              <th className={thClass}>Status</th>
+              {showFee && <th className={`${thClass} text-right`}>Gaji</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-brand-border/60">
+            {rows.map((project) => {
+              const assigned = memberId
+                ? project.team?.find((member) => member.memberId === memberId)
+                : undefined;
+              return (
+                <tr key={project.id} className="hover:bg-brand-bg/40">
+                  <td className={`${tdClass} whitespace-nowrap text-brand-text-secondary`}>{project.date ? formatDate(project.date) : '-'}</td>
+                  <td className={`${tdClass} font-semibold`}>{project.projectName}</td>
+                  <td className={`${tdClass} hidden text-brand-text-secondary md:table-cell`}>{project.location || '-'}</td>
+                  <td className={tdClass}>
+                    <span className={`inline-flex max-w-[120px] rounded-full border px-2 py-0.5 text-[9px] font-semibold leading-tight sm:text-[10px] ${getProjectStatusClassName(project.status)}`}>
+                      {project.status}
+                    </span>
+                  </td>
+                  {showFee && (
+                    <td className={`${tdClass} whitespace-nowrap text-right font-bold`}>{formatCurrency(assigned?.fee ?? 0)}</td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
-
-      <div className="space-y-4">
-        <ProjectEventGroup
-          title="Acara Mendatang"
-          description="Jadwal yang akan datang untuk anggota ini"
-          icon={<Clock3 className="h-4 w-4" />}
-          iconClassName="bg-blue-500/10 text-blue-600"
-          projects={upcomingProjects}
-          emptyMessage="Belum ada acara mendatang."
-        />
-        <ProjectEventGroup
-          title="Perlu Ditindaklanjuti"
-          description="Tanggal acara lewat, tetapi status belum selesai"
-          icon={<CircleAlert className="h-4 w-4" />}
-          iconClassName="bg-amber-500/10 text-amber-600"
-          projects={overdueProjects}
-          emptyMessage="Tidak ada acara lewat tanggal yang tertunda."
-          statusLabel="Perlu dicek"
-        />
-        {undatedProjects.length > 0 && (
-          <ProjectEventGroup
-            title="Belum Dijadwalkan"
-            description="Acara aktif tanpa tanggal"
-            icon={<CalendarDays className="h-4 w-4" />}
-            iconClassName="bg-slate-500/10 text-slate-600"
-            projects={undatedProjects}
-            emptyMessage="Tidak ada acara tanpa tanggal."
-          />
-        )}
-        <ProjectEventGroup
-          title="Riwayat Acara Selesai"
-          description="Acara dengan status selesai"
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          iconClassName="bg-emerald-500/10 text-emerald-600"
-          projects={completedProjects}
-          emptyMessage="Belum ada acara yang berstatus selesai."
-        />
-      </div>
-
     </div>
   );
 };

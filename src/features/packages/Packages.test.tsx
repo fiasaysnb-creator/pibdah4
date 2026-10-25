@@ -21,6 +21,7 @@ describe('Packages catalog layout', () => {
             region: 'vendor',
             physicalItems: [],
             digitalItems: [],
+            processingTime: '',
           },
           {
             id: 'pkg-banten',
@@ -30,6 +31,7 @@ describe('Packages catalog layout', () => {
             region: 'banten',
             physicalItems: [],
             digitalItems: [],
+            processingTime: '',
           },
         ]}
         setPackages={vi.fn()}
@@ -104,6 +106,7 @@ describe('Packages catalog layout', () => {
             region: 'vendor',
             physicalItems: [],
             digitalItems: [],
+            processingTime: '',
           },
           {
             id: 'pkg-2',
@@ -113,6 +116,7 @@ describe('Packages catalog layout', () => {
             region: 'vendor',
             physicalItems: [],
             digitalItems: [],
+            processingTime: '',
           },
         ]}
         setPackages={vi.fn()}

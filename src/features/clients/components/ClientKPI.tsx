@@ -2,12 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     Client, Lead, Project, ClientStatus, ClientFeedback,
     SatisfactionLevel, LeadStatus, ViewType, ClientType, TeamMember,
-    Package, TeamProjectPayment, TeamPaymentRecord, Transaction, TransactionType, PaymentStatus
+    Package, TeamProjectPayment, TeamPaymentRecord, Transaction, TransactionType, PaymentStatus, Profile
 } from '../../../types';
+import {
+    downloadReportPdf,
+    buildReportFileName,
+    ReportSection,
+} from '../../../shared/utils/reportPdf';
 import PageHeader from '../../../layouts/PageHeader';
 import Modal from '../../../shared/ui/Modal';
 import { ModernStatCard } from '../../../components/modernize/ModernStatCard';
-import { AnalyticsChartCard } from '../../../shared/ui/AnalyticsChartCard';
 import { MobileCollapsibleSection } from '../../../components/ui/MobileProgressiveDisclosure';
 import {
     UsersIcon, TargetIcon,
@@ -17,9 +21,33 @@ import {
     BriefcaseIcon, PackageIcon, MapPinIcon
 } from '../../../constants';
 import { resolveLeadStatus } from '../../../constants';
+import { generateUUID } from '../../../utils/uuid';
 
 const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+
+/** Format tanggal lokal (YYYY-MM-DD) tanpa pergeseran timezone. */
+const toLocalDateString = (date: Date): string =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+const getCurrentMonthKey = (): string => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
+/** Ubah kunci bulan (YYYY-MM) menjadi rentang [awal, akhir] dalam format tanggal lokal. */
+const monthKeyToRange = (key: string): [string, string] => {
+    if (!key) return ['', ''];
+    const [year, month] = key.split('-').map(Number);
+    if (!year || !month) return ['', ''];
+    return [toLocalDateString(new Date(year, month - 1, 1)), toLocalDateString(new Date(year, month, 0))];
+};
+
+const formatMonthKeyLabel = (key: string): string => {
+    const [year, month] = key.split('-').map(Number);
+    if (!year || !month) return '';
+    return new Date(year, month - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+};
 
 const INDONESIA_CITIES = [
     'Serang', 'Pandeglang', 'Cilegon', 'Lebak', 'Rangkasbitung', 'Tangerang', 'Tangerang Selatan', 'Tangsel',
@@ -82,6 +110,120 @@ const extractCityFromAddress = (address: string): string => {
     return lastPart.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
 };
 
+// ── Rincian keuangan satu pengantin (dipakai tabel KPI & laporan PDF) ────────
+interface LedgerLineItem {
+    label: string;
+    amount: number;
+}
+
+interface LedgerProject {
+    id: string;
+    name: string;
+    total: number;
+    items: LedgerLineItem[];
+}
+
+interface LedgerExpenseGroup {
+    id: string;
+    name: string;
+    total: number;
+    items: LedgerLineItem[];
+}
+
+type ClientTransactionTotals = { income: number; expense: number; expenses: { projectId: string; label: string; amount: number }[] };
+
+/**
+ * Membentuk detail paket, biaya produksi, dan laba bersih satu pengantin.
+ * Dipakai bersama oleh tabel `Rincian Pengantin` dan laporan PDF agar kolom
+ * yang tampil di layar sama persis dengan yang diunduh.
+ */
+const buildClientLedger = (
+    client: Client,
+    projects: Project[],
+    packages: Package[],
+    transactionTotals: ClientTransactionTotals,
+) => {
+    const isDirect = !client.clientType || (client.clientType as string) === ClientType.DIRECT;
+    const clientProjects = projects.filter(project => project.clientId === client.id);
+    const totalVal = clientProjects.reduce((sum, project) => sum + project.totalCost, 0);
+
+    const projectCostDetails: LedgerProject[] = clientProjects.map(project => {
+        const selectedAddOns = (project.addOns || []).filter(item => item && (item.name || item.id));
+        const packageIds = new Set(packages.map(packageItem => packageItem.id));
+        const additionalPackages = project.additionalPackages?.length
+            ? project.additionalPackages
+            : selectedAddOns.filter(item => item.id && packageIds.has(item.id) && item.id !== project.packageId);
+        const additionalPackageIds = new Set(additionalPackages.map(item => item.id));
+        const regularAddOns = selectedAddOns.filter(item =>
+            (!item.id || !packageIds.has(item.id)) && !additionalPackageIds.has(item.id),
+        );
+        const customCosts = project.customCosts || [];
+        const customCostTotal = customCosts.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+        const additionalPackageTotal = additionalPackages.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+        const addOnTotal = regularAddOns.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+        const transportCost = Number(project.transportCost) || 0;
+        const printingCost = Number(project.printingCost) || 0;
+        const primaryPackageTotal = project.totalCost - customCostTotal - additionalPackageTotal - addOnTotal - transportCost - printingCost;
+        const items = [
+            { label: `Paket utama · ${project.packageName || 'Paket'}`, amount: primaryPackageTotal },
+            ...additionalPackages.map(item => ({
+                label: `Paket tambahan · ${item.name || packages.find(packageItem => packageItem.id === item.id)?.name || 'Paket'}`,
+                amount: Number(item.price) || 0,
+            })),
+            ...regularAddOns.map(item => ({ label: `Add-on · ${item.name || 'Tambahan'}`, amount: Number(item.price) || 0 })),
+            ...(printingCost > 0 ? [{ label: 'Produksi fisik', amount: printingCost }] : []),
+            ...(transportCost > 0 ? [{ label: 'Transport', amount: transportCost }] : []),
+            ...customCosts.map(item => ({ label: item.description || 'Biaya tambahan', amount: Number(item.amount) || 0 })),
+        ];
+        return {
+            id: project.id,
+            name: project.projectName || project.packageName || 'Acara',
+            total: project.totalCost,
+            items,
+        };
+    });
+
+    const projectNameById = new Map(projectCostDetails.map(item => [item.id, item.name]));
+    // Buang akhiran nama acara pada keterangan biaya agar sel tidak melebar/terpotong
+    const cleanExpenseLabel = (label: string, projectId: string) => {
+        const projectName = projectNameById.get(projectId);
+        if (!projectName) return label;
+        const suffix = `(${projectName})`;
+        const trimmed = label.trim();
+        if (!trimmed.endsWith(suffix)) return label;
+        return trimmed.slice(0, -suffix.length).replace(/[\s\-–—]+$/, '').trim() || label;
+    };
+
+    const grouped = new Map<string, LedgerExpenseGroup>();
+    transactionTotals.expenses.forEach(item => {
+        const entry = grouped.get(item.projectId) || {
+            id: item.projectId,
+            name: projectNameById.get(item.projectId) || 'Acara',
+            total: 0,
+            items: [],
+        };
+        entry.items.push({ label: cleanExpenseLabel(item.label, item.projectId), amount: item.amount });
+        entry.total += item.amount;
+        grouped.set(item.projectId, entry);
+    });
+
+    const eventDates = clientProjects
+        .map(project => project.date)
+        .filter((date): date is string => Boolean(date))
+        .sort((left, right) => left.localeCompare(right));
+
+    return {
+        isDirect,
+        totalVal,
+        eventDates,
+        projectCostDetails,
+        expenseByProject: Array.from(grouped.values()),
+        expenseTotal: transactionTotals.expense,
+        netProfit: transactionTotals.income - transactionTotals.expense,
+        payStatus: clientProjects[0]?.paymentStatus || '-',
+    };
+};
+
 const StarRatingDisplay: React.FC<{ rating: number; size?: 'sm' | 'md' }> = ({ rating, size = 'md' }) => {
     const sz = size === 'sm' ? 'w-3.5 h-3.5' : 'w-5 h-5';
     return (
@@ -108,6 +250,7 @@ interface ClientReportsProps {
     teamProjectPayments?: TeamProjectPayment[];
     teamPaymentRecords?: TeamPaymentRecord[];
     transactions?: Transaction[];
+    profile?: Profile | null;
 }
 
 const SatisfactionBadge: React.FC<{ satisfaction: SatisfactionLevel }> = ({ satisfaction }) => {
@@ -127,7 +270,7 @@ const SatisfactionBadge: React.FC<{ satisfaction: SatisfactionLevel }> = ({ sati
 
 const ClientReports: React.FC<ClientReportsProps> = ({
     clients, leads, projects, feedback, setFeedback, showNotification, handleNavigation,
-    teamMembers = [], packages = [], transactions = []
+    teamMembers = [], packages = [], transactions = [], profile = null
 }) => {
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -136,13 +279,15 @@ const ClientReports: React.FC<ClientReportsProps> = ({
         'total' | 'active' | 'direct-vendor' | 'top-cities' | 'top-packages' | 'top-team' | 'lead-conversion' |
         'very-satisfied' | 'satisfied' | 'neutral' | 'unsatisfied' | null
     >(null);
-    const [activeReportTab, setActiveReportTab] = useState<'ringkasan' | 'tipe' | 'daerah' | 'paket' | 'tim' | 'leads'>('ringkasan');
+    const [activeReportTab, setActiveReportTab] = useState<'tipe' | 'daerah' | 'paket' | 'tim' | 'leads'>('tipe');
     const [clientTypeFilter, setClientTypeFilter] = useState<'all' | 'direct' | 'vendor'>('all');
     const [cityFilter, setCityFilter] = useState<string>('all');
     const [packageFilter] = useState<string>('all');
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
-    const [activePreset, setActivePreset] = useState<'all' | 'this-month' | 'this-quarter' | 'this-year'>('all');
+    const [monthFilter, setMonthFilter] = useState<string>(getCurrentMonthKey);
+    const [dateFrom, setDateFrom] = useState(() => monthKeyToRange(getCurrentMonthKey())[0]);
+    const [dateTo, setDateTo] = useState(() => monthKeyToRange(getCurrentMonthKey())[1]);
+    const [activePreset, setActivePreset] = useState<'all' | 'this-month' | 'this-quarter' | 'this-year'>('this-month');
+    const [isExportingPdf, setIsExportingPdf] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(20);
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
@@ -176,32 +321,45 @@ const ClientReports: React.FC<ClientReportsProps> = ({
         setActivePreset(preset);
         const now = new Date();
         if (preset === 'all') {
+            setMonthFilter('');
             handleDateChange('', '');
             return;
         }
         if (preset === 'this-month') {
-            const first = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-            const last = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+            const first = toLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1));
+            const last = toLocalDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+            setMonthFilter(getCurrentMonthKey());
             handleDateChange(first, last);
             return;
         }
+        setMonthFilter('');
         if (preset === 'this-quarter') {
             const qMonth = Math.floor(now.getMonth() / 3) * 3;
-            const first = new Date(now.getFullYear(), qMonth, 1).toISOString().split('T')[0];
-            const last = new Date(now.getFullYear(), qMonth + 3, 0).toISOString().split('T')[0];
+            const first = toLocalDateString(new Date(now.getFullYear(), qMonth, 1));
+            const last = toLocalDateString(new Date(now.getFullYear(), qMonth + 3, 0));
             handleDateChange(first, last);
             return;
         }
         if (preset === 'this-year') {
-            const first = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
-            const last = new Date(now.getFullYear(), 11, 31).toISOString().split('T')[0];
+            const first = toLocalDateString(new Date(now.getFullYear(), 0, 1));
+            const last = toLocalDateString(new Date(now.getFullYear(), 11, 31));
             handleDateChange(first, last);
             return;
         }
     };
 
+    /** Filter bulan: menjadikan rentang tanggal = satu bulan penuh (atau kosong = semua). */
+    const handleMonthChange = (value: string) => {
+        setMonthFilter(value);
+        setActivePreset('all');
+        const [first, last] = monthKeyToRange(value);
+        handleDateChange(first, last);
+    };
+
     const filteredLeads = useMemo(() => applyDateFilter(leads, 'date'), [leads, dateFrom, dateTo]);
     const filteredClients = useMemo(() => applyDateFilter(clients as any[], 'since') as Client[], [clients, dateFrom, dateTo]);
+    // Proyek mengikuti periode aktif secara ketat (berdasarkan tanggal proyek),
+    // bukan lagi ikut karena kliennya terdaftar pada bulan tersebut.
     const filteredProjects = useMemo(() => {
         if (!dateFrom && !dateTo) return projects;
         const from = dateFrom ? new Date(dateFrom) : null;
@@ -209,17 +367,14 @@ const ClientReports: React.FC<ClientReportsProps> = ({
         if (from) from.setHours(0, 0, 0, 0);
         if (to) to.setHours(23, 59, 59, 999);
 
-        const clientIdsInPeriod = new Set(filteredClients.map(c => c.id));
-
         return projects.filter(p => {
-            if (clientIdsInPeriod.has(p.clientId)) return true;
             const rawDate = p.date || (p as any).createdAt;
             if (!rawDate) return false;
             const d = new Date(rawDate);
             if (isNaN(d.getTime())) return false;
             return (!from || d >= from) && (!to || d <= to);
         });
-    }, [projects, filteredClients, dateFrom, dateTo]);
+    }, [projects, dateFrom, dateTo]);
     const filteredFeedback = useMemo(() => applyDateFilter(feedback, 'date'), [feedback, dateFrom, dateTo]);
 
     // Search and sort logic
@@ -384,6 +539,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
         const map: Record<string, {
             name: string;
             category: string;
+            region: string;
             pricelistPrice: number;
             orderCount: number;
             totalOmzet: number;
@@ -394,6 +550,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
             map[pkg.name] = {
                 name: pkg.name,
                 category: pkg.category || 'Pernikahan',
+                region: pkg.region || '-',
                 pricelistPrice: pkg.price || 0,
                 orderCount: 0,
                 totalOmzet: 0,
@@ -407,19 +564,25 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                 map[pName] = {
                     name: pName,
                     category: p.projectType || 'Pernikahan',
+                    region: p.location || '-',
                     pricelistPrice: p.unitPrice || p.totalCost || 0,
                     orderCount: 0,
                     totalOmzet: 0,
                     projects: []
                 };
+            } else if (map[pName].region === '-' && p.location) {
+                map[pName].region = p.location;
             }
             map[pName].orderCount += 1;
             map[pName].totalOmzet += p.totalCost;
             map[pName].projects.push(p);
         });
 
+        // Saat filter tanggal/bulan aktif, hanya tampilkan paket yang benar-benar
+        // dipesan pada periode tersebut agar rekap ikut terfilter per bulan.
+        const hasDateFilter = Boolean(dateFrom || dateTo);
         const list = Object.values(map)
-            .filter(item => item.orderCount > 0 || (packages && packages.some(pkg => pkg.name === item.name)))
+            .filter(item => (hasDateFilter ? item.orderCount > 0 : true))
             .map(item => ({
                 ...item,
                 avgRealizedPrice: item.orderCount > 0 ? Math.round(item.totalOmzet / item.orderCount) : item.pricelistPrice,
@@ -428,10 +591,10 @@ const ClientReports: React.FC<ClientReportsProps> = ({
             .sort((a, b) => b.orderCount !== a.orderCount ? b.orderCount - a.orderCount : b.totalOmzet - a.totalOmzet);
 
         return list;
-    }, [packages, filteredProjects, totalRevenue]);
+    }, [packages, filteredProjects, totalRevenue, dateFrom, dateTo]);
 
     const topPackage = packageStats[0] || {
-        name: 'Belum Ada Paket', category: '-', pricelistPrice: 0, orderCount: 0, totalOmzet: 0, avgRealizedPrice: 0, revenueContribution: 0, projects: []
+        name: 'Belum Ada Paket', category: '-', region: '-', pricelistPrice: 0, orderCount: 0, totalOmzet: 0, avgRealizedPrice: 0, revenueContribution: 0, projects: []
     };
 
     // ── 4. Kinerja Tim: Job Terbanyak & Pembayaran Terbanyak ──
@@ -468,7 +631,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                     const key = assigned.name.toLowerCase().trim();
                     if (!memberMap[key]) {
                         memberMap[key] = {
-                            id: assigned.memberId || crypto.randomUUID(),
+                            id: assigned.memberId || generateUUID(),
                             name: assigned.name,
                             role: assigned.role || 'Crew',
                             category: 'Tim',
@@ -625,33 +788,6 @@ const ClientReports: React.FC<ClientReportsProps> = ({
 
     const activeClientsList = useMemo(() => clients.filter(c => c.status === ClientStatus.ACTIVE), [clients]);
 
-    // Client growth trend data (last 6 months)
-    const clientGrowthData = useMemo(() => {
-        const months = [];
-        const currentMonth = new Date().getMonth();
-        const currentYear = new Date().getFullYear();
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
-
-        // Use all clients (not filtered) for growth trend to show historical data
-        const allClientsForGrowth = clients;
-
-        for (let i = 5; i >= 0; i--) {
-            const date = new Date(currentYear, currentMonth - i, 1);
-            const monthName = monthNames[date.getMonth()];
-            const year = date.getFullYear();
-            const monthIndex = date.getMonth();
-
-            const clientsInMonth = allClientsForGrowth.filter(c => {
-                const clientDate = new Date(c.since);
-                return clientDate.getMonth() === monthIndex && clientDate.getFullYear() === year;
-            }).length;
-
-            months.push({ name: `${monthName} ${year}`, count: clientsInMonth });
-        }
-
-        return months;
-    }, [clients]);
-
     // Export functionality
     const handleExportToCSV = () => {
         const headers = ['Nama', 'Email', 'Telepon', 'Status', 'Terdaftar', 'Total Nilai'];
@@ -676,6 +812,323 @@ const ClientReports: React.FC<ClientReportsProps> = ({
         showNotification('Laporan berhasil diexport ke CSV');
     };
 
+    // Label periode untuk header PDF.
+    const reportPeriodLabel = useMemo(() => {
+        if (monthFilter) return formatMonthKeyLabel(monthFilter);
+        if (dateFrom || dateTo) return `${dateFrom || '...'} s/d ${dateTo || '...'}`;
+        return 'Semua Periode';
+    }, [monthFilter, dateFrom, dateTo]);
+
+    // Unduh laporan PDF (ringkasan + seluruh tabel sesuai filter bulan).
+    const handleDownloadPdf = async () => {
+        if (isExportingPdf) return;
+        setIsExportingPdf(true);
+        try {
+            // ── Detail kas per transaksi agar laporan tidak hanya ringkasan ──
+            const clientNameById = new Map(clients.map(client => [client.id, client.name]));
+            const projectMetaById = new Map<string, { clientName: string; projectName: string }>();
+            filteredProjects.forEach(project => {
+                projectMetaById.set(project.id, {
+                    clientName: clientNameById.get(project.clientId) || '-',
+                    projectName: project.projectName || project.packageName || 'Acara',
+                });
+            });
+
+            const transactionRows = transactions
+                .filter(transaction => !!transaction.projectId && projectMetaById.has(transaction.projectId))
+                .map(transaction => {
+                    const meta = projectMetaById.get(transaction.projectId as string)!;
+                    const isIncome = transaction.type === TransactionType.INCOME;
+                    return {
+                        date: transaction.date,
+                        clientName: meta.clientName,
+                        projectName: meta.projectName,
+                        direction: isIncome ? 'Masuk' : 'Keluar',
+                        category: transaction.category || (isIncome ? 'Pembayaran Klien' : 'Biaya Acara'),
+                        description: transaction.description || '-',
+                        amount: isIncome ? transaction.amount : -transaction.amount,
+                    };
+                })
+                .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime());
+
+            const transactionNetTotal = transactionRows.reduce((sum, row) => sum + row.amount, 0);
+
+            const sections: ReportSection[] = [
+                {
+                    title: '1. Ringkasan Tipe Klien (Langsung vs Vendor)',
+                    columns: [
+                        { header: 'Tipe Klien', width: 1.6 },
+                        { header: 'Pengantin', width: 1, align: 'right' },
+                        { header: 'Total Acara', width: 1, align: 'right' },
+                        { header: 'Omzet', width: 1.7, isCurrency: true, tone: 'positive' },
+                        { header: 'Rata-rata / Acara', width: 1.5, isCurrency: true },
+                        { header: 'Share Omzet', width: 1, align: 'right' },
+                    ],
+                    rows: [
+                        ['Langsung (Direct)', directClients.length, directProjects.length, directRevenue, avgDirectRevenue, `${directRevenueShare}%`],
+                        ['Vendor / WO', vendorClients.length, vendorProjects.length, vendorRevenue, avgVendorRevenue, `${vendorRevenueShare}%`],
+                        ['TOTAL', filteredClients.length, filteredProjects.length, totalRevenue, avgRevenuePerClient, '100%'],
+                    ],
+                },
+                {
+                    title: '2. Rincian Pengantin (Detail Paket, Biaya Produksi & Laba Bersih)',
+                    columns: [
+                        { header: 'Pengantin', width: 1.4 },
+                        { header: 'Kontak', width: 1 },
+                        { header: 'Tipe', width: 0.6 },
+                        { header: 'Kota / Daerah', width: 0.9 },
+                        { header: 'Rincian Paket Acara', width: 2.6 },
+                        { header: 'Nilai Total', width: 1.1, isCurrency: true, tone: 'positive' },
+                        { header: 'Rincian Biaya Produksi', width: 2.6 },
+                        { header: 'Laba Bersih', width: 1.1, isCurrency: true, tone: 'auto' },
+                        { header: 'Status Bayar', width: 0.8 },
+                        { header: 'Tanggal Acara', width: 0.9 },
+                    ],
+                    rows: searchedAndSortedClients.map(client => {
+                        const ledger = buildClientLedger(
+                            client,
+                            filteredProjects,
+                            packages,
+                            clientTransactionTotals.get(client.id) || { income: 0, expense: 0, expenses: [] },
+                        );
+                        const packageDetail = ledger.projectCostDetails.length
+                            ? ledger.projectCostDetails.map(project => {
+                                const lines = [project.name];
+                                project.items.forEach(item => lines.push(`   - ${item.label}: ${formatCurrency(item.amount)}`));
+                                if (ledger.projectCostDetails.length > 1) lines.push(`   Subtotal: ${formatCurrency(project.total)}`);
+                                return lines.join('\n');
+                            }).join('\n')
+                            : '-';
+                        const expenseDetail = ledger.expenseByProject.length
+                            ? ledger.expenseByProject.map(project => {
+                                const lines: string[] = [];
+                                if (ledger.expenseByProject.length > 1) lines.push(project.name);
+                                project.items.forEach(item => lines.push(`   - ${item.label}: ${formatCurrency(item.amount)}`));
+                                lines.push(`   Total: ${formatCurrency(project.total)}`);
+                                return lines.join('\n');
+                            }).join('\n')
+                            : '-';
+                        return [
+                            client.name,
+                            client.phone || client.email || '-',
+                            ledger.isDirect ? 'Langsung' : 'Vendor',
+                            extractCityFromAddress(client.address || client.homeAddress || ''),
+                            packageDetail,
+                            ledger.totalVal,
+                            expenseDetail,
+                            ledger.netProfit,
+                            ledger.payStatus,
+                            ledger.eventDates.length
+                                ? ledger.eventDates.map(date => new Date(date).toLocaleDateString('id-ID')).join('\n')
+                                : '-',
+                        ];
+                    }).concat([[
+                        `TOTAL (${searchedAndSortedClients.length} pengantin)`,
+                        '', '', '', '',
+                        clientTableTotals.projectValue,
+                        clientTableTotals.expense,
+                        clientTableTotals.netProfit,
+                        '', '',
+                    ]]),
+                    emptyText: 'Tidak ada data pengantin pada periode ini.',
+                },
+                {
+                    title: '3. Peringkat Daerah & Kota Pengantin',
+                    columns: [
+                        { header: 'No', width: 0.4, align: 'right' },
+                        { header: 'Daerah / Kota', width: 1.6 },
+                        { header: 'Pengantin', width: 1, align: 'right' },
+                        { header: 'Calon (Leads)', width: 1, align: 'right' },
+                        { header: 'Total Acara', width: 1, align: 'right' },
+                        { header: 'Total Nilai Acara', width: 1.7, isCurrency: true },
+                        { header: 'Share %', width: 0.9, align: 'right' },
+                    ],
+                    rows: cityStats.map((city, index) => [
+                        index + 1,
+                        city.name,
+                        city.clientCount,
+                        city.leadCount,
+                        city.projectCount,
+                        city.totalRevenue,
+                        `${city.percentage.toFixed(1)}%`,
+                    ]).concat([[
+                        '',
+                        'TOTAL',
+                        cityTableTotals.clients,
+                        cityTableTotals.leads,
+                        cityTableTotals.projects,
+                        cityTableTotals.revenue,
+                        cityTableTotals.clients > 0 ? '100.0%' : '-',
+                    ]]),
+                    emptyText: 'Belum ada data daerah/kota pengantin.',
+                },
+                {
+                    title: '4. Komparasi Paket & Pricelist',
+                    columns: [
+                        { header: 'No', width: 0.4, align: 'right' },
+                        { header: 'Nama Paket', width: 1.8 },
+                        { header: 'Kategori', width: 1 },
+                        { header: 'Region', width: 1 },
+                        { header: 'Pricelist Standar', width: 1.4, isCurrency: true },
+                        { header: 'Pesanan', width: 0.8, align: 'right' },
+                        { header: 'Total Omzet', width: 1.6, isCurrency: true, tone: 'positive' },
+                        { header: 'Kontribusi Omzet', width: 1.1, align: 'right' },
+                        { header: 'Rata-rata Realisasi', width: 1.5, isCurrency: true },
+                    ],
+                    rows: packageStats.map((pkg, index) => [
+                        index + 1,
+                        pkg.name,
+                        pkg.category,
+                        pkg.region,
+                        pkg.pricelistPrice,
+                        `${pkg.orderCount}x`,
+                        pkg.totalOmzet,
+                        `${pkg.revenueContribution.toFixed(1)}%`,
+                        pkg.avgRealizedPrice,
+                    ]).concat([[
+                        '',
+                        'TOTAL',
+                        '',
+                        '',
+                        packageTableTotals.pricelist,
+                        `${packageTableTotals.orders}x`,
+                        packageTableTotals.revenue,
+                        totalRevenue > 0 ? `${((packageTableTotals.revenue / totalRevenue) * 100).toFixed(1)}%` : '-',
+                        packageTableTotals.orders > 0 ? packageTableTotals.revenue / packageTableTotals.orders : 0,
+                    ]]),
+                    emptyText: 'Belum ada data paket dan pricelist.',
+                },
+                {
+                    title: '5. Performa Tim & Pembayaran Honor',
+                    columns: [
+                        { header: 'No', width: 0.4, align: 'right' },
+                        { header: 'Nama Anggota Tim', width: 1.6 },
+                        { header: 'Peran / Posisi', width: 1.4 },
+                        { header: 'Jumlah Job', width: 0.9, align: 'right' },
+                        { header: 'Total Honor', width: 1.4, isCurrency: true },
+                        { header: 'Terbayar', width: 1.4, isCurrency: true, tone: 'positive' },
+                        { header: 'Sisa Belum Bayar', width: 1.4, isCurrency: true, tone: 'negative' },
+                    ],
+                    rows: teamStats.map((member, index) => [
+                        index + 1,
+                        member.name,
+                        `${member.role} (${member.category})`,
+                        `${member.jobCount} job`,
+                        member.totalFee,
+                        member.paidFee,
+                        member.unpaidFee,
+                    ]).concat([[
+                        '',
+                        'TOTAL',
+                        '',
+                        `${teamTableTotals.jobs} job`,
+                        teamTableTotals.fees,
+                        teamTableTotals.paid,
+                        teamTableTotals.unpaid,
+                    ]]),
+                    emptyText: 'Belum ada penugasan tim pada periode ini.',
+                },
+                {
+                    title: '6. Efektivitas Channel Promosi',
+                    columns: [
+                        { header: 'Channel', width: 2 },
+                        { header: 'Total Calon', width: 1, align: 'right' },
+                        { header: 'Closing', width: 1, align: 'right' },
+                        { header: 'Tingkat Konversi', width: 1.2, align: 'right' },
+                    ],
+                    rows: leadConversionStats.channels.map(channel => [
+                        channel.channel,
+                        channel.total,
+                        channel.converted,
+                        `${channel.rate}%`,
+                    ]),
+                    emptyText: 'Belum ada channel promosi yang tercatat.',
+                },
+                {
+                    title: '7. Daftar Calon Pengantin (Leads)',
+                    columns: [
+                        { header: 'Nama Calon', width: 1.6 },
+                        { header: 'Status', width: 1 },
+                        { header: 'Channel', width: 1 },
+                        { header: 'Lokasi / Kota', width: 1.5 },
+                        { header: 'WhatsApp', width: 1.1 },
+                        { header: 'Rencana Acara', width: 1.1 },
+                        { header: 'Tanggal Masuk', width: 1.1 },
+                    ],
+                    rows: filteredLeads.map(lead => [
+                        lead.name,
+                        resolveLeadStatus(lead),
+                        lead.contactChannel || '-',
+                        lead.location || lead.address || '-',
+                        lead.whatsapp || '-',
+                        lead.eventDate ? new Date(lead.eventDate).toLocaleDateString('id-ID') : '-',
+                        lead.date ? new Date(lead.date).toLocaleDateString('id-ID') : '-',
+                    ]).concat([[
+                        'TOTAL',
+                        `${filteredLeads.length} calon`,
+                        '', '', '', '', '',
+                    ]]),
+                    emptyText: 'Tidak ada data calon pengantin untuk periode ini.',
+                },
+                {
+                    title: '8. Daftar Transaksi Kas Pengantin (Detail)',
+                    columns: [
+                        { header: 'Tanggal', width: 1 },
+                        { header: 'Pengantin', width: 1.5 },
+                        { header: 'Acara', width: 1.6 },
+                        { header: 'Tipe', width: 0.7 },
+                        { header: 'Kategori', width: 1.3 },
+                        { header: 'Keterangan', width: 2.2 },
+                        { header: 'Jumlah', width: 1.3, isCurrency: true, tone: 'auto' },
+                    ],
+                    rows: transactionRows.map(row => [
+                        row.date ? new Date(row.date).toLocaleDateString('id-ID') : '-',
+                        row.clientName,
+                        row.projectName,
+                        row.direction,
+                        row.category,
+                        row.description,
+                        row.amount,
+                    ]).concat([[
+                        'TOTAL',
+                        `${transactionRows.length} transaksi`,
+                        '', '', 'Arus Kas Bersih', '',
+                        transactionNetTotal,
+                    ]]),
+                    emptyText: 'Belum ada transaksi kas pengantin pada periode ini.',
+                },
+            ];
+
+            await downloadReportPdf({
+                title: 'Laporan KPI Pengantin',
+                subtitle: profile?.companyName || undefined,
+                periodLabel: reportPeriodLabel,
+                profile,
+                filename: buildReportFileName('Laporan-KPI-Pengantin', monthFilter || 'semua-periode'),
+                summaryCards: [
+                    { label: 'Total Pengantin', value: String(filteredClients.length) },
+                    { label: 'Total Proyek', value: String(filteredProjects.length) },
+                    { label: 'Total Omzet', value: formatCurrency(totalRevenue) },
+                    { label: 'Total Biaya Produksi', value: formatCurrency(clientTableTotals.expense), tone: 'negative' },
+                    {
+                        label: 'Laba Bersih',
+                        value: formatCurrency(clientTableTotals.netProfit),
+                        tone: clientTableTotals.netProfit >= 0 ? 'positive' : 'negative',
+                    },
+                    { label: 'Total Leads', value: String(filteredLeads.length) },
+                ],
+                sections,
+                footerNote: `Dibuat otomatis oleh sistem pada ${new Date().toLocaleString('id-ID')}.`,
+            });
+            showNotification('Laporan PDF berhasil diunduh.');
+        } catch (error) {
+            console.error('[ClientKPI] Gagal membuat laporan PDF:', error);
+            showNotification('Gagal membuat laporan PDF. Silakan coba lagi.');
+        } finally {
+            setIsExportingPdf(false);
+        }
+    };
+
     const feedbackFormUrl = useMemo(() => `${window.location.origin}${window.location.pathname}#/feedback`, []);
     const copyToClipboard = () => {
         navigator.clipboard.writeText(feedbackFormUrl).then(() => { showNotification('Tautan berhasil disalin!'); setIsShareModalOpen(false); }, () => alert('Gagal menyalin tautan.'));
@@ -696,7 +1149,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
     const handleManualFeedbackSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const newFeedback: ClientFeedback = {
-            id: crypto.randomUUID(), date: new Date().toISOString(),
+            id: generateUUID(), date: new Date().toISOString(),
             clientName: manualFeedbackForm.clientName, rating: manualFeedbackForm.rating,
             satisfaction: getSatisfactionFromRating(manualFeedbackForm.rating),
             feedback: manualFeedbackForm.feedback,
@@ -1000,16 +1453,16 @@ const ClientReports: React.FC<ClientReportsProps> = ({
             <MobileCollapsibleSection
                 title="Filter Periode Laporan"
                 subtitle={dateFrom || dateTo ? `${dateFrom || '...'} s/d ${dateTo || '...'}` : 'Semua periode waktu'}
-                badge={dateFrom || dateTo ? 'Aktif' : 'Semua'}
+                badge={monthFilter ? formatMonthKeyLabel(monthFilter) : dateFrom || dateTo ? 'Aktif' : 'Semua'}
             >
-                <div className="bg-brand-surface rounded-2xl border border-brand-border p-4 flex flex-col gap-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="bg-brand-surface rounded-2xl border border-brand-border p-3 lg:p-4 flex flex-col gap-3 lg:flex-row lg:flex-nowrap lg:items-center lg:gap-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 lg:flex-nowrap lg:justify-start lg:shrink-0">
                         <div className="flex items-center gap-2 text-sm font-medium text-brand-text-secondary shrink-0">
                             <CalendarIcon className="w-4 h-4 text-brand-accent" />
                             Pilih Periode:
                         </div>
                         {/* Preset Quick Buttons */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap lg:flex-nowrap">
                             <button
                                 onClick={() => handleSetDatePreset('all')}
                                 className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors ${activePreset === 'all' && !dateFrom && !dateTo ? 'bg-brand-accent text-white' : 'bg-brand-bg text-brand-text-secondary hover:text-brand-text-primary border border-brand-border/60'}`}
@@ -1037,20 +1490,30 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                         </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-brand-border/40">
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <input type="date" value={dateFrom} onChange={e => { setActivePreset('all'); handleDateChange(e.target.value, dateTo); }} className="input-field !rounded-xl !border !bg-brand-bg p-2 text-xs flex-1 sm:flex-none" />
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-brand-border/40 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto lg:min-w-0 lg:flex-nowrap">
+                            <input
+                                type="month"
+                                value={monthFilter}
+                                onChange={e => handleMonthChange(e.target.value)}
+                                className="input-field !rounded-xl !border !bg-brand-bg p-2 text-xs flex-1 sm:flex-none lg:w-[145px] lg:flex-none"
+                                title="Filter per bulan"
+                            />
+                            <input type="date" value={dateFrom} onChange={e => { setActivePreset('all'); setMonthFilter(''); handleDateChange(e.target.value, dateTo); }} className="input-field !rounded-xl !border !bg-brand-bg p-2 text-xs flex-1 sm:flex-none lg:w-[145px] lg:flex-none" />
                             <span className="text-brand-text-secondary text-sm font-medium">–</span>
-                            <input type="date" value={dateTo} onChange={e => { setActivePreset('all'); handleDateChange(dateFrom, e.target.value); }} className="input-field !rounded-xl !border !bg-brand-bg p-2 text-xs flex-1 sm:flex-none" />
+                            <input type="date" value={dateTo} onChange={e => { setActivePreset('all'); setMonthFilter(''); handleDateChange(dateFrom, e.target.value); }} className="input-field !rounded-xl !border !bg-brand-bg p-2 text-xs flex-1 sm:flex-none lg:w-[145px] lg:flex-none" />
                         </div>
-                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end lg:w-auto lg:shrink-0">
                             {(dateFrom || dateTo) && (
-                                <button onClick={() => { setActivePreset('all'); handleDateChange('', ''); }} className="button-secondary text-xs px-3 py-1.5 shrink-0">
+                                <button onClick={() => { setActivePreset('all'); setMonthFilter(''); handleDateChange('', ''); }} className="button-secondary text-xs px-3 py-1.5 shrink-0">
                                     Reset Filter
                                 </button>
                             )}
-                            <button onClick={handleExportToCSV} className="button-primary text-xs px-3 py-1.5 shrink-0 inline-flex items-center gap-1.5">
-                                <DownloadIcon className="w-3.5 h-3.5" /> Export CSV
+                            <button onClick={handleExportToCSV} className="button-secondary text-xs px-3 py-1.5 shrink-0 inline-flex items-center gap-1.5">
+                                <DownloadIcon className="w-3.5 h-3.5" /> CSV
+                            </button>
+                            <button onClick={handleDownloadPdf} disabled={isExportingPdf} className="button-primary text-xs px-3 py-1.5 shrink-0 inline-flex items-center gap-1.5 disabled:opacity-60">
+                                <DownloadIcon className="w-3.5 h-3.5" /> {isExportingPdf ? 'Menyiapkan...' : 'Unduh PDF'}
                             </button>
                         </div>
                     </div>
@@ -1059,12 +1522,6 @@ const ClientReports: React.FC<ClientReportsProps> = ({
 
             {/* ── Segmented Tab Switcher for Business Intelligence Rekap ── */}
             <div className="client-report-tab-switcher flex items-center gap-1.5 p-1.5 bg-brand-bg rounded-xl border border-brand-border/60 overflow-x-auto scrollbar-none">
-                <button
-                    onClick={() => setActiveReportTab('ringkasan')}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap shrink-0 ${activeReportTab === 'ringkasan' ? 'bg-brand-surface text-brand-text-light shadow-sm border border-brand-border/60' : 'text-brand-text-secondary hover:text-brand-text-primary'}`}
-                >
-                    Semua Rekap
-                </button>
                 <button
                     onClick={() => setActiveReportTab('tipe')}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap shrink-0 ${activeReportTab === 'tipe' ? 'bg-brand-surface text-brand-text-light shadow-sm border border-brand-border/60' : 'text-brand-text-secondary hover:text-brand-text-primary'}`}
@@ -1176,7 +1633,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                             <span className="text-xs text-brand-text-secondary whitespace-nowrap">{searchedAndSortedClients.length} data ditemukan</span>
                         </div>
                         <div className="overflow-x-auto">
-                            <table className="report-table w-full min-w-[1498px] table-fixed text-left text-xs">
+                            <table className="report-table kpi-detail-table w-full min-w-[1498px] table-fixed text-left text-xs">
                                 <colgroup>
                                     <col className="w-[170px]" />
                                     <col className="w-[92px]" />
@@ -1203,72 +1660,26 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                             Laba Bersih
                                         </th>
                                         <th className="p-3 font-semibold whitespace-nowrap">Status Bayar</th>
-                                        <th className="p-3 font-semibold whitespace-nowrap">Tanggal Daftar</th>
+                                        <th className="p-3 font-semibold whitespace-nowrap">Tanggal Acara</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-brand-border/50">
                                     {searchedAndSortedClients.map(c => {
-                                        const isDirect = !c.clientType || (c.clientType as string) === ClientType.DIRECT;
-                                        const cProjects = filteredProjects.filter(p => p.clientId === c.id);
-                                        const totalVal = cProjects.reduce((sum, p) => sum + p.totalCost, 0);
-                                        const projectCostDetails = cProjects.map(project => {
-                                            const selectedAddOns = (project.addOns || []).filter(item => item && (item.name || item.id));
-                                            const packageIds = new Set(packages.map(packageItem => packageItem.id));
-                                            const additionalPackages = project.additionalPackages?.length
-                                                ? project.additionalPackages
-                                                : selectedAddOns.filter(item => item.id && packageIds.has(item.id) && item.id !== project.packageId);
-                                            const additionalPackageIds = new Set(additionalPackages.map(item => item.id));
-                                            const regularAddOns = selectedAddOns.filter(item =>
-                                                (!item.id || !packageIds.has(item.id)) && !additionalPackageIds.has(item.id),
-                                            );
-                                            const customCosts = project.customCosts || [];
-                                            const customCostTotal = customCosts.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-                                            const additionalPackageTotal = additionalPackages.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
-                                            const addOnTotal = regularAddOns.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
-                                            const transportCost = Number(project.transportCost) || 0;
-                                            const printingCost = Number(project.printingCost) || 0;
-                                            const primaryPackageTotal = project.totalCost - customCostTotal - additionalPackageTotal - addOnTotal - transportCost - printingCost;
-                                            const items = [
-                                                { label: `Paket utama · ${project.packageName || 'Paket'}`, amount: primaryPackageTotal },
-                                                ...additionalPackages.map(item => ({
-                                                    label: `Paket tambahan · ${item.name || packages.find(packageItem => packageItem.id === item.id)?.name || 'Paket'}`,
-                                                    amount: Number(item.price) || 0,
-                                                })),
-                                                ...regularAddOns.map(item => ({ label: `Add-on · ${item.name || 'Tambahan'}`, amount: Number(item.price) || 0 })),
-                                                ...(printingCost > 0 ? [{ label: 'Produksi fisik', amount: printingCost }] : []),
-                                                ...(transportCost > 0 ? [{ label: 'Transport', amount: transportCost }] : []),
-                                                ...customCosts.map(item => ({ label: item.description || 'Biaya tambahan', amount: Number(item.amount) || 0 })),
-                                            ];
-                                            return {
-                                                id: project.id,
-                                                name: project.projectName || project.packageName || 'Acara',
-                                                total: project.totalCost,
-                                                items,
-                                            };
-                                        });
-                                        const transactionTotals = clientTransactionTotals.get(c.id) || { income: 0, expense: 0, expenses: [] };
-                                        const netProfit = transactionTotals.income - transactionTotals.expense;
-                                        const expenseByProject = (() => {
-                                            const grouped = new Map<string, { id: string; total: number; items: { label: string; amount: number }[] }>();
-                                            transactionTotals.expenses.forEach(item => {
-                                                const entry = grouped.get(item.projectId) || { id: item.projectId, total: 0, items: [] };
-                                                entry.items.push({ label: item.label, amount: item.amount });
-                                                entry.total += item.amount;
-                                                grouped.set(item.projectId, entry);
-                                            });
-                                            return Array.from(grouped.values());
-                                        })();
-                                        const projectNameById = new Map(projectCostDetails.map(item => [item.id, item.name]));
-                                        // Buang akhiran nama acara pada keterangan biaya agar sel tidak melebar/terpotong
-                                        const cleanExpenseLabel = (label: string, projectId: string) => {
-                                            const projectName = projectNameById.get(projectId);
-                                            if (!projectName) return label;
-                                            const suffix = `(${projectName})`;
-                                            const trimmed = label.trim();
-                                            if (!trimmed.endsWith(suffix)) return label;
-                                            return trimmed.slice(0, -suffix.length).replace(/[\s\-–—]+$/, '').trim() || label;
-                                        };
-                                        const payStatus = cProjects[0]?.paymentStatus || '-';
+                                        const {
+                                            isDirect,
+                                            totalVal,
+                                            eventDates,
+                                            projectCostDetails,
+                                            expenseByProject,
+                                            expenseTotal,
+                                            netProfit,
+                                            payStatus,
+                                        } = buildClientLedger(
+                                            c,
+                                            filteredProjects,
+                                            packages,
+                                            clientTransactionTotals.get(c.id) || { income: 0, expense: 0, expenses: [] },
+                                        );
                                         return (
                                             <tr key={c.id} className="odd:bg-brand-surface even:bg-brand-bg/40 hover:bg-brand-accent/10 transition-colors align-top">
                                                 <td className="p-3">
@@ -1316,14 +1727,14 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                                             {expenseByProject.map(project => (
                                                                 <div key={project.id}>
                                                                     {expenseByProject.length > 1 && (
-                                                                        <p className="mb-1 truncate text-[10px] font-bold text-brand-text-light" title={projectCostDetails.find(item => item.id === project.id)?.name || ''}>
-                                                                            {projectCostDetails.find(item => item.id === project.id)?.name || 'Acara'}
+                                                                        <p className="mb-1 truncate text-[10px] font-bold text-brand-text-light" title={project.name}>
+                                                                            {project.name}
                                                                         </p>
                                                                     )}
                                                                     <div className="space-y-0.5">
                                                                         {project.items.map((item, index) => (
                                                                             <p key={`${project.id}-expense-${index}`} className="flex items-center justify-between gap-3 text-[10px] leading-snug text-brand-text-secondary">
-                                                                                <span className="min-w-0 truncate text-left" title={item.label}>{cleanExpenseLabel(item.label, project.id)}</span>
+                                                                                <span className="min-w-0 truncate text-left" title={item.label}>{item.label}</span>
                                                                                 <span className="shrink-0 font-semibold tabular-nums text-amber-700">{formatCurrency(item.amount)}</span>
                                                                             </p>
                                                                         ))}
@@ -1335,7 +1746,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                                             ))}
                                                         </div>
                                                     ) : (
-                                                        <span className="block text-right tabular-nums whitespace-nowrap">{formatCurrency(transactionTotals.expense)}</span>
+                                                        <span className="block text-right tabular-nums whitespace-nowrap">{formatCurrency(expenseTotal)}</span>
                                                     )}
                                                 </td>
                                                 <td className={`p-3 text-right font-bold tabular-nums whitespace-nowrap ${netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
@@ -1347,7 +1758,13 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                                     </span>
                                                 </td>
                                                 <td className="p-3 text-brand-text-secondary tabular-nums whitespace-nowrap">
-                                                    {c.since ? new Date(c.since).toLocaleDateString('id-ID') : '-'}
+                                                    {eventDates.length > 0 ? (
+                                                        <div className="space-y-1">
+                                                            {eventDates.map((date, index) => (
+                                                                <p key={`${date}-${index}`}>{new Date(date).toLocaleDateString('id-ID')}</p>
+                                                            ))}
+                                                        </div>
+                                                    ) : '-'}
                                                 </td>
                                             </tr>
                                         );
@@ -1632,6 +2049,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                         <th className="p-3 text-center w-12 whitespace-nowrap">#</th>
                                         <th className="p-3 font-semibold whitespace-nowrap">Nama Paket</th>
                                         <th className="p-3 font-semibold whitespace-nowrap">Kategori</th>
+                                        <th className="p-3 font-semibold whitespace-nowrap">Region</th>
                                         <th className="p-3 font-semibold whitespace-nowrap text-right">Pricelist Standar</th>
                                         <th className="p-3 font-semibold whitespace-nowrap text-center">Pesanan</th>
                                         <th className="p-3 font-semibold whitespace-nowrap text-right">Total Omzet</th>
@@ -1650,6 +2068,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                                 </span>
                                             </td>
                                             <td className="p-3 text-brand-text-secondary">{pkg.category}</td>
+                                            <td className="p-3 text-brand-text-secondary whitespace-nowrap">{pkg.region}</td>
                                             <td className="p-3 text-right text-brand-text-secondary tabular-nums whitespace-nowrap">{formatCurrency(pkg.pricelistPrice)}</td>
                                             <td className="p-3 text-center font-bold text-brand-text-primary tabular-nums whitespace-nowrap">{pkg.orderCount}x</td>
                                             <td className="p-3 text-right font-bold text-brand-accent tabular-nums whitespace-nowrap">{formatCurrency(pkg.totalOmzet)}</td>
@@ -1659,7 +2078,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                     ))}
                                     {packageStats.length === 0 && (
                                         <tr>
-                                            <td colSpan={8} className="p-8 text-center text-brand-text-secondary">
+                                            <td colSpan={9} className="p-8 text-center text-brand-text-secondary">
                                                 Belum ada data paket dan pricelist.
                                             </td>
                                         </tr>
@@ -1667,7 +2086,7 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                                 </tbody>
                                 <tfoot>
                                     <tr className="border-t-2 border-brand-accent bg-brand-bg font-bold text-brand-text-primary">
-                                        <td colSpan={3} className="p-3">TOTAL</td>
+                                        <td colSpan={4} className="p-3">TOTAL</td>
                                         <td className="p-3 text-right tabular-nums whitespace-nowrap">{formatCurrency(packageTableTotals.pricelist)}</td>
                                         <td className="p-3 text-center tabular-nums whitespace-nowrap">{packageTableTotals.orders}x</td>
                                         <td className="p-3 text-right tabular-nums whitespace-nowrap">{formatCurrency(packageTableTotals.revenue)}</td>
@@ -1912,141 +2331,6 @@ const ClientReports: React.FC<ClientReportsProps> = ({
                             </table>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* ── VIEW 6: SEMUA REKAP (RINGKASAN UTAMA) ── */}
-            {activeReportTab === 'ringkasan' && (
-                <div className="space-y-6">
-                    {/* 5 Rekap Highlight Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                        <div
-                            onClick={() => setActiveReportTab('tipe')}
-                            className="p-4 bg-brand-surface rounded-2xl border border-brand-border hover:border-brand-accent/50 cursor-pointer transition-all hover:-translate-y-0.5 group"
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">1. Tipe Klien</span>
-                                <UsersIcon className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
-                            </div>
-                            <p className="text-lg font-bold text-brand-text-light">{directClients.length} Direct · {vendorClients.length} Vendor</p>
-                            <p className="text-xs text-brand-text-secondary mt-1">{directShare}% Langsung ({formatCurrency(directRevenue)})</p>
-                            <span className="text-[10px] font-bold text-brand-accent mt-3 inline-block group-hover:underline">Buka Rekap Tipe →</span>
-                        </div>
-
-                        <div
-                            onClick={() => setActiveReportTab('daerah')}
-                            className="p-4 bg-brand-surface rounded-2xl border border-brand-border hover:border-brand-accent/50 cursor-pointer transition-all hover:-translate-y-0.5 group"
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600">2. Sebaran Daerah</span>
-                                <MapPinIcon className="w-4 h-4 text-sky-600 group-hover:scale-110 transition-transform" />
-                            </div>
-                            <p className="text-lg font-bold text-brand-text-light truncate">{topCity.name}</p>
-                            <p className="text-xs text-brand-text-secondary mt-1">{topCity.clientCount} pengantin · {cityStats.length} kota terdata</p>
-                            <span className="text-[10px] font-bold text-brand-accent mt-3 inline-block group-hover:underline">Buka Rekap Daerah →</span>
-                        </div>
-
-                        <div
-                            onClick={() => setActiveReportTab('paket')}
-                            className="p-4 bg-brand-surface rounded-2xl border border-brand-border hover:border-brand-accent/50 cursor-pointer transition-all hover:-translate-y-0.5 group"
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600">3. Paket & Pricelist</span>
-                                <PackageIcon className="w-4 h-4 text-amber-600 group-hover:scale-110 transition-transform" />
-                            </div>
-                            <p className="text-lg font-bold text-brand-text-light truncate">{topPackage.name}</p>
-                            <p className="text-xs text-brand-text-secondary mt-1">{topPackage.orderCount}x pesanan ({formatCurrency(topPackage.totalOmzet)})</p>
-                            <span className="text-[10px] font-bold text-brand-accent mt-3 inline-block group-hover:underline">Buka Rekap Paket →</span>
-                        </div>
-
-                        <div
-                            onClick={() => setActiveReportTab('tim')}
-                            className="p-4 bg-brand-surface rounded-2xl border border-brand-border hover:border-brand-accent/50 cursor-pointer transition-all hover:-translate-y-0.5 group"
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600">4. Performa Tim</span>
-                                <BriefcaseIcon className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
-                            </div>
-                            <p className="text-lg font-bold text-brand-text-light truncate">{topTeamJob.name}</p>
-                            <p className="text-xs text-brand-text-secondary mt-1">{topTeamJob.jobCount} job · Honor {formatCurrency(topTeamPayment.totalFee)}</p>
-                            <span className="text-[10px] font-bold text-brand-accent mt-3 inline-block group-hover:underline">Buka Rekap Tim →</span>
-                        </div>
-
-                        <div
-                            onClick={() => setActiveReportTab('leads')}
-                            className="p-4 bg-brand-surface rounded-2xl border border-brand-border hover:border-brand-accent/50 cursor-pointer transition-all hover:-translate-y-0.5 group"
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600">5. Konversi Leads</span>
-                                <TargetIcon className="w-4 h-4 text-rose-600 group-hover:scale-110 transition-transform" />
-                            </div>
-                            <p className="text-lg font-bold text-brand-text-light">{leadConversionStats.converted} dari {leadConversionStats.total}</p>
-                            <p className="text-xs text-brand-text-secondary mt-1">Konversi: {leadConversionStats.rate}% ({leadConversionStats.discussion} diskusi)</p>
-                            <span className="text-[10px] font-bold text-brand-accent mt-3 inline-block group-hover:underline">Buka Rekap Leads →</span>
-                        </div>
-                    </div>
-
-                    {/* ── Client Growth Trend Chart ── */}
-                    <MobileCollapsibleSection
-                        title="Tren Pertumbuhan Pengantin"
-                        subtitle="6 bulan terakhir"
-                        badge="Grafik"
-                        defaultOpen={true}
-                    >
-                        <div className="bg-brand-surface rounded-2xl border border-brand-border p-5 widget-animate" style={{ animationDelay: '230ms' }}>
-                            <AnalyticsChartCard
-                                title="Pertumbuhan Pengantin per Bulan"
-                                description="Jumlah pengantin baru tiap bulan"
-                                className="bg-transparent border-0 p-0"
-                                headerClassName="mb-4"
-                                bodyClassName="flex flex-col gap-4"
-                            >
-                                <div className="h-64 relative">
-                                    {/* Y-axis labels */}
-                                    {(() => {
-                                        const maxVal = Math.max(...clientGrowthData.map(d => d.count), 1);
-                                        const ticks = maxVal <= 2 ? [maxVal, 0] : [maxVal, Math.ceil(maxVal * 0.5), 0];
-                                        return (
-                                            <div className="absolute left-0 top-0 bottom-6 flex flex-col justify-between text-[10px] text-brand-text-secondary pr-2">
-                                                {ticks.map((tick, i) => (
-                                                    <span key={i}>{tick}</span>
-                                                ))}
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Chart area */}
-                                    <div className="ml-8 h-full min-w-0 flex items-end gap-4 pb-6 border-l border-b border-brand-border/30">
-                                        {clientGrowthData.map((data, index) => {
-                                            const maxValue = Math.max(...clientGrowthData.map(d => d.count), 1);
-                                            const height = data.count > 0 ? Math.max((data.count / maxValue) * 100, 15) : 0;
-                                            return (
-                                                <div key={index} className="flex-1 min-w-0 flex flex-col items-center gap-2 group h-full justify-end">
-                                                    <div className="w-full bg-brand-bg/50 rounded-t-lg relative flex-1 flex items-end">
-                                                        {data.count > 0 ? (
-                                                            <div
-                                                                className="w-full bg-gradient-to-t from-brand-accent to-brand-accent/80 rounded-t-lg transition-all duration-500 group-hover:from-brand-accent/90 group-hover:to-brand-accent/70 shadow-sm"
-                                                                style={{ height: `${height}%` }}
-                                                            />
-                                                        ) : (
-                                                            <div className="w-full h-1 bg-brand-border/40 rounded-t" />
-                                                        )}
-                                                        {/* Tooltip */}
-                                                        <div className={`absolute -top-8 max-w-[calc(100vw-2rem)] bg-brand-text-light text-brand-bg text-[10px] font-medium px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-normal text-center z-10 shadow-md ${index === clientGrowthData.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
-                                                            {data.count} pengantin ({data.name})
-                                                        </div>
-                                                    </div>
-                                                    <span className={`text-xs font-semibold ${data.count > 0 ? 'text-brand-accent' : 'text-brand-text-secondary'}`}>{data.count}</span>
-                                                    <span className="text-[10px] text-brand-text-secondary text-center leading-tight truncate w-full">{data.name}</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </AnalyticsChartCard>
-                        </div>
-                    </MobileCollapsibleSection>
-
                 </div>
             )}
 

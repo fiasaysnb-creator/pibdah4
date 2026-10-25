@@ -1,7 +1,7 @@
 import React from 'react';
-import { UsersIcon, UserCheckIcon, AlertCircleIcon, HistoryIcon } from '../../../constants';
+import { UsersIcon, UserCheckIcon, FileTextIcon, HistoryIcon } from '../../../constants';
 
-export type MainTab = 'team' | 'vendor' | 'unpaid' | 'analytics';
+export type MainTab = 'team' | 'vendor' | 'bukti' | 'analytics';
 
 interface TabConfig {
   id: MainTab;
@@ -42,11 +42,9 @@ const TeamTabNav: React.FC<TeamTabNavProps> = ({
       badgeVariant: 'default',
     },
     {
-      id: 'unpaid',
-      label: 'Fee Belum Lunas',
-      icon: AlertCircleIcon,
-      badge: unpaidCount > 0 ? unpaidCount : undefined,
-      badgeVariant: 'danger',
+      id: 'bukti',
+      label: 'Bukti Pembayaran',
+      icon: FileTextIcon,
     },
     {
       id: 'analytics',
@@ -76,7 +74,7 @@ const TeamTabNav: React.FC<TeamTabNavProps> = ({
           >
             <span className="hidden sm:inline">{tab.label}</span>
             <span className="sm:hidden">
-              {tab.id === 'team' ? 'Tim' : tab.id === 'vendor' ? 'Vendor' : tab.id === 'unpaid' ? 'Belum Lunas' : 'Analitik'}
+              {tab.id === 'team' ? 'Tim' : tab.id === 'vendor' ? 'Vendor' : tab.id === 'bukti' ? 'Bukti' : 'Analitik'}
             </span>
             {tab.badge !== undefined && (
               <span

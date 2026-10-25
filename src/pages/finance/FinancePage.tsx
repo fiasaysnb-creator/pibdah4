@@ -11,7 +11,7 @@ import {
     TeamPaymentRecord,
 } from '../../types';
 
-import { PlusIcon } from '../../constants';
+import { PlusIcon, DownloadIcon } from '../../constants';
 
 import { FinanceHeaderStats } from '../../features/finance/components/FinanceHeaderStats';
 import { FinanceTabs } from '../../features/finance/components/FinanceTabs';
@@ -20,7 +20,6 @@ import TransactionsTab from '../../features/finance/components/TransactionsTab';
 import PocketsTab from '../../features/finance/components/PocketsTab';
 import CardsTab from '../../features/finance/components/CardsTab';
 import CashflowTab from '../../features/finance/components/CashflowTab';
-import CardReportTab from '../../features/finance/components/CardReportTab';
 import FinanceReportsTab from '../../features/finance/components/FinanceReportsTab';
 import EventProfitabilityTab from '../../features/finance/components/EventProfitabilityTab';
 import FinanceFormModal from '../../features/finance/components/FinanceFormModal';
@@ -45,6 +44,14 @@ import {
     exportProfitReportToExcel,
     exportCardsToExcel
 } from '../../features/finance/utils/financeExport';
+import {
+    downloadReportPdf,
+    buildReportFileName,
+    ReportSection,
+} from '../../shared/utils/reportPdf';
+
+const formatRupiah = (amount: number): string =>
+    `Rp ${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(Math.round(Number(amount) || 0))}`;
 
 interface FinanceProps {
     transactions: Transaction[];
@@ -69,7 +76,6 @@ export type FinanceTabType =
     | 'cards'
     | 'cashflow'
     | 'laporan'
-    | 'laporanKartu'
     | 'labaAcara Pernikahan';
 
 // ── Small inline icon so we don't need to import a wallet icon ─────────────
@@ -138,6 +144,7 @@ const Finance: React.FC<FinanceProps> = ({
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     });
     const [projectionMonths, setProjectionMonths] = useState<number>(6);
+    const [isExportingPdf, setIsExportingPdf] = useState(false);
 
     // ── Calculations ─────────────────────────────────────────────────────────
     const {
@@ -221,14 +228,170 @@ const Finance: React.FC<FinanceProps> = ({
         downloadProfitReportCSV(projectProfitabilityData, profitReportFilters);
 
     // ── Excel handlers (penyempurnaan; tombol CSV tetap ada) ──────────────────
-    const handleDownloadTransactionsExcelClick = () =>
+    const handleDownloadTransactionsExcelClick = (): void => {
         void exportTransactionsToExcel(filteredTransactions, transactions, filteredSummary, financeExportContext);
-    const handleDownloadReportExcelClick = () =>
+    };
+    const handleDownloadReportExcelClick = (): void => {
         void exportReportToExcel(reportTransactions, reportFilters, reportClientOptions, financeExportContext);
-    const handleDownloadProfitReportExcelClick = () =>
+    };
+    const handleDownloadProfitReportExcelClick = (): void => {
         void exportProfitReportToExcel(projectProfitabilityData, profitReportFilters, financeExportContext);
-    const handleDownloadCardsExcelClick = () =>
+    };
+    const handleDownloadCardsExcelClick = (): void => {
         void exportCardsToExcel(cards, pockets, cardStats, financeExportContext);
+    };
+
+    // ── Unduh laporan PDF (ringkasan + tabel sesuai filter tanggal) ───────────
+    const financePeriodLabel = filters.dateFrom || filters.dateTo
+        ? `${filters.dateFrom || '...'} s/d ${filters.dateTo || '...'}`
+        : 'Semua Periode';
+
+    const handleDownloadFinancePdf = async () => {
+        if (isExportingPdf) return;
+        setIsExportingPdf(true);
+        try {
+            const categoryRows: (string | number)[][] = [
+                ...Object.entries(categoryTotals.income).map(([category, total]) => ['Pemasukan', category, total]),
+                ...Object.entries(categoryTotals.expense).map(([category, total]) => ['Pengeluaran', category, total]),
+            ].sort((left, right) => {
+                const typeCompare = String(left[0]).localeCompare(String(right[0]));
+                if (typeCompare !== 0) return typeCompare;
+                return Number(right[2]) - Number(left[2]);
+            });
+
+            // ── Rekap laba per pengantin (transaksi sesuai filter tanggal) ──
+            const projectById = new Map(projects.map(project => [project.id, project]));
+            const clientProfitMap = new Map<string, { name: string; income: number; expense: number; projectIds: Set<string> }>();
+            filteredTransactions.forEach(transaction => {
+                if (!transaction.projectId) return;
+                const project = projectById.get(transaction.projectId);
+                if (!project) return;
+                const entry = clientProfitMap.get(project.clientId) || {
+                    name: project.clientName || project.projectName || 'Tanpa Pengantin',
+                    income: 0,
+                    expense: 0,
+                    projectIds: new Set<string>(),
+                };
+                if (transaction.type === TransactionType.INCOME) entry.income += transaction.amount;
+                else entry.expense += transaction.amount;
+                entry.projectIds.add(project.id);
+                clientProfitMap.set(project.clientId, entry);
+            });
+
+            const profitClients = Array.from(clientProfitMap.values())
+                .sort((left, right) => (right.income - right.expense) - (left.income - left.expense));
+            const profitRows: (string | number)[][] = profitClients.map(entry => [
+                entry.name,
+                entry.projectIds.size,
+                entry.income,
+                entry.expense,
+                entry.income - entry.expense,
+            ]);
+            const profitTotals = profitClients.reduce((acc, entry) => ({
+                events: acc.events + entry.projectIds.size,
+                income: acc.income + entry.income,
+                expense: acc.expense + entry.expense,
+            }), { events: 0, income: 0, expense: 0 });
+            profitRows.push([
+                `TOTAL (${profitClients.length} pengantin)`,
+                profitTotals.events,
+                profitTotals.income,
+                profitTotals.expense,
+                profitTotals.income - profitTotals.expense,
+            ]);
+
+            // ── Rekap saldo akun (kartu & kantong) ──
+            const accountRows: (string | number)[][] = [
+                ...cards.map(card => [
+                    `${card.bankName}${card.lastFourDigits ? ` •••• ${card.lastFourDigits}` : ''}`,
+                    `Kartu ${card.cardType}`,
+                    Number(card.balance) || 0,
+                ]),
+                ...pockets.map(pocket => [pocket.name, `Kantong ${pocket.type}`, Number(pocket.amount) || 0]),
+            ];
+
+            const sections: ReportSection[] = [
+                {
+                    title: 'Daftar Transaksi',
+                    columns: [
+                        { header: 'Tanggal', width: 1.1 },
+                        { header: 'Keterangan', width: 2.4 },
+                        { header: 'Kategori', width: 1.4 },
+                        { header: 'Tipe', width: 0.9 },
+                        { header: 'Jumlah', width: 1.5, isCurrency: true, tone: 'auto' },
+                    ],
+                    rows: filteredTransactions.map(transaction => [
+                        transaction.date ? new Date(transaction.date).toLocaleDateString('id-ID') : '-',
+                        transaction.description || '-',
+                        transaction.category || '-',
+                        transaction.type === TransactionType.INCOME ? 'Masuk' : 'Keluar',
+                        transaction.type === TransactionType.INCOME ? transaction.amount : -transaction.amount,
+                    ]),
+                    emptyText: 'Tidak ada transaksi pada periode ini.',
+                },
+                {
+                    title: 'Ringkasan per Kategori',
+                    columns: [
+                        { header: 'Tipe', width: 1.1 },
+                        { header: 'Kategori', width: 2.4 },
+                        { header: 'Total', width: 1.5, isCurrency: true },
+                    ],
+                    rows: categoryRows,
+                    emptyText: 'Belum ada data kategori.',
+                },
+                {
+                    title: 'Rekap Laba per Pengantin',
+                    columns: [
+                        { header: 'Pengantin', width: 2 },
+                        { header: 'Acara', width: 0.8, align: 'right' },
+                        { header: 'Pemasukan', width: 1.5, isCurrency: true, tone: 'positive' },
+                        { header: 'Pengeluaran', width: 1.5, isCurrency: true, tone: 'negative' },
+                        { header: 'Laba Bersih', width: 1.5, isCurrency: true, tone: 'auto' },
+                    ],
+                    rows: profitRows,
+                    emptyText: 'Belum ada transaksi proyek pada periode ini.',
+                },
+                {
+                    title: 'Rekap Saldo Akun & Kantong',
+                    columns: [
+                        { header: 'Nama Akun', width: 2.4 },
+                        { header: 'Tipe', width: 1.6 },
+                        { header: 'Saldo', width: 1.6, isCurrency: true },
+                    ],
+                    rows: accountRows,
+                    emptyText: 'Belum ada akun atau kantong terdaftar.',
+                },
+            ];
+
+            const periodKey = filters.dateFrom || filters.dateTo
+                ? `${filters.dateFrom || 'awal'}_${filters.dateTo || 'akhir'}`
+                : 'semua-periode';
+
+            await downloadReportPdf({
+                title: 'Laporan Keuangan',
+                subtitle: profile.companyName,
+                periodLabel: financePeriodLabel,
+                profile,
+                filename: buildReportFileName('Laporan-Keuangan', periodKey),
+                summaryCards: [
+                    { label: 'Total Pemasukan', value: formatRupiah(filteredSummary.income), tone: 'positive' },
+                    { label: 'Total Pengeluaran', value: formatRupiah(filteredSummary.expense), tone: 'negative' },
+                    {
+                        label: 'Laba Bersih',
+                        value: formatRupiah(filteredSummary.net),
+                        tone: filteredSummary.net >= 0 ? 'positive' : 'negative',
+                    },
+                    { label: 'Jumlah Transaksi', value: String(filteredTransactions.length) },
+                ],
+                sections,
+                footerNote: `Dibuat otomatis oleh sistem pada ${new Date().toLocaleString('id-ID')}.`,
+            });
+        } catch (error) {
+            console.error('[FinancePage] Gagal membuat laporan PDF:', error);
+        } finally {
+            setIsExportingPdf(false);
+        }
+    };
 
     // ── Tab content ───────────────────────────────────────────────────────────
     const renderTabContent = () => {
@@ -308,17 +471,6 @@ const Finance: React.FC<FinanceProps> = ({
                         onAddTransaction={() => handleOpenModal('transaction', 'add')}
                     />
                 );
-            case 'laporanKartu':
-                return (
-                    <CardReportTab
-                        transactions={transactions}
-                        cards={cards}
-                        profile={profile}
-                        onEditTransaction={(t) => handleOpenModal('transaction', 'edit', t)}
-                        onDeleteTransaction={(id) => handleDelete('transaction', id)}
-                        onAddTransaction={() => handleOpenModal('transaction', 'add')}
-                    />
-                );
             case 'labaAcara Pernikahan':
                 return (
                     <EventProfitabilityTab
@@ -369,6 +521,14 @@ const Finance: React.FC<FinanceProps> = ({
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleDownloadFinancePdf}
+                        disabled={isExportingPdf}
+                        className="bg-white hover:bg-[#F4F6F9] text-[#2A3547] font-bold rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm border border-[#EAEFF4] inline-flex items-center gap-1.5 transition-all disabled:opacity-60"
+                    >
+                        <DownloadIcon className="w-4 h-4 flex-shrink-0" />
+                        <span className="hidden sm:inline">{isExportingPdf ? 'Menyiapkan...' : 'Unduh PDF'}</span>
+                    </button>
                     <button
                         onClick={() => handleOpenModal('transaction', 'add')}
                         className="bg-[#5D87FF] hover:bg-[#4871e3] text-white font-bold rounded-xl px-4 py-2.5 text-xs sm:text-sm shadow-md shadow-[#5D87FF]/25 inline-flex items-center gap-1.5 transition-all"
@@ -439,13 +599,17 @@ const Finance: React.FC<FinanceProps> = ({
                                     <h4 className="text-xs font-bold text-[#5A6A85] uppercase tracking-wider mb-3">
                                         Pemasukan per Kategori
                                     </h4>
-                                    <CategoryBarChart data={incomeDonutData} />
+                                    <div className="max-h-36 overflow-y-auto pr-1">
+                                        <CategoryBarChart data={incomeDonutData} compact />
+                                    </div>
                                 </div>
                                 <div>
                                     <h4 className="text-xs font-bold text-[#5A6A85] uppercase tracking-wider mb-3">
                                         Pengeluaran per Kategori
                                     </h4>
-                                    <CategoryBarChart data={expenseDonutData} />
+                                    <div className="max-h-36 overflow-y-auto pr-1">
+                                        <CategoryBarChart data={expenseDonutData} compact />
+                                    </div>
                                 </div>
                             </div>
                         </div>

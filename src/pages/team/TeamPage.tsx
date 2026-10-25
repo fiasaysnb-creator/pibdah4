@@ -50,8 +50,8 @@ import TeamSectionStats from '../../features/team/components/TeamSectionStats';
 import TeamSearchBar from '../../features/team/components/TeamSearchBar';
 import TeamMemberList from '../../features/team/components/TeamMemberList';
 import { MobileCollapsibleSection } from '../../components/ui/MobileProgressiveDisclosure';
-import TeamUnpaidTab from '../../features/team/components/TeamUnpaidTab';
 import TeamAnalyticsTab from '../../features/team/components/TeamAnalyticsTab';
+import BuktiPembayaranTab from '../../features/team/components/BuktiPembayaranTab';
 import TeamMemberDetailModal from '../../features/team/components/TeamMemberDetailModal';
 import TeamMemberFormModal from '../../features/team/components/TeamMemberFormModal';
 import TeamStatDrillModal, {
@@ -196,8 +196,10 @@ export const Freelancers: React.FC<FreelancersProps> = ({
       <TeamPageHeader
         dateFrom={filters.dateFrom}
         dateTo={filters.dateTo}
-        onDateFromChange={filters.setDateFrom}
-        onDateToChange={filters.setDateTo}
+        monthFilter={filters.monthFilter}
+        onMonthChange={filters.handleMonthChange}
+        onDateFromChange={filters.handleDateFromChange}
+        onDateToChange={filters.handleDateToChange}
         onResetDateRange={filters.resetDateRange}
         onDownload={() =>
           downloadTeamCSV(teamMembers, filters.teamProjectPaymentsInDateRange)
@@ -270,15 +272,13 @@ export const Freelancers: React.FC<FreelancersProps> = ({
         </div>
       )}
 
-      {/* ── Tab: Fee Belum Lunas ─────────────────────────────────────────── */}
-      {activeMainTab === 'unpaid' && (
-        <TeamUnpaidTab
-          filteredUnpaidPayments={filters.filteredUnpaidPayments}
-          allUnpaidPayments={filters.allUnpaidPayments}
-          totalUnpaidAll={filters.totalUnpaidAll}
-          unpaidSearchQuery={filters.unpaidSearchQuery}
-          onSearchChange={filters.setUnpaidSearchQuery}
-          onViewDetails={members.handleViewDetails}
+      {/* ── Tab: Bukti Pembayaran ───────────────────────────────────────── */}
+      {activeMainTab === 'bukti' && (
+        <BuktiPembayaranTab
+          onCreateSlip={() => {
+            // TODO: Implementasi buat slip pembayaran
+            showNotification('Fitur buat slip pembayaran akan segera hadir');
+          }}
         />
       )}
 
@@ -325,13 +325,6 @@ export const Freelancers: React.FC<FreelancersProps> = ({
           teamProjectPayments={teamProjectPayments}
           teamPaymentRecords={payments.uniqueTeamPaymentRecords}
           projects={projects}
-          expandedRecordId={payments.expandedRecordId}
-          onToggleExpandRecord={(id) =>
-            payments.setExpandedRecordId((prev) => (prev === id ? null : id))
-          }
-          onViewSlip={payments.setPaymentSlipToView}
-          onUpdatePaymentRecord={payments.handleUpdatePaymentRecord}
-          onDeletePaymentRecord={payments.handleDeletePaymentRecord}
           newNote={members.newNote}
           setNewNote={members.setNewNote}
           newNoteType={members.newNoteType}
@@ -351,6 +344,15 @@ export const Freelancers: React.FC<FreelancersProps> = ({
           setPaymentSourceId={payments.setPaymentSourceId}
           onSign={() => payments.setIsSignatureModalOpen(true)}
           onOpenQrModal={members.handleOpenQrModal}
+          onEditFee={(paymentId) => {
+            showNotification('Fitur edit fee akan segera hadir');
+          }}
+          onDeleteFee={(paymentId) => {
+            showNotification('Fitur hapus fee akan segera hadir');
+          }}
+          onViewSlip={(record) => {
+            payments.setPaymentSlipToView(record);
+          }}
         />
       )}
 

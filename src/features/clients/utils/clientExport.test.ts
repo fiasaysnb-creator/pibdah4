@@ -148,23 +148,11 @@ const teamProjectPayments = [
     },
 ];
 
-const contracts = [
-    {
-        id: 'contract-1',
-        clientId: 'client-1',
-        projectId: 'project-1',
-        clientName1: 'Budi',
-        clientName2: 'Rina',
-        signingDate: '2026-01-05',
-        createdAt: '2026-01-05',
-    },
-];
-
 const buildWorkbook = () => buildClientExportWorkbook(
     [clientWithTwoProjects],
     transactions as never,
     teamProjectPayments as never,
-    { companyName: 'Vena Wedding', contracts: contracts as never },
+    { companyName: 'Vena Wedding' },
 );
 
 describe('clientExport', () => {
@@ -190,9 +178,9 @@ describe('clientExport', () => {
         // ID klien sama untuk kedua baris proyek
         expect(cellValue(sheet, 2, 'ID Klien')).toBe('client-1');
         expect(cellValue(sheet, 3, 'ID Klien')).toBe('client-1');
-        // Nama pengantin pria/wanita dari kontrak
-        expect(cellValue(sheet, 3, 'Nama Pengantin Pria')).toBe('Budi');
-        expect(cellValue(sheet, 3, 'Nama Pengantin Wanita')).toBe('Rina');
+        // Nama pengantin diambil dari nama klien
+        expect(cellValue(sheet, 3, 'Nama Pengantin Pria')).toBe('Rina');
+        expect(cellValue(sheet, 3, 'Nama Pengantin Wanita')).toBeFalsy();
         expect(cellValue(sheet, 3, 'Add-on dan Harga Tambahan')).toContain('Album Exclusive');
         expect(cellValue(sheet, 3, 'Harga Paket')).toBe(12000000);
         // Durasi paket diambil apa adanya dari project.durationSelection
@@ -223,9 +211,9 @@ describe('clientExport', () => {
         const statuses = [2, 3, 4, 5, 6, 7].map((rowNumber) => cellValue(sheet, rowNumber, 'Status Pembayaran'));
         expect(statuses).toContain('Batal / Ditolak');
         expect(statuses).toContain('Refund / Koreksi');
-        // Nama pengantin diambil dari kontrak (pria & wanita), bukan nama klien
-        expect(cellValue(sheet, 2, 'Nama Pengantin')).toBe('Budi & Rina');
-        expect(cellValue(sheet, 3, 'Nama Pengantin')).toBe('Budi & Rina');
+        // Nama pengantin diambil dari nama klien
+        expect(cellValue(sheet, 2, 'Nama Pengantin')).toBe('Rina');
+        expect(cellValue(sheet, 3, 'Nama Pengantin')).toBe('Rina');
         expect(cellValue(sheet, 3, 'Bukti Pembayaran')).toBe('https://example.com/dp.jpg');
     });
 
@@ -314,7 +302,7 @@ describe('clientExport', () => {
             [clientWithTwoProjects],
             transactions as never,
             teamProjectPayments as never,
-            { companyName: 'Vena Wedding', contracts: contracts as never },
+            { companyName: 'Vena Wedding' },
         );
 
         expect(payloads.map((payload) => payload.category)).toEqual([...CLIENT_EXPORT_CSV_CATEGORIES]);

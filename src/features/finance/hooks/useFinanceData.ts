@@ -3,7 +3,7 @@ import { TransactionType, Card, FinancialPocket } from '../../../types';
 
 export const useFinanceData = () => {
     // TABS & MODALS STATE
-    const [activeTab, setActiveTab] = useState<'transactions' | 'pockets' | 'cards' | 'cashflow' | 'laporan' | 'laporanKartu' | 'labaAcara Pernikahan'>('transactions');
+    const [activeTab, setActiveTab] = useState<'transactions' | 'pockets' | 'cards' | 'cashflow' | 'laporan' | 'labaAcara Pernikahan'>('transactions');
     const [modalState, setModalState] = useState<{ type: null | 'transaction' | 'pocket' | 'card' | 'transfer' | 'topup-cash', mode: 'add' | 'edit', data?: any }>({ type: null, mode: 'add' });
     const [historyModalState, setHistoryModalState] = useState<{ type: 'card' | 'pocket', item: Card | FinancialPocket | null } | null>(null);
     const [form, setForm] = useState<any>({});

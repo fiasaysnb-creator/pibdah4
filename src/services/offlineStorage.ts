@@ -3,6 +3,8 @@
  * Menggunakan IndexedDB untuk penyimpanan lokal yang robust
  */
 
+import { generateUUID } from '../utils/uuid';
+
 const DB_NAME = 'weddfin_offline_db';
 // Bump DB version so onupgradeneeded runs for existing installations that
 // may be missing stores (e.g. failed_operations). Increment when adding
@@ -100,7 +102,7 @@ class OfflineStorageService {
   
   async addPendingOperation(operation: Omit<PendingOperation, 'id' | 'timestamp' | 'retryCount'>): Promise<string> {
     await this.init();
-    const id = crypto.randomUUID();
+    const id = generateUUID();
     const op: PendingOperation = {
       ...operation,
       id,

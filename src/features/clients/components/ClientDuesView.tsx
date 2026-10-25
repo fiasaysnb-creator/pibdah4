@@ -5,6 +5,8 @@ import { formatCurrency } from '../utils/clientHelpers';
 
 interface ClientDuesViewProps {
     clientsWithDues: ClientWithSummary[];
+    monthFilter: string;
+    setMonthFilter: React.Dispatch<React.SetStateAction<string>>;
     showAllDues: boolean;
     setShowAllDues: React.Dispatch<React.SetStateAction<boolean>>;
     onBillingClick: (client: ClientWithSummary) => void;
@@ -12,6 +14,8 @@ interface ClientDuesViewProps {
 
 export const ClientDuesView: React.FC<ClientDuesViewProps> = ({
     clientsWithDues,
+    monthFilter,
+    setMonthFilter,
     showAllDues,
     setShowAllDues,
     onBillingClick,
@@ -20,10 +24,32 @@ export const ClientDuesView: React.FC<ClientDuesViewProps> = ({
 
     return (
         <div className="bg-brand-surface rounded-2xl shadow-lg border border-brand-border widget-animate animate-fade-in">
-            <div className="p-4 border-b border-brand-border">
-                <h3 className="font-semibold text-brand-text-light">
-                    Rekap Pengantin Belum Lunas ({clientsWithDues.length})
-                </h3>
+            <div className="flex flex-col gap-2 border-b border-brand-border p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                <div>
+                    <h3 className="font-semibold text-brand-text-light">
+                        Rekap Pengantin Belum Lunas ({clientsWithDues.length})
+                    </h3>
+                    <p className="mt-0.5 text-[10px] text-brand-text-secondary">
+                        {monthFilter ? `Periode ${new Date(`${monthFilter}-01T00:00:00`).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}` : 'Semua periode'}
+                    </p>
+                </div>
+                <label className="flex items-center gap-2 text-xs font-medium text-brand-text-secondary">
+                    <span className="shrink-0">Filter bulan</span>
+                    <input
+                        type="month"
+                        value={monthFilter}
+                        onChange={event => setMonthFilter(event.target.value)}
+                        className="min-w-0 rounded-lg border border-brand-border bg-brand-surface px-2.5 py-1.5 text-xs text-brand-text-primary outline-none focus:border-brand-accent"
+                        aria-label="Filter rekap tunggakan per bulan"
+                    />
+                    {monthFilter && (
+                        <button
+                            type="button"
+                            onClick={() => setMonthFilter('')}
+                            className="shrink-0 text-[10px] font-semibold text-brand-accent hover:underline"
+                        >Semua</button>
+                    )}
+                </label>
             </div>
 
             {/* Mobile cards */}

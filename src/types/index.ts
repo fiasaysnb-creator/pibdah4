@@ -87,11 +87,9 @@ export enum ViewType {
   MARKETING = 'Marketing',
   GALLERY = 'Pricelist Upload',
   SETTINGS = 'Pengaturan',
-  CONTRACTS = 'Kontrak',
   VENDOR_PROFILE = 'Profil Vendor',
   BIO_LINKS = 'Link Publik',
   INVOICES = 'Daftar Invoice',
-  MIGRATION = 'Migrasi & Import Data',
 }
 
 export interface SubStatusConfig {
@@ -144,7 +142,8 @@ export interface Gallery {
 export interface PortfolioImage {
   id: string;
   url: string;
-  uploadedAt: string;
+  uploadedAt?: string;
+  caption?: string;
 }
 
 export interface VendorPortfolio {
@@ -400,23 +399,6 @@ export interface StatusHistoryEntry {
   timestamp: string;
 }
 
-export interface WeddingDayChecklist {
-  id: string;
-  projectId: string;
-  category: string;
-  itemName: string;
-  isCompleted: boolean;
-  assignedTo?: string;
-  notes?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface ChecklistTemplate {
-  category: string;
-  items: string[];
-}
-
 export interface Project {
   id: string;
   projectName: string;
@@ -483,7 +465,6 @@ export interface Project {
   unitPrice?: number; // unit price used for package at time of booking
   address?: string; // specific venue address
   googleMapsLink?: string;
-  weddingDayChecklist?: WeddingDayChecklist[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -493,44 +474,6 @@ export interface CustomCost {
   id: string;
   description: string;
   amount: number;
-}
-
-export interface Contract {
-  id: string;
-  contractNumber: string;
-  clientId: string;
-  projectId: string;
-  signingDate: string;
-  signingLocation: string;
-  serviceTitle?: string; // e.g. "JASA CORPORATE / EVENT"
-  clientName1: string;
-  clientAddress1: string;
-  clientPhone1: string;
-  clientName2?: string;
-  clientAddress2?: string;
-  clientPhone2?: string;
-  shootingDuration: string;
-  guaranteedPhotos: string;
-  albumDetails: string;
-  digitalFilesFormat: string;
-  otherItems: string;
-  personnelCount: string;
-  deliveryTimeframe: string;
-  dpDate: string;
-  finalPaymentDate: string;
-  cancellationPolicy: string;
-  jurisdiction: string;
-  pasal1Content?: string;
-  pasal2Content?: string;
-  pasal3Content?: string;
-  pasal4Content?: string;
-  pasal5Content?: string;
-  closingText?: string;
-  vendorSignature?: string;
-  clientSignature?: string;
-  includeMeterai?: boolean;
-  meteraiPlacement?: 'client' | 'both';
-  createdAt: string;
 }
 
 export enum TransactionType {
@@ -701,8 +644,6 @@ export interface Profile {
   receiptShareTemplate?: string;
   expenseShareTemplate?: string;
   portalShareTemplate?: string;
-  checklistTemplates?: ChecklistTemplate[];
-  contractTemplate?: string;
   mobileUiScale?: number;
 }
 
@@ -784,6 +725,7 @@ export interface BioLinkPage {
   cover_url: string;
   links: BioLink[];
   is_published: boolean;
+  is_primary?: boolean;
   updated_at: string;
 }
 

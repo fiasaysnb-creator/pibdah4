@@ -18,7 +18,6 @@ import {
   LightbulbIcon,
   ImageIcon,
   UserCircleIcon,
-  FileSpreadsheetIcon,
 } from '../constants';
 
 interface SidebarProps {
@@ -76,7 +75,6 @@ const NAV_MENUS: NavMenuItem[] = [
     items: [
       { view: ViewType["Calon Pengantin"], label: 'Calon Pengantin', icon: TargetIcon },
       { view: ViewType.BOOKING, label: 'Data Booking', icon: ClipboardListIcon },
-      { view: ViewType.CONTRACTS, label: 'Kontrak', icon: FileTextIcon },
       { view: ViewType.CLIENT_REPORTS, label: 'KPI & Testimoni', icon: ChartPieIcon },
     ],
   },
@@ -128,7 +126,6 @@ const NAV_MENUS: NavMenuItem[] = [
     items: [
       { view: ViewType.VENDOR_PROFILE, label: 'Profil Vendor', icon: UserCircleIcon },
       { view: ViewType.BIO_LINKS, label: 'Link Publik', icon: LinkIcon },
-      { view: ViewType.MIGRATION, label: 'Import Data Excel', icon: FileSpreadsheetIcon },
       { view: ViewType.SETTINGS, label: 'Pengaturan Sistem', icon: SettingsIcon },
     ],
   },

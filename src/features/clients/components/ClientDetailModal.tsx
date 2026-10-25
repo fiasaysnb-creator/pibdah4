@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useMemo } from 'react';
+import React, { lazy, Suspense, useState, useMemo, Fragment } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Client, Project, PaymentStatus, Package, AddOn, TransactionType, CardType,
@@ -21,7 +21,9 @@ import { createTeamPaymentRecord } from '../../../services/teamPaymentRecords';
 import { uploadDpProof } from '../../../services/storage';
 import { formatCurrency, normalizeTerminology } from '../utils/clientHelpers';
 import { useExtraChargeTemplates } from '../../../hooks/useExtraChargeTemplates';
+import { useExpenseTemplates } from '../../../hooks/useExpenseTemplates';
 import ManageTemplatesModal from './ManageTemplatesModal';
+import ManageExpenseTemplatesModal from './ManageExpenseTemplatesModal';
 import { customizeUiText, useUiTextOverrides } from '../../../utils/uiTextCustomization';
 
 const ProjectManagement = lazy(() =>
@@ -136,93 +138,6 @@ const SectionTitle: React.FC<{ children: React.ReactNode; sub?: string }> = ({ c
   </div>
 );
 
-const TransactionHistoryGroup: React.FC<{
-  title: string;
-  totalLabel: string;
-  transactions: Transaction[];
-  tone: 'income' | 'expense';
-  onViewReceipt: (transaction: Transaction) => void;
-}> = ({ title, totalLabel, transactions, tone, onViewReceipt }) => {
-  const total = transactions.reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
-  const amountClass = tone === 'income' ? 'text-emerald-700' : 'text-red-700';
-  const badgeClass = tone === 'income'
-    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    : 'bg-red-50 text-red-700 border-red-200';
-
-  return (
-    <section className="overflow-hidden rounded-xl border border-brand-border bg-brand-surface">
-      <div className="flex items-center justify-between gap-3 border-b border-brand-border bg-brand-bg/60 px-3 py-2.5">
-        <div>
-          <h5 className="text-xs font-bold text-brand-text-primary sm:text-sm">{title}</h5>
-          <p className="text-[10px] text-brand-text-secondary">{transactions.length} transaksi</p>
-        </div>
-        <div className="text-right">
-          <p className="text-[9px] font-semibold text-brand-text-secondary">{totalLabel}</p>
-          <p className={`text-xs font-black sm:text-sm ${amountClass}`}>{formatCurrency(total)}</p>
-        </div>
-      </div>
-
-      {transactions.length === 0 ? (
-        <p className="px-3 py-5 text-center text-xs text-brand-text-secondary">Belum ada {title.toLowerCase()}.</p>
-      ) : (
-        <>
-          <div className="divide-y divide-brand-border md:hidden">
-            {transactions.map(transaction => (
-              <div key={transaction.id} className="flex items-start justify-between gap-3 p-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <p className="truncate text-xs font-semibold text-brand-text-primary">{normalizeTerminology(transaction.description)}</p>
-                    <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold ${badgeClass}`}>
-                      {tone === 'income' ? 'Masuk' : 'Keluar'}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-[10px] text-brand-text-secondary">{new Date(transaction.date).toLocaleDateString('id-ID')}</p>
-                  <p className="mt-0.5 text-[10px] text-brand-text-secondary">{normalizeTerminology(transaction.category || '-')}</p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className={`text-xs font-black ${amountClass}`}>{formatCurrency(transaction.amount)}</p>
-                  <button type="button" onClick={() => onViewReceipt(transaction)} className="mt-1 text-[10px] font-semibold text-brand-accent hover:underline">
-                    Lihat bukti
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-brand-bg/40">
-                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-brand-text-secondary">Tanggal</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-brand-text-secondary">Deskripsi</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-brand-text-secondary">Kategori</th>
-                  <th className="px-3 py-2.5 text-right text-xs font-semibold text-brand-text-secondary">Jumlah</th>
-                  <th className="px-3 py-2.5 text-center text-xs font-semibold text-brand-text-secondary">Bukti</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-brand-border">
-                {transactions.map(transaction => (
-                  <tr key={transaction.id} className="hover:bg-brand-bg/40">
-                    <td className="whitespace-nowrap px-3 py-2.5 text-xs text-brand-text-secondary">{new Date(transaction.date).toLocaleDateString('id-ID')}</td>
-                    <td className="px-3 py-2.5 text-xs text-brand-text-primary">{normalizeTerminology(transaction.description)}</td>
-                    <td className="px-3 py-2.5 text-xs text-brand-text-secondary">{normalizeTerminology(transaction.category || '-')}</td>
-                    <td className={`whitespace-nowrap px-3 py-2.5 text-right text-xs font-bold ${amountClass}`}>{formatCurrency(transaction.amount)}</td>
-                    <td className="px-3 py-2.5 text-center">
-                      <button type="button" onClick={() => onViewReceipt(transaction)} className="rounded-lg p-1.5 text-brand-text-secondary hover:bg-brand-accent/10 hover:text-brand-accent" title="Lihat bukti transaksi" aria-label={`Lihat bukti transaksi ${transaction.description}`}>
-                        <FileTextIcon className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-    </section>
-  );
-};
-
 // ─── Main component ──────────────────────────────────────────────────────────
 
 const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
@@ -245,7 +160,6 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   const [teamPaymentToPay, setTeamPaymentToPay] = useState<TeamProjectPayment | null>(null);
   const [teamPaymentSourceId, setTeamPaymentSourceId] = useState('');
   const [isPayingTeamPayment, setIsPayingTeamPayment] = useState(false);
-  const [projectPaymentHistoryTabs, setProjectPaymentHistoryTabs] = useState<Record<string, 'summary' | 'client' | 'team' | 'expenses'>>({});
   const [openCostDetails, setOpenCostDetails] = useState<Record<string, boolean>>({});
   const [newCharge, setNewCharge] = useState<{ [key: string]: { name: string; amount: string } }>({});
   const [transactionFormOpen, setTransactionFormOpen] = useState<Record<string, 'payment' | 'expense' | 'charges' | null>>({});
@@ -262,7 +176,9 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   const [editChargeData, setEditChargeData] = useState({ name: '', amount: '' });
   const [selectedAddPkg, setSelectedAddPkg] = useState<{ [projectId: string]: string }>({});
   const [showManageTemplates, setShowManageTemplates] = useState(false);
+  const [showManageExpenseTemplates, setShowManageExpenseTemplates] = useState(false);
   const { templates } = useExtraChargeTemplates();
+  const { templates: expenseTemplates } = useExpenseTemplates();
 
   // Group templates by category
   const templateCategories = useMemo(() => {
@@ -274,6 +190,17 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
     });
     return Array.from(map.entries());
   }, [templates]);
+
+  // Group template pengeluaran by category
+  const expenseTemplateCategories = useMemo(() => {
+    const map = new Map<string, typeof expenseTemplates>();
+    expenseTemplates.forEach(t => {
+      const existing = map.get(t.category) || [];
+      existing.push(t);
+      map.set(t.category, existing);
+    });
+    return Array.from(map.entries());
+  }, [expenseTemplates]);
 
   // Group packages by region
   const packagesByRegion = useMemo(() => {
@@ -326,7 +253,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   const handleUpdateTeamPayment = async (payment: TeamProjectPayment) => {
     const fee = Number(teamPaymentEditDraft.fee);
     if (!Number.isFinite(fee) || fee < 0) {
-      showNotification('Fee harus berupa angka nol atau lebih.');
+      showNotification('Nominal pembayaran harus berupa angka nol atau lebih.');
       return;
     }
 
@@ -344,10 +271,10 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
       };
       setTeamProjectPayments(prev => prev.map(item => item.id === payment.id ? updatedPayment : item));
       setEditingTeamPaymentId(null);
-      showNotification(`Fee ${payment.teamMemberName} berhasil diperbarui.`);
+      showNotification(`Pembayaran ${payment.teamMemberName} berhasil diperbarui.`);
     } catch (error) {
       console.error('[ClientDetailModal] Failed to update team assignment fee:', error);
-      showNotification('Fee tim gagal diperbarui. Coba lagi.');
+      showNotification('Pembayaran tim gagal diperbarui. Coba lagi.');
     } finally {
       setSavingTeamPaymentId(null);
     }
@@ -358,7 +285,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
     const currentPayment = teamProjectPayments.find(item => item.id === teamPaymentToPay.id);
     const project = clientProjects.find(item => item.id === teamPaymentToPay.projectId);
     if (!currentPayment || currentPayment.status !== 'Unpaid' || !project) {
-      showNotification('Fee sudah berubah atau acara tidak ditemukan. Muat ulang detail acara.');
+      showNotification('Pembayaran sudah berubah atau acara tidak ditemukan. Muat ulang detail acara.');
       setTeamPaymentToPay(null);
       return;
     }
@@ -490,6 +417,31 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
       sourceId: '',
     };
     setNewExpense(prev => ({ ...prev, [projectId]: { ...current, [field]: value } }));
+  };
+
+  /** Isi draft pengeluaran dari template: deskripsi, kategori, dan nominal default. */
+  const handleApplyExpenseTemplate = (projectId: string, templateId: string) => {
+    const template = expenseTemplates.find(item => item.id === templateId);
+    if (!template) return;
+    const current = newExpense[projectId] || {
+      date: new Date().toISOString().slice(0, 10),
+      description: '',
+      amount: '',
+      category: profile.expenseCategories[0] || 'Biaya Acara',
+      sourceId: '',
+    };
+    const category = profile.expenseCategories.includes(template.category)
+      ? template.category
+      : current.category;
+    setNewExpense(prev => ({
+      ...prev,
+      [projectId]: {
+        ...current,
+        description: template.name,
+        category,
+        amount: template.defaultAmount > 0 ? String(template.defaultAmount) : '',
+      },
+    }));
   };
 
   const handleNewExpenseSubmit = async (projectId: string) => {
@@ -935,10 +887,68 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                 });
               })();
               const totalTeamFees = teamProjectPaymentsForEvent.reduce((sum, payment) => sum + payment.fee, 0);
-              const paidTeamFees = teamProjectPaymentsForEvent
-                .filter(payment => payment.status === 'Paid')
-                .reduce((sum, payment) => sum + payment.fee, 0);
-              const activePaymentHistoryTab = projectPaymentHistoryTabs[p.id] || 'summary';
+              const totalClientIncome = clientPaymentTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+              const totalEventExpenses = eventExpenseTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+              const netProfit = totalClientIncome - totalTeamFees - totalEventExpenses;
+              const projectLedgerRows = [
+                ...clientPaymentTransactions.map(transaction => ({
+                  id: `income-${transaction.id}`,
+                  date: transaction.date,
+                  direction: 'Masuk' as const,
+                  title: transaction.description || 'Pembayaran klien',
+                  category: transaction.category || 'Pembayaran Klien',
+                  amount: transaction.amount,
+                  receiptTransaction: transaction,
+                  teamPayment: null as TeamProjectPayment | null,
+                  paymentRecord: null as TeamPaymentRecord | null,
+                })),
+                ...teamPaymentHistoryRows.map(({ payment, paymentRecord, paymentTransaction }) => ({
+                  id: `team-${payment.id}`,
+                  date: payment.date,
+                  direction: 'Keluar' as const,
+                  title: payment.role ? `${payment.teamMemberName} (${payment.role})` : payment.teamMemberName,
+                  category: 'Pembayaran Tim / Vendor',
+                  amount: payment.fee,
+                  receiptTransaction: paymentTransaction ?? null,
+                  teamPayment: payment,
+                  paymentRecord: paymentRecord ?? null,
+                })),
+                ...eventExpenseTransactions.map(transaction => ({
+                  id: `expense-${transaction.id}`,
+                  date: transaction.date,
+                  direction: 'Keluar' as const,
+                  title: transaction.description || 'Biaya acara',
+                  category: transaction.category || 'Biaya Acara',
+                  amount: transaction.amount,
+                  receiptTransaction: transaction,
+                  teamPayment: null as TeamProjectPayment | null,
+                  paymentRecord: null as TeamPaymentRecord | null,
+                })),
+              ];
+              const sortLedgerRows = (rows: typeof projectLedgerRows) =>
+                [...rows].sort((left, right) => {
+                  const categoryCompare = (left.category || '').localeCompare(right.category || '');
+                  if (categoryCompare !== 0) return categoryCompare;
+                  return new Date(left.date).getTime() - new Date(right.date).getTime();
+                });
+              const ledgerGroups: {
+                key: string;
+                direction: 'Masuk' | 'Keluar';
+                category: string;
+                rows: typeof projectLedgerRows;
+              }[] = [];
+              [
+                ...sortLedgerRows(projectLedgerRows.filter(row => row.direction === 'Masuk')),
+                ...sortLedgerRows(projectLedgerRows.filter(row => row.direction === 'Keluar')),
+              ].forEach(row => {
+                const key = `${row.direction}::${row.category}`;
+                const lastGroup = ledgerGroups[ledgerGroups.length - 1];
+                if (lastGroup && lastGroup.key === key) {
+                  lastGroup.rows.push(row);
+                } else {
+                  ledgerGroups.push({ key, direction: row.direction, category: row.category, rows: [row] });
+                }
+              });
               const remainingBalance = p.totalCost - p.amountPaid;
               const eventDateLabel = p.date
                 ? new Date(p.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -1156,6 +1166,43 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                         <div>
                           <h4 className="text-sm font-bold text-gray-950">Catat Pengeluaran Acara</h4>
                           <p className="mt-0.5 text-xs text-gray-600">Transaksi ini masuk ke laporan pengeluaran dan tidak mengubah tagihan klien.</p>
+                        </div>
+                        <div>
+                          <div className="mb-1 flex items-center justify-between gap-2">
+                            <label htmlFor={`expense-template-${p.id}`} className="text-xs font-semibold text-brand-text-light">
+                              Template Pengeluaran
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setShowManageExpenseTemplates(true)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-700 transition-all hover:bg-gray-100 hover:text-gray-950 active:scale-95"
+                              title="Kelola template pengeluaran / biaya yang sering dipakai"
+                            >
+                              <Settings className="h-3.5 w-3.5" />
+                              <span>Kelola Template</span>
+                            </button>
+                          </div>
+                          <select
+                            id={`expense-template-${p.id}`}
+                            defaultValue=""
+                            onChange={event => {
+                              const val = event.target.value;
+                              if (val) handleApplyExpenseTemplate(p.id, val);
+                              event.target.value = '';
+                            }}
+                            className="h-[42px] w-full rounded-xl border border-gray-300 bg-white px-3 text-xs font-medium text-gray-950 focus:border-brand-accent focus:outline-none focus:ring-1 focus:ring-brand-accent cursor-pointer"
+                          >
+                            <option value="">Pilih dari Template Pengeluaran (opsional)...</option>
+                            {expenseTemplateCategories.map(([category, items]) => (
+                              <optgroup key={category} label={category}>
+                                {items.map(t => (
+                                  <option key={t.id} value={t.id}>
+                                    {t.name}{t.defaultAmount > 0 ? ` — ${formatCurrency(t.defaultAmount)}` : ''}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
+                          </select>
                         </div>
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <label className="space-y-1 text-xs font-semibold text-brand-text-light">
@@ -1395,29 +1442,9 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                     <SectionTitle sub="Rincian tagihan dan riwayat pembayaran untuk acara ini.">
                       {customizeUiText('client.detail.section.transactions', 'Riwayat Pembayaran', uiTextOverrides)}
                     </SectionTitle>
-                    <div className="grid grid-cols-4 gap-1 rounded-xl border border-brand-border bg-brand-bg p-1">
-                      {([
-                        { id: 'summary', label: 'Invoice', mobileLabel: 'Invoice' },
-                        { id: 'client', label: `Klien (${clientPaymentTransactions.length})`, mobileLabel: `Klien ${clientPaymentTransactions.length}` },
-                        { id: 'team', label: `Tim (${teamProjectPaymentsForEvent.length})`, mobileLabel: `Tim ${teamProjectPaymentsForEvent.length}` },
-                        { id: 'expenses', label: `Biaya (${eventExpenseTransactions.length})`, mobileLabel: `Biaya ${eventExpenseTransactions.length}` },
-                      ] as const).map(tab => (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          onClick={() => setProjectPaymentHistoryTabs(prev => ({ ...prev, [p.id]: tab.id }))}
-                          className={`min-h-9 min-w-0 whitespace-nowrap rounded-lg px-0.5 py-2 text-[9px] font-bold transition-colors sm:px-1.5 sm:text-xs ${activePaymentHistoryTab === tab.id ? 'bg-brand-accent text-white shadow-sm' : 'text-brand-text-secondary hover:bg-white hover:text-brand-text-primary'}`}
-                          aria-pressed={activePaymentHistoryTab === tab.id}
-                        >
-                          <span className="sm:hidden">{tab.mobileLabel}</span>
-                          <span className="hidden sm:inline">{tab.label}</span>
-                        </button>
-                      ))}
-                    </div>
                   </div>
 
                   {/* ── PROJECT CARD ──────────────────────────────────── */}
-                  {activePaymentHistoryTab === 'summary' && (
                   <div className="bg-brand-surface rounded-2xl border border-brand-border shadow-sm overflow-hidden">
 
                     <div className="p-3 sm:p-5 space-y-3 sm:space-y-5">
@@ -1450,6 +1477,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                               <span className="font-bold text-brand-text-light">
                                 {formatCurrency(
                                   p.totalCost
+                                  + (Number(p.discountAmount) || 0)
                                   - (p.customCosts?.reduce((s, c) => s + c.amount, 0) || 0)
                                   - regularAddOns.reduce((s, a) => s + (Number(a.price) || 0), 0)
                                   - additionalPackages.reduce((s, packageItem) => s + (Number(packageItem.price) || 0), 0)
@@ -1605,6 +1633,13 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                             </div>
                           )}
 
+                          {Number(p.discountAmount) > 0 && (
+                            <div className="flex justify-between items-center border-t border-slate-200 pt-2 text-xs text-red-600">
+                              <span>Diskon</span>
+                              <span className="font-semibold">-{formatCurrency(Number(p.discountAmount))}</span>
+                            </div>
+                          )}
+
                         </div>
                       </details>
 
@@ -1651,160 +1686,295 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                       </div>
                     </div>
                   </div>
-                  )}
-
-                  {/* ── TRANSACTION HISTORY ───────────────────────────── */}
-                  <div className="mt-3 space-y-3">
-                    {activePaymentHistoryTab === 'client' && (
-                      <TransactionHistoryGroup
-                        title="Pembayaran Klien"
-                        totalLabel="Pembayaran tercatat"
-                        transactions={clientPaymentTransactions}
-                        tone="income"
-                        onViewReceipt={onViewReceipt}
-                      />
-                    )}
-                    {activePaymentHistoryTab === 'team' && (
-                      <section className="overflow-hidden rounded-xl border border-brand-border bg-brand-surface">
-                        <div className="flex items-center justify-between gap-3 border-b border-brand-border bg-brand-bg/60 px-3 py-2.5">
-                          <div>
-                            <h5 className="text-xs font-bold text-brand-text-primary sm:text-sm">Pembayaran Tim</h5>
-                            <p className="text-[10px] text-brand-text-secondary">{teamProjectPaymentsForEvent.length} penugasan</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[9px] font-semibold text-brand-text-secondary">Terbayar / Total fee</p>
-                            <p className="text-xs font-black text-emerald-700 sm:text-sm">{formatCurrency(paidTeamFees)} / {formatCurrency(totalTeamFees)}</p>
-                          </div>
-                        </div>
-                        {teamPaymentHistoryRows.length === 0 ? (
-                          <p className="px-3 py-5 text-center text-xs text-brand-text-secondary">Belum ada penugasan tim untuk acara ini.</p>
-                        ) : (
-                          <div className="divide-y divide-brand-border">
-                            {teamPaymentHistoryRows.map(({ payment, paymentRecord, paymentTransaction }) => (
-                              <div key={payment.id} className="p-3">
-                                {editingTeamPaymentId === payment.id ? (
-                                  <form
-                                    onSubmit={event => {
-                                      event.preventDefault();
-                                      void handleUpdateTeamPayment(payment);
-                                    }}
-                                    className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[1fr_1fr_auto]"
-                                  >
-                                    <label className="space-y-1 text-[10px] font-semibold text-brand-text-secondary">
-                                      Anggota / Peran
-                                      <input
-                                        type="text"
-                                        value={teamPaymentEditDraft.role}
-                                        onChange={event => setTeamPaymentEditDraft(prev => ({ ...prev, role: event.target.value }))}
-                                        className="h-9 w-full rounded-lg border border-brand-border bg-white px-2 text-xs text-brand-text-primary"
-                                        placeholder="Tim / Vendor"
-                                      />
-                                    </label>
-                                    <label className="space-y-1 text-[10px] font-semibold text-brand-text-secondary">
-                                      Fee (Rp)
-                                      <RupiahInput
-                                        value={teamPaymentEditDraft.fee}
-                                        onChange={value => setTeamPaymentEditDraft(prev => ({ ...prev, fee: value }))}
-                                        className="h-9 w-full rounded-lg border border-brand-border bg-white px-2 text-xs font-semibold text-brand-text-primary"
-                                        placeholder="0"
-                                      />
-                                    </label>
-                                    <div className="flex justify-end gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => setEditingTeamPaymentId(null)}
-                                        className="min-h-9 rounded-lg border border-brand-border px-2.5 text-[10px] font-semibold text-brand-text-secondary hover:bg-brand-bg"
-                                      >
-                                        Batal
-                                      </button>
-                                      <button
-                                        type="submit"
-                                        disabled={savingTeamPaymentId === payment.id}
-                                        className="min-h-9 rounded-lg bg-blue-600 px-2.5 text-[10px] font-bold text-white hover:bg-blue-700 disabled:opacity-60"
-                                      >
-                                        {savingTeamPaymentId === payment.id ? 'Menyimpan...' : 'Update'}
-                                      </button>
+                  {/* ── LEDGER: KLIEN + TIM + BIAYA (SATU TABEL) ─────── */}
+                  <div className="mt-3 overflow-hidden rounded-xl border border-brand-border bg-brand-surface">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-brand-border bg-brand-bg/60 px-3 py-2.5">
+                      <div>
+                        <h5 className="text-xs font-bold text-brand-text-primary sm:text-sm">Rincian Pemasukan &amp; Pengeluaran</h5>
+                        <p className="text-[10px] text-brand-text-secondary">{projectLedgerRows.length} transaksi · Klien, Tim &amp; Biaya</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
+                        <span className="text-brand-text-secondary">Masuk <span className="font-bold text-emerald-700">{formatCurrency(totalClientIncome)}</span></span>
+                        <span className="text-brand-text-secondary">Keluar <span className="font-bold text-red-600">{formatCurrency(totalTeamFees + totalEventExpenses)}</span></span>
+                      </div>
+                    </div>
+                    {projectLedgerRows.length === 0 ? (
+                      <p className="px-3 py-5 text-center text-xs text-brand-text-secondary">Belum ada transaksi untuk proyek ini.</p>
+                    ) : (
+                      <>
+                      <div className="hidden overflow-x-auto sm:block">
+                        <table className="w-full min-w-[680px] text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-brand-border bg-brand-bg/40 text-[10px] font-bold uppercase tracking-wide text-brand-text-secondary">
+                              <th className="px-3 py-2">Tanggal</th>
+                              <th className="px-3 py-2">Tipe</th>
+                              <th className="px-3 py-2">Keterangan</th>
+                              <th className="px-3 py-2">Kategori</th>
+                              <th className="px-3 py-2 text-right">Jumlah</th>
+                              <th className="px-3 py-2 text-right">Bukti / Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-brand-border">
+                            {ledgerGroups.map(group => {
+                              return (
+                                <Fragment key={group.key}>
+                                  <tr className="bg-slate-100">
+                                    <td colSpan={5} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-700">
+                                      {group.direction === 'Masuk' ? 'Pembayaran Masuk' : 'Pengeluaran'} · {group.category}
+                                    </td>
+                                    <td className="px-3 py-1.5" />
+                                  </tr>
+                                  {group.rows.map(row => {
+                                    const teamPayment = row.teamPayment;
+                                    const receiptTransaction = row.receiptTransaction;
+                                    return (
+                                      <Fragment key={row.id}>
+                                  <tr className="align-middle hover:bg-brand-bg/30">
+                                    <td className="whitespace-nowrap px-3 py-2 text-brand-text-secondary">{new Date(row.date).toLocaleDateString('id-ID')}</td>
+                                    <td className="px-3 py-2">
+                                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold ${row.direction === 'Masuk' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{row.direction}</span>
+                                    </td>
+                                    <td className="px-3 py-2 font-semibold text-brand-text-primary">{row.title}</td>
+                                    <td className="px-3 py-2 text-brand-text-secondary">{row.category}</td>
+                                    <td className={`whitespace-nowrap px-3 py-2 text-right font-bold ${row.direction === 'Masuk' ? 'text-emerald-700' : 'text-red-600'}`}>
+                                      {row.direction === 'Masuk' ? '+' : '−'}&nbsp;{formatCurrency(row.amount)}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        {teamPayment && (
+                                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${teamPayment.status === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>
+                                            {teamPayment.status === 'Paid' ? 'Lunas' : 'Belum lunas'}
+                                          </span>
+                                        )}
+                                        {teamPayment && teamPayment.status === 'Unpaid' && (
+                                          <>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setEditingTeamPaymentId(teamPayment.id);
+                                                setTeamPaymentEditDraft({ role: teamPayment.role || '', fee: String(teamPayment.fee) });
+                                              }}
+                                              className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 text-[10px] font-bold text-blue-700 hover:bg-blue-100"
+                                              aria-label={`Edit fee ${teamPayment.teamMemberName}`}
+                                            >
+                                              <PencilIcon className="h-3 w-3" /> Edit
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setTeamPaymentToPay(teamPayment);
+                                                setTeamPaymentSourceId('');
+                                              }}
+                                              className="inline-flex min-h-8 items-center gap-1 rounded-lg bg-emerald-700 px-2 text-[10px] font-bold text-white hover:bg-emerald-800"
+                                              aria-label={`Bayar fee ${teamPayment.teamMemberName}`}
+                                            >
+                                              <CreditCardIcon className="h-3 w-3" /> Bayar
+                                            </button>
+                                          </>
+                                        )}
+                                        {receiptTransaction && (
+                                          <button
+                                            type="button"
+                                            onClick={() => onViewReceipt(receiptTransaction)}
+                                            className="inline-flex items-center rounded-md border border-brand-border px-2 py-1 text-[10px] font-semibold text-brand-text-secondary hover:border-brand-accent/40 hover:bg-brand-accent/10 hover:text-brand-accent"
+                                            title="Lihat bukti transaksi"
+                                            aria-label={`Lihat bukti ${row.title}`}
+                                          >
+                                            Lihat
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  {teamPayment && editingTeamPaymentId === teamPayment.id && (
+                                    <tr className="bg-blue-50/40">
+                                      <td colSpan={6} className="px-3 py-2">
+                                        <form
+                                          onSubmit={event => {
+                                            event.preventDefault();
+                                            void handleUpdateTeamPayment(teamPayment);
+                                          }}
+                                          className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[1fr_1fr_auto]"
+                                        >
+                                          <label className="space-y-1 text-[10px] font-semibold text-brand-text-secondary">
+                                            Anggota / Peran
+                                            <input
+                                              type="text"
+                                              value={teamPaymentEditDraft.role}
+                                              onChange={event => setTeamPaymentEditDraft(prev => ({ ...prev, role: event.target.value }))}
+                                              className="h-9 w-full rounded-lg border border-brand-border bg-white px-2 text-xs text-brand-text-primary"
+                                              placeholder="Tim / Vendor"
+                                            />
+                                          </label>
+                                          <label className="space-y-1 text-[10px] font-semibold text-brand-text-secondary">
+                                            Pembayaran (Rp)
+                                            <RupiahInput
+                                              value={teamPaymentEditDraft.fee}
+                                              onChange={value => setTeamPaymentEditDraft(prev => ({ ...prev, fee: value }))}
+                                              className="h-9 w-full rounded-lg border border-brand-border bg-white px-2 text-xs font-semibold text-brand-text-primary"
+                                              placeholder="0"
+                                            />
+                                          </label>
+                                          <div className="flex justify-end gap-1.5">
+                                            <button
+                                              type="button"
+                                              onClick={() => setEditingTeamPaymentId(null)}
+                                              className="min-h-9 rounded-lg border border-brand-border px-2.5 text-[10px] font-semibold text-brand-text-secondary hover:bg-brand-bg"
+                                            >
+                                              Batal
+                                            </button>
+                                            <button
+                                              type="submit"
+                                              disabled={savingTeamPaymentId === teamPayment.id}
+                                              className="min-h-9 rounded-lg bg-blue-600 px-2.5 text-[10px] font-bold text-white hover:bg-blue-700 disabled:opacity-60"
+                                            >
+                                              {savingTeamPaymentId === teamPayment.id ? 'Menyimpan...' : 'Update'}
+                                            </button>
+                                          </div>
+                                        </form>
+                                      </td>
+                                    </tr>
+                                  )}
+                                      </Fragment>
+                                    );
+                                  })}
+                                </Fragment>
+                              );
+                            })}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t border-brand-border bg-brand-bg/60">
+                              <td colSpan={4} className="px-3 py-1.5 text-right text-[10px] font-bold text-brand-text-secondary">Total pemasukan (pembayaran klien)</td>
+                              <td className="whitespace-nowrap px-3 py-1.5 text-right text-[11px] font-bold text-emerald-700">{formatCurrency(totalClientIncome)}</td>
+                              <td />
+                            </tr>
+                            <tr className="border-t border-brand-border bg-brand-bg/60">
+                              <td colSpan={4} className="px-3 py-1.5 text-right text-[10px] font-bold text-brand-text-secondary">Total pengeluaran (fee tim + biaya acara)</td>
+                              <td className="whitespace-nowrap px-3 py-1.5 text-right text-[11px] font-bold text-red-600">{formatCurrency(totalTeamFees + totalEventExpenses)}</td>
+                              <td />
+                            </tr>
+                            <tr className="border-t-2 border-brand-border bg-brand-bg">
+                              <td colSpan={4} className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-brand-text-primary">Laba bersih</td>
+                              <td className={`whitespace-nowrap px-3 py-2.5 text-right text-sm font-black ${netProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{formatCurrency(netProfit)}</td>
+                              <td />
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                      <div className="space-y-2 px-2 py-2 sm:hidden">
+                        {ledgerGroups.map(group => (
+                          <section key={`mobile-${group.key}`} className="space-y-1.5">
+                            <h6 className="rounded-lg bg-slate-100 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-700 break-words">
+                              {group.direction === 'Masuk' ? 'Pembayaran Masuk' : 'Pengeluaran'} · {group.category}
+                            </h6>
+                            {group.rows.map(row => {
+                              const teamPayment = row.teamPayment;
+                              const receiptTransaction = row.receiptTransaction;
+                              return (
+                                <article key={`mobile-${row.id}`} className="min-w-0 rounded-lg border border-brand-border bg-white p-2.5">
+                                  <div className="flex min-w-0 items-start justify-between gap-1.5">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="text-[10px] text-brand-text-secondary">{new Date(row.date).toLocaleDateString('id-ID')}</span>
+                                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold ${row.direction === 'Masuk' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                          {row.direction}
+                                        </span>
+                                      </div>
+                                      <p className="mt-0.5 break-words text-[11px] font-semibold leading-tight text-brand-text-primary">{row.title}</p>
+                                      <p className="mt-0.5 break-words text-[9px] leading-tight text-brand-text-secondary">{row.category}</p>
                                     </div>
-                                  </form>
-                                ) : (
-                                  <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                                    <div className="w-full min-w-0 sm:flex-1">
-                                      <p className="text-xs font-semibold text-brand-text-primary">{payment.teamMemberName}</p>
-                                      <p className="mt-0.5 text-[10px] leading-snug text-brand-text-secondary">
-                                        {payment.role || 'Tim / Vendor'} · {payment.status === 'Paid'
-                                          ? `Dibayar ${new Date(paymentRecord?.date || paymentTransaction?.date || payment.date).toLocaleDateString('id-ID')}`
-                                          : 'Belum dibayar'}
-                                      </p>
-                                      {paymentRecord && <p className="mt-0.5 break-words text-[10px] leading-snug text-brand-text-secondary">Slip {paymentRecord.recordNumber}</p>}
-                                    </div>
-                                    <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-1.5 sm:w-auto sm:shrink-0 sm:gap-2">
-                                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${payment.status === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>
-                                        {payment.status === 'Paid' ? 'Lunas' : 'Belum lunas'}
-                                      </span>
-                                      <span className="text-right text-xs font-bold text-brand-text-primary">{formatCurrency(payment.fee)}</span>
-                                      {payment.status === 'Unpaid' ? (
-                                        <div className="flex items-center gap-1">
+                                    <span className={`max-w-[45%] shrink-0 break-words text-right text-[11px] font-bold ${row.direction === 'Masuk' ? 'text-emerald-700' : 'text-red-600'}`}>
+                                      {row.direction === 'Masuk' ? '+' : '−'} {formatCurrency(row.amount)}
+                                    </span>
+                                  </div>
+                                  {teamPayment && (
+                                    <div className="mt-1.5 flex flex-wrap items-center justify-end gap-1 border-t border-brand-border pt-1.5">
+                                      {teamPayment && (
+                                        <span className={`mr-auto rounded-full px-2 py-0.5 text-[9px] font-bold ${teamPayment.status === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>
+                                          {teamPayment.status === 'Paid' ? 'Lunas' : 'Belum lunas'}
+                                        </span>
+                                      )}
+                                      {teamPayment && teamPayment.status === 'Unpaid' && (
+                                        <>
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              setEditingTeamPaymentId(payment.id);
-                                              setTeamPaymentEditDraft({ role: payment.role || '', fee: String(payment.fee) });
+                                              setEditingTeamPaymentId(teamPayment.id);
+                                              setTeamPaymentEditDraft({ role: teamPayment.role || '', fee: String(teamPayment.fee) });
                                             }}
-                                            className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 text-[10px] font-bold text-blue-700 hover:bg-blue-100"
-                                            aria-label={`Edit fee ${payment.teamMemberName}`}
+                                            className="inline-flex min-h-7 items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-1.5 text-[9px] font-bold text-blue-700 hover:bg-blue-100"
+                                            aria-label={`Edit fee ${teamPayment.teamMemberName}`}
                                           >
                                             <PencilIcon className="h-3 w-3" /> Edit
                                           </button>
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              setTeamPaymentToPay(payment);
+                                              setTeamPaymentToPay(teamPayment);
                                               setTeamPaymentSourceId('');
                                             }}
-                                            className="inline-flex min-h-8 items-center gap-1 rounded-lg bg-emerald-700 px-2 text-[10px] font-bold text-white hover:bg-emerald-800"
-                                            aria-label={`Bayar fee ${payment.teamMemberName}`}
+                                            className="inline-flex min-h-7 items-center gap-1 rounded-md bg-emerald-700 px-1.5 text-[9px] font-bold text-white hover:bg-emerald-800"
+                                            aria-label={`Bayar fee ${teamPayment.teamMemberName}`}
                                           >
                                             <CreditCardIcon className="h-3 w-3" /> Bayar
                                           </button>
-                                        </div>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          disabled
-                                          title="Fee terkunci karena pembayaran dan slip sudah tercatat."
-                                          className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-200 px-2 text-[10px] font-semibold text-slate-400"
-                                        >
-                                          <PencilIcon className="h-3 w-3" /> Edit
-                                        </button>
-                                      )}
-                                      {paymentTransaction && (
-                                        <button
-                                          type="button"
-                                          onClick={() => onViewReceipt(paymentTransaction)}
-                                          className="rounded-lg p-1.5 text-brand-text-secondary hover:bg-brand-accent/10 hover:text-brand-accent"
-                                          title="Lihat bukti pembayaran tim"
-                                          aria-label={`Lihat bukti pembayaran ${payment.teamMemberName}`}
-                                        >
-                                          <FileTextIcon className="h-4 w-4" />
-                                        </button>
+                                        </>
                                       )}
                                     </div>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </section>
-                    )}
-                    {activePaymentHistoryTab === 'expenses' && (
-                      <TransactionHistoryGroup
-                        title="Biaya Acara"
-                        totalLabel="Total biaya operasional"
-                        transactions={eventExpenseTransactions}
-                        tone="expense"
-                        onViewReceipt={onViewReceipt}
-                      />
+                                  )}
+                                  {teamPayment && editingTeamPaymentId === teamPayment.id && (
+                                    <form
+                                      onSubmit={event => {
+                                        event.preventDefault();
+                                        void handleUpdateTeamPayment(teamPayment);
+                                      }}
+                                      className="mt-2 grid grid-cols-1 gap-1.5 border-t border-brand-border pt-2"
+                                    >
+                                      <label className="space-y-1 text-[10px] font-semibold text-brand-text-secondary">
+                                        Anggota / Peran
+                                        <input
+                                          type="text"
+                                          value={teamPaymentEditDraft.role}
+                                          onChange={event => setTeamPaymentEditDraft(prev => ({ ...prev, role: event.target.value }))}
+                                          className="h-8 w-full rounded-md border border-brand-border bg-white px-2 text-[11px] text-brand-text-primary"
+                                          placeholder="Tim / Vendor"
+                                        />
+                                      </label>
+                                      <label className="space-y-1 text-[10px] font-semibold text-brand-text-secondary">
+                                        Pembayaran (Rp)
+                                        <RupiahInput
+                                          value={teamPaymentEditDraft.fee}
+                                          onChange={value => setTeamPaymentEditDraft(prev => ({ ...prev, fee: value }))}
+                                          className="h-8 w-full rounded-md border border-brand-border bg-white px-2 text-[11px] font-semibold text-brand-text-primary"
+                                          placeholder="0"
+                                        />
+                                      </label>
+                                      <div className="flex justify-end gap-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingTeamPaymentId(null)}
+                                          className="min-h-8 rounded-md border border-brand-border px-2 text-[9px] font-semibold text-brand-text-secondary hover:bg-brand-bg"
+                                        >Batal</button>
+                                        <button
+                                          type="submit"
+                                          disabled={savingTeamPaymentId === teamPayment.id}
+                                          className="min-h-8 rounded-md bg-blue-600 px-2 text-[9px] font-bold text-white hover:bg-blue-700 disabled:opacity-60"
+                                        >{savingTeamPaymentId === teamPayment.id ? 'Menyimpan...' : 'Update'}</button>
+                                      </div>
+                                    </form>
+                                  )}
+                                </article>
+                              );
+                            })}
+                          </section>
+                        ))}
+                        <div className="space-y-1 rounded-lg border border-brand-border bg-brand-bg/60 p-2.5 text-[9px]">
+                          <div className="flex justify-between gap-3"><span className="text-brand-text-secondary">Total pemasukan (pembayaran klien)</span><span className="shrink-0 font-bold text-emerald-700">{formatCurrency(totalClientIncome)}</span></div>
+                          <div className="flex justify-between gap-3"><span className="text-brand-text-secondary">Total pengeluaran (fee tim + biaya acara)</span><span className="shrink-0 font-bold text-red-600">{formatCurrency(totalTeamFees + totalEventExpenses)}</span></div>
+                          <div className="flex justify-between gap-3 border-t border-brand-border pt-1.5 font-bold"><span className="text-brand-text-primary">Laba bersih</span><span className={`shrink-0 ${netProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{formatCurrency(netProfit)}</span></div>
+                        </div>
+                      </div>
+                      </>
                     )}
                   </div>
 
@@ -1817,6 +1987,12 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
         {showManageTemplates && (
           <ManageTemplatesModal onClose={() => setShowManageTemplates(false)} />
         )}
+        {showManageExpenseTemplates && (
+          <ManageExpenseTemplatesModal
+            onClose={() => setShowManageExpenseTemplates(false)}
+            categories={profile.expenseCategories}
+          />
+        )}
         <Modal
           isOpen={teamPaymentToPay !== null}
           onClose={() => {
@@ -1825,7 +2001,7 @@ const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
               setTeamPaymentSourceId('');
             }
           }}
-          title="Bayar Fee Tim / Vendor"
+          title="Bayar Pembayaran Tim / Vendor"
           size="md"
         >
           {teamPaymentToPay && (

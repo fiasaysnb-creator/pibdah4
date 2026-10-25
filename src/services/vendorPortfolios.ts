@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { canonicalizeStorageAssetUrls, compressImage } from './storage';
 import { VendorPortfolio, PortfolioImage } from '../types';
+import { generateUUID } from '../utils/uuid';
 
 const YOUTUBE_URLS_CACHE_KEY = 'weddfin-portfolio-youtube-urls';
 const LOCAL_STORAGE_PORTFOLIOS_KEY = 'weddfin-vendor-portfolios';
@@ -359,7 +360,7 @@ export const uploadPortfolioImages = async (
 
         if (imageUrl) {
             uploadedImages.push({
-                id: crypto.randomUUID ? crypto.randomUUID() : `img-${Date.now()}-${i}`,
+                id: generateUUID(),
                 url: imageUrl,
                 uploadedAt: new Date().toISOString()
             });

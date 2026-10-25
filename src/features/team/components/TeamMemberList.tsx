@@ -112,7 +112,7 @@ const TeamMemberList: React.FC<TeamMemberListProps> = ({
                                 </div>
                             </div>
                             <div className="py-2.5 flex items-center justify-between text-xs border-b border-slate-100">
-                                <span className="text-[#5A6A85] font-medium">Fee Belum Dibayar</span>
+                                <span className="text-[#5A6A85] font-medium">Pembayaran Belum Dibayar</span>
                                 <span className={`text-right font-bold ${unpaidFee > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                                     {formatCurrency(unpaidFee)}
                                 </span>
@@ -163,7 +163,7 @@ const TeamMemberList: React.FC<TeamMemberListProps> = ({
                             <th className="px-3 lg:px-4 py-3.5 text-center w-10 lg:w-14 border-r border-slate-200/70">No</th>
                             <th className="px-3 lg:px-4 py-3.5 text-left border-r border-slate-200/70">{nameHeader}</th>
                             <th className="px-3 lg:px-4 py-3.5 text-left border-r border-slate-200/70">{roleHeader}</th>
-                            <th className="px-3 lg:px-4 py-3.5 text-left border-r border-slate-200/70">Fee Belum Dibayar</th>
+                            <th className="px-3 lg:px-4 py-3.5 text-left border-r border-slate-200/70">Pembayaran Belum Dibayar</th>
                             <th className="px-3 lg:px-4 py-3.5 text-center border-r border-slate-200/70">Rating</th>
                             <th className="px-3 lg:px-4 py-3.5 text-center">Aksi</th>
                         </tr>

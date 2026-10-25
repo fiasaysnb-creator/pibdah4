@@ -15,7 +15,7 @@ const queryBuilder = {
   eq: eqMock,
   in: inMock,
   then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => {
-    const result = queryResults.shift() || { data: [] as unknown[], error: null };
+    const result: { data: unknown; error: null } = queryResults.shift() || { data: [] as unknown[], error: null };
     return Promise.resolve(result).then(resolve, reject);
   },
 };
@@ -45,7 +45,7 @@ describe('team project payment integrity', () => {
       teamMemberName: 'Ayu',
       teamMemberId: 'member-1',
       date: '',
-      status: 'Unpaid',
+      status: 'Unpaid' as const,
       fee: 500000,
     }])).rejects.toThrow('Tanggal acara wajib valid');
     expect(fromMock).not.toHaveBeenCalled();
@@ -100,7 +100,7 @@ describe('team project payment integrity', () => {
       teamMemberName: 'Ayu',
       teamMemberId: 'member-1',
       date: '2026-10-13',
-      status: 'Unpaid',
+      status: 'Unpaid' as const,
       fee: 500000,
     };
     const persistedFirstRow = {

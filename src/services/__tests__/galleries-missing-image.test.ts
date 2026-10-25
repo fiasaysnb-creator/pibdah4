@@ -38,7 +38,7 @@ describe('deleteGalleryImage', () => {
                   { id: 'real-image-id', url: 'https://cdn.example.com/gallery/real-image.jpg', uploadedAt: '2024-01-01T00:00:00.000Z' },
                 ],
               },
-              error: null,
+              error: null as null,
             }),
           }),
         }),

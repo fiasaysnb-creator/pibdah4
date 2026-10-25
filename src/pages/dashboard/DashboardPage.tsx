@@ -1235,7 +1235,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 value={summary.totalteamMembers.toString()}
                 subtitle="Anggota tim terdaftar"
                 colorVariant="orange"
-                description={`Total Tim / Vendor mencakup semua anggota tim yang terdaftar dalam sistem Anda.\n\nTim / Vendor dapat ditugaskan ke berbagai Acara Pernikahan dan menerima fee sesuai pekerjaan mereka.`}
+                description={`Total Tim / Vendor mencakup semua anggota tim yang terdaftar dalam sistem Anda.\n\nTim / Vendor dapat ditugaskan ke berbagai Acara Pernikahan dan menerima pembayaran sesuai pekerjaan mereka.`}
             >
                 <div className="space-y-3">
                     {teamMembers.map(member => {

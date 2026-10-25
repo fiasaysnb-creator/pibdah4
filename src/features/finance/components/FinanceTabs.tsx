@@ -48,7 +48,6 @@ export const FinanceTabs: React.FC<FinanceTabsProps> = ({
 
     const reportTabs = [
         { id: 'laporan', label: 'Laporan Umum', icon: BarChart2Icon },
-        { id: 'laporanKartu', label: 'Laporan Kartu', icon: CreditCardIcon },
         { id: 'labaAcara Pernikahan', label: 'Laba Acara', icon: DollarSignIcon },
     ];
 

@@ -294,7 +294,6 @@ export const Projects: React.FC<ProjectsProps> = ({
                     ...prev,
                     ...updated,
                     team: (updated as any).team && (updated as any).team.length > 0 ? (updated as any).team : (prev as any).team,
-                    weddingDayChecklist: (prev as any).weddingDayChecklist || (updated as any).weddingDayChecklist,
                 } as Project;
             });
         }
@@ -322,7 +321,7 @@ export const Projects: React.FC<ProjectsProps> = ({
         const member = teamMembers.find(item => item.id === payment.teamMemberId);
         const project = projects.find(item => item.id === payment.projectId);
         if (!currentPayment || currentPayment.status !== 'Unpaid' || !member || !project) {
-            showNotification('Fee sudah berubah atau data penugasan tidak ditemukan. Muat ulang detail acara.');
+            showNotification('Pembayaran sudah berubah atau data penugasan tidak ditemukan. Muat ulang detail acara.');
             return;
         }
 

@@ -568,7 +568,8 @@ export const buildInvoicePdf = async (input: InvoicePdfInput): Promise<jsPDF> =>
 
   drawTotalRow('Subtotal', formatCurrency(subtotal), COLORS.textSoft);
   if (project.discountAmount) {
-    drawTotalRow('Diskon', `-${formatCurrency(project.discountAmount)}`, COLORS.red, 'bold');
+    // Diskon = pengurangan biaya, ditandai merah tanpa tanda minus.
+    drawTotalRow('Diskon', formatCurrency(Math.abs(Number(project.discountAmount) || 0)), COLORS.red, 'bold');
   }
 
   stroke(COLORS.borderSoft);

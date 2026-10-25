@@ -4,7 +4,7 @@
  * (clients, transactions, team, kalender, laporan, notifikasi), sehingga query
  * global tersebut tidak perlu dikirim untuk pengunjung anonim.
  *
- * Route publik lain (portal klien, checklist, invoice, contract) tetap memakai
+ * Route publik lain (portal klien, invoice) tetap memakai
  * dataset global dan TIDAK boleh masuk daftar ini.
  */
 import { ROUTE_PATH_MAP, ROUTE_TO_VIEW_MAP } from './routesConfig';
@@ -24,10 +24,6 @@ const STANDALONE_PUBLIC_PREFIXES = [
   "/feedback",
   "/suggestion-form",
   "/gallery/",
-  "/portal/contract/",
-  "/contract/",
-  "/checklist-portal/",
-  "/project/",
   "/portal/invoice/",
   "/invoice/",
   "/portal/receipt/",
@@ -40,9 +36,9 @@ const RESERVED_ROOT_SLUGS = new Set([
     .filter((value): value is string => Boolean(value))
     .map(value => value.toLowerCase().replace(/\s+/g, '-')),
   ...Object.values(ViewType).map(value => value.toLowerCase().replace(/\s+/g, '-')),
-  'link', 'public', 'share', 'portal', 'gallery', 'invoice', 'receipt', 'contract',
+  'link', 'public', 'share', 'portal', 'gallery', 'invoice', 'receipt',
   'feedback', 'suggestion-form', 'test-signature', 'public-booking', 'public-packages',
-  'public-lead-form', 'checklist-portal', 'freelancer-portal',
+  'public-lead-form', 'freelancer-portal',
 ]);
 
 function isRootBioLinkSlugRoute(route: string): boolean {

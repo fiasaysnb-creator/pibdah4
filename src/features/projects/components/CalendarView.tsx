@@ -2210,7 +2210,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projects, setProject
                 const to = formatLocalDate(new Date(selectedYear, 11, 31));
                 void listCalendarEventsInRange(from, to)
                     .then(rows => setInternalEvents(Array.isArray(rows) ? rows.map(event => calendarEventToCalendarProject(event, teamMembers, projects)) : []))
-                    .catch(() => undefined);
+                    .catch((error: unknown): undefined => {
+                        console.warn('[CalendarView] Failed to refresh calendar events:', error);
+                        return undefined;
+                    });
             }, 350);
         };
         const channel = supabase

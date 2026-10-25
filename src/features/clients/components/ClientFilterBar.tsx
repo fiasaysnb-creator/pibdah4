@@ -6,8 +6,6 @@ import { PaymentStatus, ClientStatus } from '../../../types';
 interface ClientFilterBarProps {
     searchTerm: string;
     setSearchTerm: (term: string) => void;
-    monthFilter: string;
-    setMonthFilter: (month: string) => void;
     dateFrom: string;
     setDateFrom: (date: string) => void;
     dateTo: string;
@@ -21,8 +19,6 @@ interface ClientFilterBarProps {
 export const ClientFilterBar: React.FC<ClientFilterBarProps> = ({
     searchTerm,
     setSearchTerm,
-    monthFilter,
-    setMonthFilter,
     dateFrom,
     setDateFrom,
     dateTo,
@@ -33,9 +29,8 @@ export const ClientFilterBar: React.FC<ClientFilterBarProps> = ({
     isExporting = false,
 }) => {
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-    const hasActiveFilters = searchTerm || monthFilter || dateFrom || dateTo || statusFilter !== 'Semua Status';
+    const hasActiveFilters = searchTerm || dateFrom || dateTo || statusFilter !== 'Semua Status';
     const extraFilterCount = [
-        monthFilter,
         dateFrom,
         dateTo,
         statusFilter !== 'Semua Status' ? statusFilter : '',
@@ -43,7 +38,6 @@ export const ClientFilterBar: React.FC<ClientFilterBarProps> = ({
     
     const clearAllFilters = () => {
         setSearchTerm('');
-        setMonthFilter('');
         setDateFrom('');
         setDateTo('');
         setStatusFilter('Semua Status');
@@ -102,13 +96,6 @@ export const ClientFilterBar: React.FC<ClientFilterBarProps> = ({
             {/* Mobile Collapsible Extra Filters */}
             {mobileFiltersOpen && (
                 <div className="sm:hidden mt-2.5 pt-2.5 border-t border-[#EAEFF4] grid grid-cols-2 gap-2 animate-fade-in">
-                    <input
-                        type="month"
-                        value={monthFilter}
-                        onChange={e => setMonthFilter(e.target.value)}
-                        className="w-full min-w-0 rounded-xl border border-[#EAEFF4] bg-[#F4F6F9] p-2 text-xs text-[#2A3547] outline-none"
-                        title="Filter per Bulan"
-                    />
                     <select
                         value={statusFilter}
                         onChange={e => setStatusFilter(e.target.value)}
@@ -153,9 +140,9 @@ export const ClientFilterBar: React.FC<ClientFilterBarProps> = ({
             )}
 
             {/* Desktop / Tablet Filter Bar (Unchanged) */}
-            <div className="hidden sm:flex sm:flex-wrap items-center gap-2">
+            <div className="hidden sm:flex sm:flex-wrap xl:flex-nowrap items-center gap-2">
                 {/* Search Box */}
-                <div className="relative col-span-2 min-w-0 sm:flex-1 sm:min-w-[200px]">
+                <div className="relative col-span-2 min-w-0 sm:flex-1 sm:min-w-[160px] xl:min-w-[130px]">
                     <input
                         type="search"
                         value={searchTerm}
@@ -174,20 +161,11 @@ export const ClientFilterBar: React.FC<ClientFilterBarProps> = ({
                     )}
                 </div>
 
-                {/* Month Filter */}
-                <input
-                    type="month"
-                    value={monthFilter}
-                    onChange={e => setMonthFilter(e.target.value)}
-                    className="col-start-1 row-start-2 w-full min-w-0 rounded-xl border border-[#EAEFF4] bg-[#F4F6F9] focus:bg-white focus:border-brand-accent p-2 sm:p-2.5 text-xs sm:text-sm text-[#2A3547] outline-none transition-all sm:col-auto sm:row-auto sm:w-[160px]"
-                    title="Filter per Bulan"
-                />
-
                 {/* Status Filter */}
                 <select
                     value={statusFilter}
                     onChange={e => setStatusFilter(e.target.value)}
-                    className="col-start-2 row-start-2 w-full min-w-0 rounded-xl border border-[#EAEFF4] bg-[#F4F6F9] focus:bg-white focus:border-brand-accent p-2 sm:p-2.5 text-xs sm:text-sm text-[#2A3547] outline-none transition-all sm:col-auto sm:row-auto sm:w-[180px]"
+                    className="col-start-2 row-start-2 w-full min-w-0 rounded-xl border border-[#EAEFF4] bg-[#F4F6F9] focus:bg-white focus:border-brand-accent p-2 sm:p-2.5 text-xs sm:text-sm text-[#2A3547] outline-none transition-all sm:col-auto sm:row-auto sm:w-[160px] xl:w-[150px]"
                 >
                     <option value="Semua Status">Semua Status</option>
                     <optgroup label="Status Pengantin">
@@ -211,7 +189,7 @@ export const ClientFilterBar: React.FC<ClientFilterBarProps> = ({
                         type="date"
                         value={dateFrom}
                         onChange={e => setDateFrom(e.target.value)}
-                        className="w-full min-w-0 rounded-xl border border-[#EAEFF4] bg-[#F4F6F9] focus:bg-white focus:border-brand-accent p-2 sm:p-2.5 text-xs sm:text-sm text-[#2A3547] outline-none transition-all sm:w-[150px]"
+                        className="w-full min-w-0 rounded-xl border border-[#EAEFF4] bg-[#F4F6F9] focus:bg-white focus:border-brand-accent p-2 sm:p-2.5 text-xs sm:text-sm text-[#2A3547] outline-none transition-all sm:w-[140px] xl:w-[130px]"
                         title="Dari Tanggal"
                         aria-label="Dari Tanggal"
                     />
@@ -219,32 +197,20 @@ export const ClientFilterBar: React.FC<ClientFilterBarProps> = ({
                         type="date"
                         value={dateTo}
                         onChange={e => setDateTo(e.target.value)}
-                        className="w-full min-w-0 rounded-xl border border-[#EAEFF4] bg-[#F4F6F9] focus:bg-white focus:border-brand-accent p-2 sm:p-2.5 text-xs sm:text-sm text-[#2A3547] outline-none transition-all sm:w-[150px]"
+                        className="w-full min-w-0 rounded-xl border border-[#EAEFF4] bg-[#F4F6F9] focus:bg-white focus:border-brand-accent p-2 sm:p-2.5 text-xs sm:text-sm text-[#2A3547] outline-none transition-all sm:w-[140px] xl:w-[130px]"
                         title="Sampai Tanggal"
                         aria-label="Sampai Tanggal"
                     />
                 </div>
 
                 {/* Spacer untuk push buttons ke kanan */}
-                <div className="hidden sm:block sm:flex-1 sm:min-w-[20px]"></div>
-
-                {/* Clear All Filters Button */}
-                {hasActiveFilters && (
-                    <button
-                        onClick={clearAllFilters}
-                        className="w-full col-span-1 bg-red-600/10 hover:bg-red-600 text-red-600 hover:text-white font-semibold px-2 sm:px-3 py-2 rounded-xl inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm transition-all whitespace-nowrap sm:col-auto sm:w-auto"
-                        title="Hapus semua filter"
-                    >
-                        <XIcon className="w-4 h-4" />
-                        <span>Reset</span>
-                    </button>
-                )}
+                <div className="hidden xl:block xl:flex-1 xl:min-w-0"></div>
 
                 {/* Download CSV Button */}
                 <button
                     onClick={onDownloadExcel}
                     disabled={isExporting}
-                    className="w-full col-span-2 justify-self-end bg-brand-accent/10 hover:bg-brand-accent/20 text-brand-accent font-semibold px-2 sm:px-3 py-2 rounded-xl inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm transition-colors whitespace-nowrap sm:col-auto sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full col-span-2 justify-self-end bg-brand-accent/10 hover:bg-brand-accent/20 text-brand-accent font-semibold px-2 sm:px-2.5 py-2 rounded-xl inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm transition-colors whitespace-nowrap sm:col-auto sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
                     title="Unduh data pengantin lengkap (Excel)"
                 >
                     <DownloadIcon className="w-4 h-4" />

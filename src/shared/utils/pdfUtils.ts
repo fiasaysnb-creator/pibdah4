@@ -112,7 +112,6 @@ export const generatePDFBlob = async (
                           page-break-inside: avoid !important;
                           break-inside: avoid !important;
                         }
-                                                .contract-document,
                         .document-page,
                         .page,
                         .pdf-page {

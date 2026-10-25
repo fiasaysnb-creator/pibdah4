@@ -60,7 +60,7 @@ export const downloadTeamCSV = (
         'Email',
         'Telepon',
         'No. Rekening',
-        'Fee Belum Dibayar',
+        'Pembayaran Belum Dibayar',
         'Rating',
     ];
     const data = members.map(member => {

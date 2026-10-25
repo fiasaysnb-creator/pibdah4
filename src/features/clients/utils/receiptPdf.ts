@@ -60,7 +60,9 @@ export const buildReceiptPdf = async (input: ReceiptPdfInput): Promise<jsPDF> =>
   const isExpense = transaction.type === TransactionType.EXPENSE;
   const documentTitle = isExpense ? 'BUKTI PENGELUARAN' : 'TANDA TERIMA';
   const statusText = isExpense ? 'TELAH DIBAYARKAN SECARA SAH' : 'TELAH DITERIMA SECARA SAH';
-  const statusColor = isExpense ? COLORS.blue : COLORS.green;
+  // Pengeluaran ditandai merah, pemasukan hijau. Nominal tidak memakai tanda minus.
+  const statusColor = isExpense ? COLORS.red : COLORS.green;
+  const amountColor = isExpense ? COLORS.red : COLORS.green;
 
   let targetName = sanitize(client?.name || 'Pengantin');
   if (isExpense) {
@@ -127,7 +129,7 @@ export const buildReceiptPdf = async (input: ReceiptPdfInput): Promise<jsPDF> =>
   // ── KOTAK STATUS & NOMINAL ─────────────────────────────────────────────
   const boxPadX = 5;
   const boxPadY = 5;
-  const amountText = formatCurrency(transaction.amount);
+  const amountText = formatCurrency(Math.abs(Number(transaction.amount) || 0));
   setFont(26, 'bold');
   const amountH = 26 * PT_TO_MM;
 
@@ -148,7 +150,7 @@ export const buildReceiptPdf = async (input: ReceiptPdfInput): Promise<jsPDF> =>
   boxY = writeLines([statusText], CONTENT_LEFT + boxPadX, boxY, 9, 'bold', statusColor, 'left', 1.3);
   boxY += 1;
   setFont(26, 'bold');
-  ink(COLORS.text);
+  ink(amountColor);
   doc.text(amountText, CONTENT_LEFT + boxPadX, boxY + 26 * PT_TO_MM);
   boxY += amountH + 1;
   writeLines([`Tanggal: ${formatDate(transaction.date)}`], CONTENT_LEFT + boxPadX, boxY, 8.5, 'normal', COLORS.textSoft, 'left', 1.3);

@@ -10,7 +10,7 @@
  *   └─ Tab content   (scrollable)
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { Fragment, useMemo, useState } from 'react';
 import Modal from '../../../shared/ui/Modal';
 import FreelancerProjects, { UnpaidTeamPaymentsSection } from './FreelancerProjects';
 import PerformanceTab from './PerformanceTab';
@@ -25,13 +25,13 @@ import {
   PerformanceNoteType,
 } from '../../../types';
 import { dedupeCurrentTeamPayments, formatCurrency, formatDate } from '../utils/teamUtils';
-import { StarIcon, FileTextIcon, HistoryIcon, Share2Icon } from '../../../constants';
-import { Phone, Mail, CreditCard, ChevronDown, Pencil, Trash2, Save, X } from 'lucide-react';
+import { StarIcon, FileTextIcon, Share2Icon, PencilIcon, Trash2Icon } from '../../../constants';
+import { Phone, Mail, CreditCard, ChevronDown, Pencil, Trash2, Save, X, Wallet } from 'lucide-react';
 import { customizeUiText, useUiTextOverrides } from '../../../utils/uiTextCustomization';
 
 // ─── Local types ──────────────────────────────────────────────────────────────
 
-type DetailTab = 'projects' | 'payments' | 'performance' | 'create-payment';
+type DetailTab = 'projects' | 'salary' | 'payments' | 'performance' | 'create-payment';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -46,18 +46,9 @@ interface TeamMemberDetailModalProps {
   projectsToPay: string[];
   onToggleProject: (id: string) => void;
   onProceedToPayment: () => void;
-  // Payments tab
   teamProjectPayments: TeamProjectPayment[];
   teamPaymentRecords: TeamPaymentRecord[];
   projects: Project[];
-  expandedRecordId: string | null;
-  onToggleExpandRecord: (id: string) => void;
-  onViewSlip: (record: TeamPaymentRecord) => void;
-  onUpdatePaymentRecord: (
-    id: string,
-    patch: Pick<TeamPaymentRecord, 'recordNumber' | 'date'>,
-  ) => Promise<boolean>;
-  onDeletePaymentRecord: (record: TeamPaymentRecord) => Promise<boolean>;
   // Performance tab
   newNote: string;
   setNewNote: (note: string) => void;
@@ -80,6 +71,10 @@ interface TeamMemberDetailModalProps {
   onSign: () => void;
   // Portal
   onOpenQrModal: (member: TeamMember) => void;
+  // Salary tab actions
+  onEditFee?: (paymentId: string) => void;
+  onDeleteFee?: (paymentId: string) => void;
+  onViewSlip?: (record: TeamPaymentRecord) => void;
 }
 
 // ─── Snapshot stat ────────────────────────────────────────────────────────────
@@ -106,11 +101,11 @@ const TabBtn: React.FC<{
   icon?: React.ReactNode;
   label: string;
   badge?: number;
-}> = ({ active, onClick, label, badge }) => (
+}> = ({ active, onClick, icon, label, badge }) => (
   <button
     onClick={onClick}
     className={`
-      flex items-center justify-center gap-1 min-w-0 px-2 py-1.5 rounded-lg text-[10px] sm:text-xs font-semibold
+      flex items-center justify-center gap-1.5 min-w-0 px-2 py-2 rounded-lg text-[10px] sm:text-xs font-semibold
       whitespace-nowrap transition-all duration-200
       ${active
         ? 'bg-brand-accent text-white shadow-md shadow-brand-accent/25'
@@ -118,6 +113,7 @@ const TabBtn: React.FC<{
       }
     `}
   >
+    {icon && <span className="hidden shrink-0 sm:inline-flex">{icon}</span>}
     <span className="truncate">{label}</span>
     {badge !== undefined && badge > 0 && (
       <span
@@ -131,258 +127,167 @@ const TabBtn: React.FC<{
   </button>
 );
 
-// ─── Payments tab content ─────────────────────────────────────────────────────
+// ─── Salary tab content ───────────────────────────────────────────────────────
 
-const PaymentsTabContent: React.FC<{
-  memberPaymentRecords: TeamPaymentRecord[];
-  unpaidProjects: TeamProjectPayment[];
-  projectsToPay: string[];
-  onToggleProject: (projectPaymentId: string) => void;
-  onProceedToPayment: () => void;
-  teamProjectPayments: TeamProjectPayment[];
+const thBase = 'px-2.5 py-2 text-left text-[9px] font-black uppercase tracking-widest text-brand-text-secondary sm:px-3 sm:text-[10px]';
+const tdBase = 'px-2.5 py-2.5 align-middle text-brand-text-primary sm:px-3';
+
+const SalaryTabContent: React.FC<{
+  member: TeamMember;
   projects: Project[];
-  expandedRecordId: string | null;
-  onToggleExpandRecord: (id: string) => void;
-  onViewSlip: (record: TeamPaymentRecord) => void;
-  onUpdatePaymentRecord: (
-    id: string,
-    patch: Pick<TeamPaymentRecord, 'recordNumber' | 'date'>,
-  ) => Promise<boolean>;
-  onDeletePaymentRecord: (record: TeamPaymentRecord) => Promise<boolean>;
-}> = ({
-  memberPaymentRecords,
-  unpaidProjects,
-  projectsToPay,
-  onToggleProject,
-  onProceedToPayment,
-  teamProjectPayments,
-  projects,
-  expandedRecordId,
-  onToggleExpandRecord,
-  onViewSlip,
-  onUpdatePaymentRecord,
-  onDeletePaymentRecord,
-}) => {
-  const uiTextOverrides = useUiTextOverrides();
-  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
-  const [draftRecordNumber, setDraftRecordNumber] = useState('');
-  const [draftDate, setDraftDate] = useState('');
-  const [isSavingRecord, setIsSavingRecord] = useState(false);
+  teamProjectPayments: TeamProjectPayment[];
+  memberPaymentRecords: TeamPaymentRecord[];
+  onEditFee?: (paymentId: string) => void;
+  onDeleteFee?: (paymentId: string) => void;
+  onViewSlip?: (record: TeamPaymentRecord) => void;
+}> = ({ member, projects, teamProjectPayments, memberPaymentRecords, onEditFee, onDeleteFee, onViewSlip }) => {
+  const rows = useMemo(() => {
+    const currentPayments = dedupeCurrentTeamPayments(teamProjectPayments);
+    return projects
+      .filter((project) => project.team?.some((m) => m.memberId === member.id))
+      .map((project) => {
+        const assigned = project.team?.find((m) => m.memberId === member.id);
+        const payment = currentPayments.find(
+          (p) => p.projectId === project.id && p.teamMemberId === member.id,
+        );
+        const fee = assigned?.fee ?? payment?.fee ?? 0;
+        const isPaid = payment?.status === 'Paid';
+        const record = payment
+          ? memberPaymentRecords.find((r) => r.projectPaymentIds.includes(payment.id))
+          : undefined;
+        return {
+          projectId: project.id,
+          paymentId: payment?.id,
+          date: project.date,
+          name: project.projectName,
+          role: assigned?.role || payment?.role || '-',
+          fee,
+          paid: isPaid ? fee : 0,
+          isPaid,
+          paidDate: record?.date,
+          record,
+        };
+      })
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [member.id, projects, teamProjectPayments, memberPaymentRecords]);
+
+  const totals = rows.reduce(
+    (acc, row) => ({ fee: acc.fee + row.fee, paid: acc.paid + row.paid }),
+    { fee: 0, paid: 0 },
+  );
+  const remaining = totals.fee - totals.paid;
+
+  if (rows.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed border-brand-border px-3 py-6 text-center text-xs text-brand-text-secondary">
+        Belum ada data Pembayaran untuk anggota ini.
+      </p>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <UnpaidTeamPaymentsSection
-        unpaidProjects={unpaidProjects}
-        projectsToPay={projectsToPay}
-        onToggleProject={onToggleProject}
-        onProceedToPayment={onProceedToPayment}
-        projects={projects}
-      />
-      <section className="space-y-2.5 border-t border-brand-border pt-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h4 className="text-xs font-bold text-brand-text-primary sm:text-sm">Riwayat Pembayaran</h4>
-            <p className="text-[10px] text-brand-text-secondary sm:text-xs">Slip dan rincian pembayaran yang sudah dibuat.</p>
-          </div>
-          <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold tabular-nums text-emerald-700">
-            {memberPaymentRecords.length}
-          </span>
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-xl border border-brand-border bg-brand-bg px-2 py-2.5 text-center">
+          <p className="text-[9px] font-black uppercase tracking-widest text-brand-text-secondary">Total Pembayaran</p>
+          <p className="mt-1 text-sm font-black text-brand-text-primary sm:text-base">{formatCurrency(totals.fee)}</p>
         </div>
-      {memberPaymentRecords.length === 0 ? (
-        <div className="flex flex-col items-center py-8 text-center">
-          <p className="text-sm font-medium text-brand-text-secondary">Belum ada riwayat pembayaran.</p>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-2.5 text-center">
+          <p className="text-[9px] font-black uppercase tracking-widest text-emerald-700">Sudah Dibayar</p>
+          <p className="mt-1 text-sm font-black text-emerald-700 sm:text-base">{formatCurrency(totals.paid)}</p>
         </div>
-      ) : (
-      <div className="space-y-2">
-      {memberPaymentRecords.map((record, idx) => {
-        const isExpanded = expandedRecordId === record.id;
-        return (
-          <div
-            key={record.id}
-            className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs transition-all"
-          >
-            {/* Record row */}
-            <div className="flex items-center gap-3 px-4 py-3">
-              <span className="text-xs font-bold text-[#5A6A85] w-5 text-center shrink-0">
-                {idx + 1}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-mono font-semibold text-[#2A3547] truncate">
-                  {record.recordNumber}
-                </p>
-                <p className="text-xs text-[#5A6A85] mt-0.5">
-                  {formatDate(record.date)}
-                </p>
-              </div>
-              <span className="font-black text-sm text-emerald-600 shrink-0">
-                {formatCurrency(record.totalAmount)}
-              </span>
-              <span className="hidden rounded-full bg-emerald-500/10 px-2 py-1 text-[9px] font-bold text-emerald-700 sm:inline-flex">
-                Dibayar
-              </span>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => onToggleExpandRecord(record.id)}
-                  title={isExpanded ? 'Tutup rincian' : 'Lihat rincian'}
-                  className="p-1.5 rounded-lg text-[#5A6A85] hover:text-[#2A3547] hover:bg-slate-100 border border-slate-200 transition-all"
-                >
-                  <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                </button>
-                <button
-                  onClick={() => onViewSlip(record)}
-                  title="Lihat / cetak slip pembayaran"
-                  aria-label={`Lihat atau cetak slip pembayaran ${record.recordNumber}`}
-                  className="p-1.5 rounded-lg text-brand-accent bg-brand-accent/10 hover:bg-brand-accent/20 border border-brand-accent/20 transition-all"
-                >
-                  <FileTextIcon className="w-4 h-4" />
-                  <span className="hidden text-[10px] font-semibold sm:inline">Lihat slip</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Expanded detail */}
-            {isExpanded && (
-              <div className="px-4 pb-4 border-t border-slate-200 bg-[#F8FAFC]">
-                <div className="flex items-center justify-between gap-2 pt-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-[#5A6A85]">
-                    Rincian pembayaran
-                  </p>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingRecordId(record.id);
-                        setDraftRecordNumber(record.recordNumber);
-                        setDraftDate(record.date);
-                      }}
-                      className="inline-flex items-center gap-1 rounded-lg border border-transparent solid-blue px-2 py-1 text-[10px] font-semibold text-white hover:bg-blue-700"
-                    >
-                      <Pencil className="h-3 w-3" /> Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void onDeletePaymentRecord(record)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-transparent bg-red-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-red-700"
-                    >
-                      <Trash2 className="h-3 w-3" /> Hapus
-                    </button>
-                  </div>
-                </div>
-
-                {editingRecordId === record.id && (
-                  <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-blue-600/30 bg-white p-3 sm:grid-cols-2">
-                    <label className="text-[11px] font-semibold text-[#5A6A85]">
-                      Nomor slip
-                      <input
-                        value={draftRecordNumber}
-                        onChange={(event) => setDraftRecordNumber(event.target.value)}
-                        className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs text-[#2A3547] outline-none focus:border-blue-400"
-                      />
-                    </label>
-                    <label className="text-[11px] font-semibold text-[#5A6A85]">
-                      Tanggal pembayaran
-                      <input
-                        type="date"
-                        value={draftDate}
-                        onChange={(event) => setDraftDate(event.target.value)}
-                        className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs text-[#2A3547] outline-none focus:border-blue-400"
-                      />
-                    </label>
-                    <div className="flex justify-end gap-1.5 sm:col-span-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditingRecordId(null)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
-                      >
-                        <X className="h-3 w-3" /> Batal
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isSavingRecord || !draftRecordNumber.trim() || !draftDate}
-                        onClick={async () => {
-                          setIsSavingRecord(true);
-                          const saved = await onUpdatePaymentRecord(record.id, {
-                            recordNumber: draftRecordNumber.trim(),
-                            date: draftDate,
-                          });
-                          setIsSavingRecord(false);
-                          if (saved) setEditingRecordId(null);
-                        }}
-                        className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 text-[10px] font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <Save className="h-3 w-3" /> Simpan
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-3 text-[11px]">
-                  <div>
-                    <p className="text-slate-500">Nomor slip</p>
-                    <p className="mt-0.5 break-all font-semibold text-[#2A3547]">{record.recordNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Tanggal pembayaran</p>
-                    <p className="mt-0.5 font-semibold text-[#2A3547]">{formatDate(record.date)}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Acara terkait</p>
-                    <p className="mt-0.5 font-semibold text-[#2A3547]">{record.projectPaymentIds.length} acara</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Tanda tangan</p>
-                    <p className="mt-0.5 font-semibold text-[#2A3547]">
-                      {record.vendorSignature ? 'Sudah ditandatangani' : 'Belum ditandatangani'}
-                    </p>
-                  </div>
-                  <div className="col-span-2 border-t border-slate-100 pt-2">
-                    <p className="text-slate-500">Total pembayaran</p>
-                    <p className="mt-0.5 font-bold text-emerald-700">{formatCurrency(record.totalAmount)}</p>
-                  </div>
-                </div>
-
-                <p className="text-[10px] font-black uppercase tracking-widest text-[#5A6A85] my-3">
-                  Acara yang dibayar
-                </p>
-                <div className="space-y-1.5 divide-y divide-slate-200/70">
-                  {record.projectPaymentIds.map((paymentId) => {
-                    const payment = teamProjectPayments.find((p) => p.id === paymentId);
-                    const project = projects.find((p) => p.id === payment?.projectId);
-                    return (
-                      <div
-                        key={paymentId}
-                        className="flex justify-between items-start gap-3 text-sm pt-1.5 first:pt-0"
-                      >
-                        <div className="min-w-0">
-                          <p className="break-words font-medium text-[#2A3547]">
-                            {project?.projectName ?? 'Acara tidak ditemukan'}
-                          </p>
-                          <p className="mt-0.5 text-[10px] text-slate-500">
-                            {payment
-                              ? `${payment.role || 'Tim / Vendor'} · ${formatDate(payment.date)} · ${payment.status === 'Paid'
-                                ? customizeUiText('status.team.paid', 'Lunas', uiTextOverrides)
-                                : customizeUiText('status.team.unpaid', 'Belum lunas', uiTextOverrides)}`
-                              : 'Rincian fee acara tidak tersedia'}
-                          </p>
-                        </div>
-                        {payment && (
-                          <span className="shrink-0 text-right text-[11px] font-bold text-[#2A3547]">
-                            {payment.status === 'Paid' ? 'Fee' : 'Sisa fee'}
-                            <span className="block">{formatCurrency(payment.fee)}</span>
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-2 py-2.5 text-center">
+          <p className="text-[9px] font-black uppercase tracking-widest text-amber-700">Sisa</p>
+          <p className="mt-1 text-sm font-black text-amber-700 sm:text-base">{formatCurrency(remaining)}</p>
+        </div>
       </div>
-      )}
-      </section>
+
+      <div className="overflow-hidden rounded-xl border border-brand-border">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-xs sm:text-sm">
+            <thead className="bg-brand-bg">
+              <tr className="border-b border-brand-border">
+                <th className={`${thBase} whitespace-nowrap`}>Tanggal</th>
+                <th className={thBase}>Acara</th>
+                <th className={`${thBase} hidden sm:table-cell`}>Peran</th>
+                <th className={`${thBase} text-right`}>Pembayaran</th>
+                <th className={thBase}>Status</th>
+                <th className={`${thBase} hidden whitespace-nowrap md:table-cell`}>Tgl Bayar</th>
+                <th className={`${thBase} text-right`}>Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-brand-border/60">
+              {rows.map((row) => (
+                <tr key={row.projectId} className="hover:bg-brand-bg/40">
+                  <td className={`${tdBase} whitespace-nowrap text-brand-text-secondary`}>
+                    {row.date ? formatDate(row.date) : '-'}
+                  </td>
+                  <td className={`${tdBase} font-semibold`}>{row.name}</td>
+                  <td className={`${tdBase} hidden text-brand-text-secondary sm:table-cell`}>{row.role}</td>
+                  <td className={`${tdBase} whitespace-nowrap text-right font-bold`}>{formatCurrency(row.fee)}</td>
+                  <td className={tdBase}>
+                    <span
+                      className={`inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-[9px] font-bold sm:text-[10px] ${
+                        row.isPaid
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-amber-200 bg-amber-50 text-amber-700'
+                      }`}
+                    >
+                      {row.isPaid ? 'Lunas' : 'Belum Dibayar'}
+                    </span>
+                  </td>
+                  <td className={`${tdBase} hidden whitespace-nowrap text-brand-text-secondary md:table-cell`}>
+                    {row.paidDate ? formatDate(row.paidDate) : '-'}
+                  </td>
+                  <td className={`${tdBase} text-right`}>
+                    <div className="flex items-center justify-end gap-1">
+                      {row.paymentId && onEditFee && (
+                        <button
+                          onClick={() => onEditFee(row.paymentId)}
+                          title="Edit fee"
+                          className="p-1.5 rounded-lg text-brand-text-secondary hover:text-brand-text-primary hover:bg-brand-bg border border-transparent hover:border-brand-border transition-all"
+                        >
+                          <PencilIcon className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {row.paymentId && onDeleteFee && (
+                        <button
+                          onClick={() => onDeleteFee(row.paymentId)}
+                          title="Hapus fee"
+                          className="p-1.5 rounded-lg text-brand-text-secondary hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all"
+                        >
+                          <Trash2Icon className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {row.isPaid && row.record && onViewSlip && (
+                        <button
+                          onClick={() => onViewSlip(row.record)}
+                          title="Lihat slip pembayaran"
+                          className="p-1.5 rounded-lg text-brand-accent bg-brand-accent/10 hover:bg-brand-accent/20 border border-brand-accent/20 transition-all"
+                        >
+                          <FileTextIcon className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-brand-border bg-brand-bg font-black text-brand-text-primary">
+                <td className={`${tdBase} whitespace-nowrap`}>Total</td>
+                <td className={tdBase} colSpan={2} />
+                <td className={`${tdBase} whitespace-nowrap text-right`}>{formatCurrency(totals.fee)}</td>
+                <td className={tdBase} colSpan={2}>
+                  <span className="text-emerald-700">Dibayar {formatCurrency(totals.paid)}</span>
+                  <span className="mx-1.5 text-brand-text-secondary">·</span>
+                  <span className="text-amber-700">Sisa {formatCurrency(remaining)}</span>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };
@@ -399,15 +304,9 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
   projectsToPay,
   onToggleProject,
   onProceedToPayment,
-  projectsInDateRange,
   teamProjectPayments,
   teamPaymentRecords,
   projects,
-  expandedRecordId,
-  onToggleExpandRecord,
-  onViewSlip,
-  onUpdatePaymentRecord,
-  onDeletePaymentRecord,
   newNote,
   setNewNote,
   newNoteType,
@@ -427,6 +326,9 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
   setPaymentSourceId,
   onSign,
   onOpenQrModal,
+  onEditFee,
+  onDeleteFee,
+  onViewSlip,
 }) => {
   const uiTextOverrides = useUiTextOverrides();
   const memberPaymentRecords = useMemo(
@@ -555,7 +457,7 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
         </div>
 
         {/* ── Tab navigation ──────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 gap-1 p-0.5 bg-brand-bg border border-brand-border rounded-lg sm:rounded-2xl">
+        <div className="grid grid-cols-3 gap-1 p-0.5 bg-brand-bg border border-brand-border rounded-lg sm:rounded-2xl sm:grid-cols-4">
           <TabBtn
             active={isProjectsActive}
             onClick={() => setDetailTab('projects')}
@@ -564,10 +466,10 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
             badge={memberProjects.length}
           />
           <TabBtn
-            active={detailTab === 'payments'}
-            onClick={() => setDetailTab('payments')}
-            icon={<HistoryIcon className="w-3.5 h-3.5 shrink-0" />}
-            label={customizeUiText('team.detail.tab.payments', 'Pembayaran', uiTextOverrides)}
+            active={detailTab === 'salary' || detailTab === 'payments'}
+            onClick={() => setDetailTab('salary')}
+            icon={<Wallet className="w-3.5 h-3.5 shrink-0" />}
+            label={customizeUiText('team.detail.tab.salary', 'Pembayaran', uiTextOverrides)}
             badge={selectedMemberUnpaidProjects.length}
           />
           <TabBtn
@@ -591,24 +493,20 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
           {detailTab === 'projects' && (
             <FreelancerProjects
               projects={memberProjects}
+              memberId={selectedMember.id}
             />
           )}
 
-          {/* Tab: Riwayat Pembayaran */}
-          {detailTab === 'payments' && (
-            <PaymentsTabContent
-              memberPaymentRecords={memberPaymentRecords}
-              unpaidProjects={selectedMemberUnpaidProjects}
-              projectsToPay={projectsToPay}
-              onToggleProject={onToggleProject}
-              onProceedToPayment={onProceedToPayment}
-              teamProjectPayments={teamProjectPayments}
+          {/* Tab: Pembayaran */}
+          {(detailTab === 'salary' || detailTab === 'payments') && (
+            <SalaryTabContent
+              member={selectedMember}
               projects={projects}
-              expandedRecordId={expandedRecordId}
-              onToggleExpandRecord={onToggleExpandRecord}
+              teamProjectPayments={teamProjectPayments}
+              memberPaymentRecords={memberPaymentRecords}
+              onEditFee={onEditFee}
+              onDeleteFee={onDeleteFee}
               onViewSlip={onViewSlip}
-              onUpdatePaymentRecord={onUpdatePaymentRecord}
-              onDeletePaymentRecord={onDeletePaymentRecord}
             />
           )}
 
@@ -641,7 +539,7 @@ const TeamMemberDetailModal: React.FC<TeamMemberDetailModalProps> = ({
               isInstallment={isInstallment}
               setIsInstallment={setIsInstallment}
               onPay={onPay}
-              onSetTab={() => setDetailTab('payments')}
+              onSetTab={() => setDetailTab('projects')}
               renderPaymentDetailsContent={() =>
                 renderPaymentSlipBody({
                   id: `TEMP-${Date.now()}`,

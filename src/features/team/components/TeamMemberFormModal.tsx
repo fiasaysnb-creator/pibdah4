@@ -154,8 +154,8 @@ export const TeamMemberFormModal: React.FC<TeamMemberFormModalProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="input-group">
                             <RupiahInput id="standardFee" value={formData.standardFee.toString()} onChange={(raw) => setFormData(prev => ({ ...prev, standardFee: Number(raw) }))} className="input-field" placeholder=" " />
-                            <label htmlFor="standardFee" className="input-label">Fee Standar (IDR) (Opsional)</label>
-                            <p className="hidden sm:block text-xs text-brand-text-secondary mt-1">Fee default per Acara Pernikahan dalam Rupiah</p>
+                            <label htmlFor="standardFee" className="input-label">Pembayaran Standar (IDR) (Opsional)</label>
+                            <p className="hidden sm:block text-xs text-brand-text-secondary mt-1">Pembayaran default per Acara Pernikahan dalam Rupiah</p>
                         </div>
                         <div className="input-group">
                             <input type="text" id="noRek" name="noRek" value={formData.noRek} onChange={handleFormChange} className="input-field" placeholder=" " />

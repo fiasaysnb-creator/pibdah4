@@ -1,7 +1,6 @@
 import supabase from '../lib/supabaseClient';
 import { Project, AddOn, PaymentStatus, BookingStatus, AssignedTeamMember } from '../types';
 import { upsertAssignmentsForProject, listAssignmentsByProject } from './projectTeamAssignments';
-import { listChecklistByProject } from './weddingDayChecklist';
 import { publicNamePatternsFromSlug } from '../utils/publicRouting';
 import { canonicalizeStorageAssetUrls, uploadImageDataUrl } from './storage';
 
@@ -69,6 +68,9 @@ export function normalizeProject(row: any): Project {
     progress: row.progress ?? 0,
     status: row.status,
     totalCost: Number(row.total_cost || 0),
+    // Harga package saat acara dibuat (dapat berbeda dari harga katalog saat ini).
+    unitPrice: row.unit_price !== undefined && row.unit_price !== null ? Number(row.unit_price) : undefined,
+    durationSelection: row.duration_selection || undefined,
     amountPaid: Number(row.amount_paid || 0),
     paymentStatus: row.payment_status,
     bookingStatus: row.booking_status || undefined,
@@ -106,7 +108,6 @@ export function normalizeProject(row: any): Project {
     statusHistory: row.status_history || [],
     address: row.address || undefined,
     googleMapsLink: row.google_maps_link || undefined,
-    weddingDayChecklist: [],
     createdAt: row.created_at || (row.status_history && row.status_history.length > 0 ? row.status_history[0]?.timestamp : undefined) || row.date,
     updatedAt: row.updated_at || (row.status_history && row.status_history.length > 0 ? row.status_history[row.status_history.length - 1]?.timestamp : undefined) || row.date,
   } as Project;
@@ -508,13 +509,6 @@ export async function createProjectWithRelations(input: CreateProjectInput & {
     completeProject.team = await listAssignmentsByProject(project.id);
   }
 
-  // Fetch and attach checklist data
-  try {
-    completeProject.weddingDayChecklist = await listChecklistByProject(project.id);
-  } catch (e) {
-    console.warn('Failed to fetch wedding day checklist:', e);
-  }
-
   return completeProject;
 }
 
@@ -558,7 +552,6 @@ export async function listProjectsByClientId(clientId: string): Promise<Project[
 // Enhanced function to get project with all related data
 export async function getProjectWithRelations(
   projectId: string,
-  options: { includeChecklist?: boolean } = {},
 ): Promise<Project | null> {
   let data: any = null;
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId)) {
@@ -617,17 +610,11 @@ export async function getProjectWithRelations(
 
   // Fetch related data in parallel
   try {
-    const [team, checklist, addOnsResult] = await Promise.all([
+    const [team, addOnsResult] = await Promise.all([
       listAssignmentsByProject(projectId).catch((e: Error): any[] => {
         console.warn('Failed to fetch team assignments:', e);
         return [];
       }),
-      options.includeChecklist === false
-        ? Promise.resolve([])
-        : listChecklistByProject(projectId).catch((e: Error): any[] => {
-            console.warn('Failed to fetch wedding day checklist:', e);
-            return [];
-          }),
       (async (): Promise<any[]> => {
         try {
           const { data: addOnData, error: addOnError } = await supabase
@@ -650,7 +637,6 @@ export async function getProjectWithRelations(
     ]);
 
     project.team = team;
-    project.weddingDayChecklist = checklist;
     project.addOns = addOnsResult;
   } catch (e) {
     console.error('Unexpected error fetching project relations:', e);

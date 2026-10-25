@@ -17,14 +17,32 @@ interface UseTeamFiltersParams {
     projects: Project[];
 }
 
+/** Format tanggal lokal (YYYY-MM-DD) tanpa pergeseran timezone. */
+const toLocalDateString = (date: Date): string =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+const getCurrentMonthKey = (): string => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
+/** Ubah kunci bulan (YYYY-MM) menjadi rentang [awal, akhir] tanggal lokal. */
+const monthKeyToRange = (key: string): [string, string] => {
+    if (!key) return ['', ''];
+    const [year, month] = key.split('-').map(Number);
+    if (!year || !month) return ['', ''];
+    return [toLocalDateString(new Date(year, month - 1, 1)), toLocalDateString(new Date(year, month, 0))];
+};
+
 export const useTeamFilters = ({
     teamMembers,
     teamProjectPayments,
     projects,
 }: UseTeamFiltersParams) => {
-    // ── Date range ───────────────────────────────────────────────────────────
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
+    // ── Bulan / rentang tanggal (default: bulan berjalan) ─────────────────────
+    const [monthFilter, setMonthFilter] = useState<string>(getCurrentMonthKey);
+    const [dateFrom, setDateFrom] = useState(() => monthKeyToRange(getCurrentMonthKey())[0]);
+    const [dateTo, setDateTo] = useState(() => monthKeyToRange(getCurrentMonthKey())[1]);
 
     // ── Search queries ───────────────────────────────────────────────────────
     const [teamSearchQuery, setTeamSearchQuery] = useState('');
@@ -32,8 +50,28 @@ export const useTeamFilters = ({
     const [unpaidSearchQuery, setUnpaidSearchQuery] = useState('');
 
     const resetDateRange = () => {
+        setMonthFilter('');
         setDateFrom('');
         setDateTo('');
+    };
+
+    /** Filter bulan: menetapkan rentang tanggal = satu bulan penuh (kosong = semua). */
+    const handleMonthChange = (value: string) => {
+        setMonthFilter(value);
+        const [first, last] = monthKeyToRange(value);
+        setDateFrom(first);
+        setDateTo(last);
+    };
+
+    /** Perubahan tanggal manual membatalkan filter bulan. */
+    const handleDateFromChange = (value: string) => {
+        setMonthFilter('');
+        setDateFrom(value);
+    };
+
+    const handleDateToChange = (value: string) => {
+        setMonthFilter('');
+        setDateTo(value);
     };
 
     // ── Date-filtered projects ───────────────────────────────────────────────
@@ -120,6 +158,10 @@ export const useTeamFilters = ({
         setDateFrom,
         dateTo,
         setDateTo,
+        monthFilter,
+        handleMonthChange,
+        handleDateFromChange,
+        handleDateToChange,
         resetDateRange,
 
         // Search queries

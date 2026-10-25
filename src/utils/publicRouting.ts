@@ -135,11 +135,6 @@ export function resolveCanonicalRoute(pathname?: string, hash?: string, search?:
 
   // 1. If path is a meaningful path (not root '/' or '/index.html'), path takes precedence for direct access
   if (path && path !== '/' && path !== '/index.html') {
-    // Contract routes
-    if (path.startsWith('/portal/contract/') || path.startsWith('/contract/')) {
-      const id = path.split(/\/(?:portal\/)?contract\//)[1];
-      return `#/portal/contract/${id}${rawSearch}`;
-    }
     // Invoice routes
     if (path.startsWith('/portal/invoice/') || path.startsWith('/invoice/')) {
       const id = path.split(/\/(?:portal\/)?invoice\//)[1];
@@ -149,11 +144,6 @@ export function resolveCanonicalRoute(pathname?: string, hash?: string, search?:
     if (path.startsWith('/portal/receipt/') || path.startsWith('/receipt/')) {
       const id = path.split(/\/(?:portal\/)?receipt\//)[1];
       return `#/portal/receipt/${id}${rawSearch}`;
-    }
-    // Checklist / project portal routes
-    if (path.startsWith('/checklist-portal/') || path.startsWith('/project/')) {
-      const id = path.split(/\/(?:checklist-portal|project)\//)[1];
-      return `#/checklist-portal/${id}${rawSearch}`;
     }
     // Freelancer portal routes
     if (path.startsWith('/freelancer-portal/') || path.startsWith('/team-portal/') || path.startsWith('/team/')) {
@@ -178,11 +168,9 @@ export function resolveCanonicalRoute(pathname?: string, hash?: string, search?:
       const shareId = parts.slice(1).join('/');
 
       if (shareType === 'booking') return `#/public-booking${shareId ? `?id=${encodeURIComponent(shareId)}` : ''}${rawSearch ? `&${rawSearch.replace('?', '')}` : ''}`;
-      if (shareType === 'project') return `#/checklist-portal/${shareId}${rawSearch}`;
       if (shareType === 'client' || shareType === 'portal') return `#/portal/${shareId}${rawSearch}`;
       if (shareType === 'invoice') return `#/portal/invoice/${shareId}${rawSearch}`;
       if (shareType === 'receipt') return `#/portal/receipt/${shareId}${rawSearch}`;
-      if (shareType === 'contract') return `#/portal/contract/${shareId}${rawSearch}`;
       if (shareType === 'gallery') return `#/gallery/${shareId}${rawSearch}`;
       if (shareType === 'freelancer' || shareType === 'team') return `#/freelancer-portal/${shareId}${rawSearch}`;
       if (shareType === 'packages') return `#/public-packages${rawSearch}`;
@@ -225,12 +213,6 @@ export function resolveCanonicalRoute(pathname?: string, hash?: string, search?:
     if (rawHash.startsWith('#/receipt/')) {
       return rawHash.replace('#/receipt/', '#/portal/receipt/');
     }
-    if (rawHash.startsWith('#/contract/')) {
-      return rawHash.replace('#/contract/', '#/portal/contract/');
-    }
-    if (rawHash.startsWith('#/project/')) {
-      return rawHash.replace('#/project/', '#/checklist-portal/');
-    }
     return rawHash;
   }
 
@@ -254,9 +236,7 @@ export function isPublicRoute(route: string): boolean {
     '#/portal',
     '#/invoice',
     '#/receipt',
-    '#/contract',
     '#/gallery',
-    '#/checklist-portal',
     '#/freelancer-portal',
     '#/public-booking',
     '#/public-packages',
@@ -279,7 +259,7 @@ export function isPublicRoute(route: string): boolean {
  * and hash format (https://domain.com/#/portal/xxx).
  */
 export function buildPublicShareUrl(
-  type: 'portal' | 'invoice' | 'receipt' | 'contract' | 'gallery' | 'checklist' | 'freelancer' | 'booking' | 'packages' | 'lead' | 'feedback' | 'public',
+  type: 'portal' | 'invoice' | 'receipt' | 'gallery' | 'freelancer' | 'booking' | 'packages' | 'lead' | 'feedback' | 'public',
   identifier?: string,
   options: { cleanUrl?: boolean; query?: Record<string, string> } = {}
 ): string {
@@ -298,14 +278,8 @@ export function buildPublicShareUrl(
     case 'receipt':
       pathPart = id ? `portal/receipt/${id}` : 'portal/receipt';
       break;
-    case 'contract':
-      pathPart = id ? `portal/contract/${id}` : 'portal/contract';
-      break;
     case 'gallery':
       pathPart = id ? `gallery/${id}` : 'gallery';
-      break;
-    case 'checklist':
-      pathPart = id ? `checklist-portal/${id}` : 'checklist-portal';
       break;
     case 'freelancer':
       pathPart = id ? `freelancer-portal/${id}` : 'freelancer-portal';

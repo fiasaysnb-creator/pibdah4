@@ -2,6 +2,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { canonicalizeStorageAssetUrls, compressImage } from './storage';
 import { Gallery, GalleryImage } from '../types';
 import { toGalleryPublicSlug, toPublicNameSlug } from '../utils/publicRouting';
+import { generateUUID } from '../utils/uuid';
 
 const LOCAL_STORAGE_GALLERIES_KEY = 'weddfin-galleries';
 export const MAX_PUBLIC_PDF_BYTES = 5 * 1024 * 1024;
@@ -288,7 +289,7 @@ export const uploadGalleryImages = async (
             .getPublicUrl(fileName);
 
         const newImage: GalleryImage = {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             url: urlData.publicUrl,
             uploadedAt: new Date().toISOString()
         };

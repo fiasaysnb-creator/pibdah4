@@ -1,7 +1,7 @@
 /**
  * TeamUnpaidTab
  *
- * Tab 3: Centralized "Fee Belum Lunas" view.
+ * Tab 3: Centralized "Pembayaran Belum Lunas" view.
  * Shows summary stats, search bar, and the unpaid list (mobile cards + desktop table).
  * Identical markup to original.
  */
@@ -45,7 +45,7 @@ const TeamUnpaidTab: React.FC<TeamUnpaidTabProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-6">
                 <ModernStatCard
                     icon={<AlertCircleIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
-                    title="Total Fee"
+                    title="Total Pembayaran"
                     value={formatCurrency(totalUnpaidAll)}
                     subtitle="Belum lunas"
                     iconColorVariant="error"
@@ -63,7 +63,7 @@ const TeamUnpaidTab: React.FC<TeamUnpaidTabProps> = ({
                     icon={<UsersIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
                     title="Penerima"
                     value={uniqueWaitingCount.toString()}
-                    subtitle="Menunggu fee"
+                    subtitle="Menunggu pembayaran"
                     iconColorVariant="primary"
                     compactOnMobile
                 />
@@ -98,10 +98,10 @@ const TeamUnpaidTab: React.FC<TeamUnpaidTabProps> = ({
                             ✓
                         </div>
                         <h3 className="text-base font-bold text-[#2A3547] mb-1">
-                            Semua Fee Sudah Lunas!
+                            Semua Pembayaran Sudah Lunas!
                         </h3>
                         <p className="text-sm text-[#5A6A85]">
-                            Tidak ada fee Tim atau Vendor yang menunggu pembayaran dalam periode ini.
+                            Tidak ada pembayaran Tim atau Vendor yang menunggu pembayaran dalam periode ini.
                         </p>
                     </div>
                 ) : (
@@ -165,7 +165,7 @@ const TeamUnpaidTab: React.FC<TeamUnpaidTabProps> = ({
                                         <th className="px-4 py-3.5 text-left border-r border-slate-200/70">Kategori</th>
                                         <th className="px-4 py-3.5 text-left border-r border-slate-200/70">Peran / Tugas</th>
                                         <th className="px-4 py-3.5 text-left border-r border-slate-200/70">Acara Pernikahan</th>
-                                        <th className="px-4 py-3.5 text-right border-r border-slate-200/70">Nominal Fee</th>
+                                        <th className="px-4 py-3.5 text-right border-r border-slate-200/70">Nominal Pembayaran</th>
                                         <th className="px-4 py-3.5 text-center">Aksi</th>
                                     </tr>
                                 </thead>

@@ -1,4 +1,5 @@
 import supabase, { isSupabaseConfigured } from '../lib/supabaseClient';
+import { generateUUID } from '../utils/uuid';
 
 const DP_PROOFS_BUCKET = 'dp-proofs';
 const GALLERY_BUCKET = 'gallery-images';
@@ -51,7 +52,7 @@ export async function uploadImageAsset(file: File, folder = 'assets'): Promise<s
   const safeFolder = folder.replace(/[^a-zA-Z0-9/_-]/g, '').replace(/^\/+|\/+$/g, '') || 'assets';
   const extension = processedFile.type.split('/')[1]?.replace('svg+xml', 'svg') || 'bin';
   const now = new Date();
-  const path = `${safeFolder}/${now.getFullYear()}/${now.getMonth() + 1}/${crypto.randomUUID()}.${extension}`;
+  const path = `${safeFolder}/${now.getFullYear()}/${now.getMonth() + 1}/${generateUUID()}.${extension}`;
   const { data, error } = await supabase.storage.from(GALLERY_BUCKET).upload(path, processedFile, {
     contentType: processedFile.type,
     cacheControl: '31536000',
@@ -79,7 +80,7 @@ export async function uploadImageDataUrl(dataUrl: string, folder: string): Promi
 export async function uploadDpProof(file: File): Promise<string> {
   const processedFile = await compressImage(file, 1200, 0.8, 400 * 1024); // retain readability for proof images
   const ext = (processedFile.name.split('.').pop() || 'bin').toLowerCase();
-  const path = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${crypto.randomUUID()}.${ext}`;
+  const path = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${generateUUID()}.${ext}`;
 
   // Ensure bucket exists (best-effort; ignore failure if already exists)
   try {
@@ -206,7 +207,7 @@ export async function uploadGalleryImage(file: File, compress: boolean = true): 
   }
 
   const ext = processedFile.name.split('.').pop()?.toLowerCase() || 'jpg';
-  const path = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${crypto.randomUUID()}.${ext}`;
+  const path = `${new Date().getFullYear()}/${new Date().getMonth() + 1}/${generateUUID()}.${ext}`;
 
   try {
     const { data, error } = await supabase.storage.from(GALLERY_BUCKET).upload(path, processedFile, {
@@ -234,7 +235,7 @@ export async function deleteGalleryImage(imageUrl: string): Promise<void> {
     const pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/gallery-images\/(.+)/);
     
     if (pathMatch) {
-      const filePath = pathMatch[1];
+      const filePath = decodeURIComponent(pathMatch[1]);
       const { error } = await supabase.storage.from(GALLERY_BUCKET).remove([filePath]);
       if (error) {
         console.error('Error deleting gallery image:', error);

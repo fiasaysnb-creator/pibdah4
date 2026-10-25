@@ -86,12 +86,14 @@ export async function listPackagesForInvoice(
   const columns = 'id,name,price,category,physical_items,digital_items,processing_time,default_printing_cost,default_transport_cost,photographers,videographers,duration_options';
   const fetchMatching = async (field: 'id' | 'name', values: string[]) => {
     if (!values.length) return [] as any[];
-    let result = await supabase.from(TABLE).select(columns).in(field, values);
+    const result = await supabase.from(TABLE).select(columns).in(field, values);
     if (isMissingPackageColumnError(result.error)) {
-      result = await supabase
+      const fallbackResult = await supabase
         .from(TABLE)
         .select(columns.replace(',duration_options', ',duration_prices'))
         .in(field, values);
+      if (fallbackResult.error) throw fallbackResult.error;
+      return fallbackResult.data || [];
     }
     if (result.error) throw result.error;
     return result.data || [];

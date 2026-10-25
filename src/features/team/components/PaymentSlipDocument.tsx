@@ -100,7 +100,7 @@ export const PaymentSlipDocument: React.FC<PaymentSlipDocumentProps> = ({
                             <thead>
                                 <tr className="bg-slate-50 border-b border-slate-200">
                                     <th className="px-2 py-2 font-black text-slate-600 uppercase">Deskripsi</th>
-                                    <th className="px-2 py-2 font-black text-slate-600 uppercase text-right">Fee</th>
+                                    <th className="px-2 py-2 font-black text-slate-600 uppercase text-right">Pembayaran</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">

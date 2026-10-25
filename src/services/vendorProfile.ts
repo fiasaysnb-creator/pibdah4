@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { canonicalizeStorageAssetUrls, compressImage } from './storage';
 import { VendorProfile } from '../types';
+import { generateUUID } from '../utils/uuid';
 
 const LOCAL_STORAGE_KEY = 'weddfin-vendor-profile';
 
@@ -168,7 +169,7 @@ export const createOrUpdateVendorProfile = async (updates: Partial<VendorProfile
 
         // Fallback: save to local storage
         const newProfile: VendorProfile = {
-            id: crypto.randomUUID ? crypto.randomUUID() : `local-${Date.now()}`,
+            id: generateUUID(),
             hero_title: updates.hero_title ?? '',
             hero_subtitle: updates.hero_subtitle ?? '',
             page_banner_title: updates.page_banner_title ?? '',
@@ -226,4 +227,42 @@ export const uploadVendorImage = async (file: File, path: string): Promise<strin
 
     // Local-only fallback; never store image data in Supabase rows when Storage fails.
     return await fileToBase64(processedFile);
+};
+
+/** Persist hero slide URLs immediately without overwriting other unsaved profile fields. */
+export const updateVendorHeroImages = async (heroImages: string[]): Promise<VendorProfile> => {
+    const images = heroImages.filter(Boolean).slice(0, 3);
+    const existing = await getVendorProfile();
+    if (existing?.id && existing.id !== 'default-vendor-profile' && isSupabaseConfigured) {
+        const { data, error } = await supabase
+            .from('vendor_profiles')
+            .update({ hero_images: images, hero_image_url: images[0] || '', updated_at: new Date().toISOString() })
+            .eq('id', existing.id)
+            .select()
+            .maybeSingle();
+        if (error) throw error;
+        if (!data) throw new Error('Profil vendor tidak ditemukan di database.');
+        try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data)); } catch {}
+        return data as VendorProfile;
+    }
+    return createOrUpdateVendorProfile({
+        ...(existing || {}),
+        hero_images: images,
+        hero_image_url: images[0] || '',
+    });
+};
+
+export const deleteVendorImage = async (imageUrl: string): Promise<void> => {
+    if (!imageUrl) return;
+    let url: URL;
+    try {
+        url = new URL(imageUrl);
+    } catch {
+        return;
+    }
+    const match = url.pathname.match(/\/storage\/v1\/object\/public\/gallery-images\/(.+)/);
+    if (!match || !isSupabaseConfigured) return;
+    const objectPath = decodeURIComponent(match[1]);
+    const { error } = await supabase.storage.from('gallery-images').remove([objectPath]);
+    if (error) throw error;
 };

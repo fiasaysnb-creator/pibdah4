@@ -5,12 +5,13 @@ import { ClientWithSummary } from '../hooks/useClients';
 import { formatCurrency, getPaymentStatusClass } from '../utils/clientHelpers';
 import { MobileExpandableExtra } from '../../../components/ui/MobileProgressiveDisclosure';
 
-export type ClientTabType = 'active' | 'inactive' | 'all' | 'no-date';
+export type ClientTabType = 'active' | 'inactive' | 'all' | 'no-date' | 'this-month';
 
 interface ClientTableViewProps {
     clientTab: ClientTabType;
     setClientTab: React.Dispatch<React.SetStateAction<ClientTabType>>;
     filteredClientData: ClientWithSummary[];
+    currentMonthEvents: ClientWithSummary[];
     onViewDetail: (client: Client) => void;
     onEditClient: (client: Client, project?: Project) => void;
     onDeleteClient: (clientId: string) => void;
@@ -21,6 +22,7 @@ export const ClientTableView: React.FC<ClientTableViewProps> = ({
     clientTab,
     setClientTab,
     filteredClientData,
+    currentMonthEvents,
     onViewDetail,
     onEditClient,
     onDeleteClient,
@@ -37,7 +39,9 @@ export const ClientTableView: React.FC<ClientTableViewProps> = ({
     });
 
     const displayedClients =
-        clientTab === 'active'
+        clientTab === 'this-month'
+            ? currentMonthEvents
+            : clientTab === 'active'
             ? activeClients
             : clientTab === 'inactive'
             ? inactiveClients
@@ -50,6 +54,17 @@ export const ClientTableView: React.FC<ClientTableViewProps> = ({
             <div className="p-4 border-b border-[#EAEFF4] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white">
                 {/* Segmented View Switcher */}
                 <div className="flex max-w-full flex-nowrap items-center gap-1.5 overflow-x-auto p-1 bg-[#F4F6F9] rounded-xl border border-[#EAEFF4]">
+                    <button
+                        type="button"
+                        onClick={() => setClientTab('this-month')}
+                        className={`shrink-0 whitespace-nowrap px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                            clientTab === 'this-month'
+                                ? 'bg-brand-accent text-white shadow-xs'
+                                : 'text-[#5A6A85] hover:text-[#2A3547]'
+                        }`}
+                    >
+                        Pengantin Bulan Ini ({currentMonthEvents.length})
+                    </button>
                     <button
                         type="button"
                         onClick={() => setClientTab('active')}
@@ -96,7 +111,7 @@ export const ClientTableView: React.FC<ClientTableViewProps> = ({
                     </button>
                 </div>
                 <div className="text-xs text-[#5A6A85] text-right">
-                    Menampilkan <span className="font-bold text-[#2A3547]">{displayedClients.length}</span> pengantin
+                    Menampilkan <span className="font-bold text-[#2A3547]">{displayedClients.length}</span> {clientTab === 'this-month' ? 'acara' : 'pengantin'}
                 </div>
             </div>
 
@@ -104,7 +119,7 @@ export const ClientTableView: React.FC<ClientTableViewProps> = ({
             <div className="md:hidden p-2.5 space-y-2 bg-[#F4F6F9]/50">
                 {displayedClients.map(client => (
                     <div
-                        key={client.id}
+                        key={client.id + (clientTab === 'this-month' ? `-${client.mostRecentProject?.id || ''}` : '')}
                         className={`rounded-xl bg-white border border-[#EAEFF4] p-3 shadow-xs transition-all ${
                             client.status !== ClientStatus.ACTIVE ? 'opacity-75' : ''
                         }`}
@@ -136,6 +151,12 @@ export const ClientTableView: React.FC<ClientTableViewProps> = ({
                                 )}
                             </div>
                         </div>
+                        {clientTab === 'this-month' && client.mostRecentProject && (
+                            <div className="mt-2 border-t border-[#EAEFF4] pt-1.5">
+                                <p className="truncate text-[11px] font-semibold text-brand-accent">{client.mostRecentProject.projectName}</p>
+                                <p className="text-[10px] text-[#5A6A85]">{new Date(`${client.mostRecentProject.date.slice(0, 10)}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                            </div>
+                        )}
                         <div className="mt-2 flex items-center justify-between text-[11px] border-t border-[#EAEFF4] pt-1.5">
                             <div>
                                 <span className="text-[#5A6A85] text-[10px] block">Total Nilai</span>
@@ -161,7 +182,7 @@ export const ClientTableView: React.FC<ClientTableViewProps> = ({
                             }
                         >
                             <div className="grid grid-cols-2 gap-y-1 text-[11px] mb-2">
-                                <span className="text-[#5A6A85] text-[10px]">Acara Terbaru</span>
+                                <span className="text-[#5A6A85] text-[10px]">{clientTab === 'this-month' ? 'Acara Bulan Ini' : 'Acara Terbaru'}</span>
                                 <span className="text-right text-[11px] font-medium truncate text-[#2A3547]">{client.mostRecentProject?.projectName || '-'}</span>
                                 <span className="text-[#5A6A85] text-[10px]">Kontak</span>
                                 <span className="text-right text-[10px] truncate text-[#5A6A85]">{client.phone || client.email || '-'}</span>
@@ -209,14 +230,14 @@ export const ClientTableView: React.FC<ClientTableViewProps> = ({
                             <th className="px-3 lg:px-6 py-3.5">Status</th>
                             <th className="px-3 lg:px-6 py-3.5">Total Package</th>
                             <th className="px-3 lg:px-6 py-3.5">Sisa Pembayaran</th>
-                            <th className="px-3 lg:px-6 py-3.5">Acara Pernikahan Terbaru</th>
+                            <th className="px-3 lg:px-6 py-3.5">{clientTab === 'this-month' ? 'Nama Acara Bulan Ini' : 'Acara Pernikahan Terbaru'}</th>
                             <th className="px-3 lg:px-6 py-3.5 text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[#EAEFF4]">
                         {displayedClients.map((client, index) => (
                             <tr
-                                key={client.id}
+                                key={client.id + (clientTab === 'this-month' ? `-${client.mostRecentProject?.id || ''}` : '')}
                                 className={`hover:bg-[#F4F6F9]/60 transition-colors ${
                                     client.status !== ClientStatus.ACTIVE ? 'opacity-75' : ''
                                 }`}
@@ -248,6 +269,11 @@ export const ClientTableView: React.FC<ClientTableViewProps> = ({
                                 <td className="px-3 lg:px-6 py-3.5 font-bold text-red-600 whitespace-nowrap">{formatCurrency(client.balanceDue)}</td>
                                 <td className="px-3 lg:px-6 py-3.5">
                                     <p className="font-medium text-[#2A3547] truncate max-w-[140px] lg:max-w-none">{client.mostRecentProject?.projectName || '-'}</p>
+                                    {clientTab === 'this-month' && client.mostRecentProject?.date && (
+                                        <p className="mt-0.5 text-[10px] text-[#5A6A85]">
+                                            {new Date(`${client.mostRecentProject.date.slice(0, 10)}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                        </p>
+                                    )}
                                     {client.overallPaymentStatus && (
                                         <div className="mt-1">
                                             <span

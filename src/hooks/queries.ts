@@ -9,7 +9,6 @@ import { listPockets } from '../services/pockets';
 import { listPackages } from '../services/packages';
 import { listAddOns } from '../services/addOns';
 import { listCalendarEvents } from '../services/calendarEvents';
-import { listContracts } from '../services/contracts';
 import { listPromoCodes } from '../services/promoCodes';
 import { getProfile, getPublicProfile } from '../services/profile';
 import { listAllTeamPayments } from '../services/teamProjectPayments';
@@ -122,13 +121,6 @@ export const useCalendarEventsQuery = (options: DomainQueryOptions = {}) => useQ
 // ─── Auxiliary domain queries ────────────────────────────────────────────
 // Migrated from useAuxiliaryData's useEffect+useState pattern.
 // React Query is the single source of truth for these too.
-
-export const useContractsQuery = (options: DomainQueryOptions = {}) => useQuery({
-    queryKey: ['contracts'],
-    queryFn: () => listContracts(),
-    staleTime: REALTIME_STALE_TIME,
-    enabled: options.enabled !== false,
-});
 
 export const usePromoCodesQuery = (options: DomainQueryOptions = {}) => useQuery({
     queryKey: ['promoCodes'],

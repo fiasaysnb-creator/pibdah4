@@ -12,7 +12,6 @@ const TEMPLATE_ENVELOPE_KEYS = [
   'receiptShareTemplate',
   'expenseShareTemplate',
   'portalShareTemplate',
-  'checklistTemplates',
 ] as const;
 
 function asJsonObject<T = any>(value: any): T | null {
@@ -115,7 +114,6 @@ function fromRow(row: any): Profile {
     receiptShareTemplate: templateEnvelope?.receiptShareTemplate ?? undefined,
     expenseShareTemplate: templateEnvelope?.expenseShareTemplate ?? undefined,
     portalShareTemplate: templateEnvelope?.portalShareTemplate ?? undefined,
-    checklistTemplates: templateEnvelope?.checklistTemplates ?? undefined,
     mobileUiScale: (row.mobile_ui_scale !== null && row.mobile_ui_scale !== undefined)
       ? normalizeMobileUiScale(Number(row.mobile_ui_scale))
       : MOBILE_UI_SCALE_DEFAULT,
@@ -147,7 +145,6 @@ function toRow(p: Partial<Profile>): any {
     ...(p.logoBase64 !== undefined ? { logo_base64: p.logoBase64 || null } : {}),
     ...(p.signatureBase64 !== undefined ? { signature_base64: p.signatureBase64 || null } : {}),
     ...(p.instagram !== undefined ? { instagram: p.instagram } : {}),
-    ...(p.contractTemplate !== undefined ? { contract_template: p.contractTemplate } : {}),
     ...(p.brandColor !== undefined ? { brand_color: p.brandColor } : {}),
     ...(p.publicPageConfig !== undefined ? {
       // Only write to JSONB column that actually exists in the current schema
@@ -260,8 +257,7 @@ export async function upsertProfile(input: Partial<Profile> & { id?: string }): 
     input.invoiceShareTemplate !== undefined ||
     input.receiptShareTemplate !== undefined ||
     input.expenseShareTemplate !== undefined ||
-    input.portalShareTemplate !== undefined ||
-    input.checklistTemplates !== undefined
+    input.portalShareTemplate !== undefined
   ) {
     let existingEnvelope: any = {};
     const hasCompleteEnvelope = TEMPLATE_ENVELOPE_KEYS.every(key =>
@@ -295,7 +291,6 @@ export async function upsertProfile(input: Partial<Profile> & { id?: string }): 
     if (input.receiptShareTemplate !== undefined) merged.receiptShareTemplate = input.receiptShareTemplate;
     if (input.expenseShareTemplate !== undefined) merged.expenseShareTemplate = input.expenseShareTemplate;
     if (input.portalShareTemplate !== undefined) merged.portalShareTemplate = input.portalShareTemplate;
-    if (input.checklistTemplates !== undefined) merged.checklistTemplates = input.checklistTemplates;
 
     bookingFormTemplatePayload = JSON.stringify(merged);
   }

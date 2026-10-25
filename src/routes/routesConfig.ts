@@ -37,7 +37,6 @@ export const ROUTE_TO_VIEW_MAP: Record<string, ViewType> = {
   calendar: ViewType.CALENDAR,
   packages: ViewType.PACKAGES,
   "promo-codes": ViewType.PROMO_CODES,
-  kontrak: ViewType.CONTRACTS,
   gallery: ViewType.GALLERY,
   "client-reports": ViewType.CLIENT_REPORTS,
   "laporan klien": ViewType.CLIENT_REPORTS,

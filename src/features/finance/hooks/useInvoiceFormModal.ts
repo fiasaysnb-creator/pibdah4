@@ -504,7 +504,6 @@ export function useInvoiceFormModal({
           amountPaid: actualPaid,
           paymentStatus: recalcStatus,
           team: projectToEdit?.team || updated.team,
-          weddingDayChecklist: projectToEdit?.weddingDayChecklist || updated.weddingDayChecklist,
         };
 
         if (

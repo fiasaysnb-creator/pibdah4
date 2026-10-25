@@ -3,6 +3,7 @@ import { Copy, ExternalLink, ImagePlus, Link as LinkIcon, Plus, Save, Trash2 } f
 import { BioLink, BioLinkPage } from '../../types';
 import { DEFAULT_BIO_LINK_PAGE, getBioLinkPage, saveBioLinkPage } from '../../services/bioLinks';
 import { uploadVendorImage } from '../../services/vendorProfile';
+import { generateUUID } from '../../utils/uuid';
 
 const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#c5b39c] focus:ring-2 focus:ring-[#c5b39c]/20';
 
@@ -28,7 +29,7 @@ const BioLinksPage: React.FC = () => {
           avatar_url: data.avatar_url,
           cover_url: data.cover_url,
           links: (data.links || []).map((link) => {
-            const id = link.id && !usedLinkIds.has(link.id) ? link.id : crypto.randomUUID();
+            const id = link.id && !usedLinkIds.has(link.id) ? link.id : generateUUID();
             usedLinkIds.add(id);
             return { ...link, id };
           }),
@@ -73,7 +74,7 @@ const BioLinksPage: React.FC = () => {
   };
 
   const addLink = () => {
-    const link: BioLink = { id: crypto.randomUUID(), title: '', url: '' };
+    const link: BioLink = { id: generateUUID(), title: '', url: '' };
     updateForm('links', [...form.links, link]);
   };
 

@@ -2,6 +2,7 @@ import supabase from '../lib/supabaseClient';
 import { canonicalizeStorageAssetUrls, compressImage } from './storage';
 import { Client, ClientStatus, ClientType } from '../types';
 import { publicNamePatternsFromSlug } from '../utils/publicRouting';
+import { generateUUID } from '../utils/uuid';
 
 const TABLE = 'clients';
 
@@ -175,7 +176,7 @@ export async function createClient(payload: Omit<Client, 'id'>): Promise<Client>
     status: payload.status || ClientStatus.ACTIVE,
     clientType: payload.clientType || ClientType.DIRECT,
     lastContact: payload.lastContact || payload.since || new Date().toISOString(),
-    portalAccessId: payload.portalAccessId || crypto.randomUUID(),
+    portalAccessId: payload.portalAccessId || generateUUID(),
     address: payload.address ?? undefined,
     createdAt: payload.createdAt || new Date().toISOString(),
     updatedAt: payload.updatedAt || new Date().toISOString(),
@@ -193,7 +194,7 @@ export async function createClient(payload: Omit<Client, 'id'>): Promise<Client>
 export async function uploadClientAvatar(file: File): Promise<string> {
   const processedFile = await compressImage(file, 1000, 0.8, 200 * 1024);
   const extension = processedFile.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-  const path = `clients/avatars/${crypto.randomUUID()}.${extension}`;
+  const path = `clients/avatars/${generateUUID()}.${extension}`;
   const { error } = await supabase.storage
     .from('gallery-images')
     .upload(path, processedFile, { contentType: processedFile.type, upsert: false });

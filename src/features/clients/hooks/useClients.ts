@@ -28,11 +28,7 @@ export const useClients = (
 ) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('Semua Status');
-    const [monthFilter, setMonthFilter] = useState(() => {
-        const currentDate = new Date();
-        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-        return `${currentDate.getFullYear()}-${month}`;
-    });
+    const [monthFilter, setMonthFilter] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
 
@@ -101,16 +97,6 @@ export const useClients = (
                 client.overallPaymentStatus === statusFilter ||
                 client.status === statusFilter;
 
-            // Month filter - filter berdasarkan bulan project atau bulan join client
-            let monthMatch = true;
-            if (monthFilter) {
-                const [filterYear, filterMonth] = monthFilter.split('-').map(Number);
-                monthMatch = client.projects.some(p => {
-                    const projectDate = new Date(p.date);
-                    return projectDate.getFullYear() === filterYear && projectDate.getMonth() + 1 === filterMonth;
-                });
-            }
-
             // Date range filter - filter berdasarkan tanggal project
             const from = dateFrom ? new Date(dateFrom) : null;
             const to = dateTo ? new Date(dateTo) : null;
@@ -127,9 +113,9 @@ export const useClients = (
                 return (!from || clientJoinDate >= from) && (!to || clientJoinDate <= to);
             })();
 
-            return searchMatch && statusMatch && monthMatch && dateMatchRange;
+            return searchMatch && statusMatch && dateMatchRange;
         });
-    }, [allClientData, searchTerm, statusFilter, monthFilter, dateFrom, dateTo]);
+    }, [allClientData, searchTerm, statusFilter, dateFrom, dateTo]);
 
     const clientStats = useMemo(() => {
         const totalReceivables = allClientData.reduce((sum, c) => sum + c.balanceDue, 0);

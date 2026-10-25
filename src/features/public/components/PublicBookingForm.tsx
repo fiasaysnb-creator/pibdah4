@@ -13,6 +13,7 @@ import { mergeTransaction, mergeById } from '../utils/publicBookingWrites';
 import { clearPublicDrafts, hydrateForm, inheritFromPackagesDraft, isFormEmpty, readBookingDraft, readPackagesDraft, writeBookingDraft } from '../utils/publicDraftStore';
 import RupiahInput from '../../../shared/form/RupiahInput';
 import { buildPublicShareUrl, getPublicBookingRegionOptions, normalizePublicBookingRegion, resolvePackageShareIdentifier, toPublicNameSlug } from '../../../utils/publicRouting';
+import { generateUUID } from '../../../utils/uuid';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
@@ -528,7 +529,7 @@ const PublicBookingForm: React.FC<PublicBookingFormProps> = ({
                 status: ClientStatus.ACTIVE,
                 clientType: ClientType.DIRECT,
                 lastContact: new Date().toISOString(),
-                portalAccessId: crypto.randomUUID(),
+                portalAccessId: generateUUID(),
                 address: formData.address || undefined,
             });
 

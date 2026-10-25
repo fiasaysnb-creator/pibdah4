@@ -5,16 +5,11 @@ import {
   FinancialPocket,
 } from '../../../types';
 import {
-  ClipboardListIcon, CheckCircleIcon, FileTextIcon, SendIcon,
-  PencilIcon, Trash2Icon, UserIcon, PlusIcon, Share2Icon, ArrowDownIcon,
+  FileTextIcon, SendIcon,
+  PencilIcon, Share2Icon, ArrowDownIcon,
   X as XIcon, Save as SaveIcon, CalendarClock, ExternalLink, Video, Trash2,
   ChevronDown, ChevronUp, MessageCircle,
 } from 'lucide-react';
-import {
-  listChecklistByProject, deleteChecklistItem,
-  initializeDefaultChecklist, setChecklistItemCompleted, updateChecklistItemFields,
-  renameChecklistCategory, deleteChecklistItemsByProjectAndCategory, upsertChecklistItems,
-} from '../../../services/weddingDayChecklist';
 import { updateProject as updateProjectInDb } from '../../../services/projects';
 import {
   encodeProjectMeetingNotes,
@@ -25,7 +20,6 @@ import {
   ProjectMeeting,
   ProjectMeetingKind,
 } from '../../../services/calendarEvents';
-import supabase from '../../../lib/supabaseClient';
 import { formatCurrency, getStatusClass, getProgressForStatus } from '../utils/projectHelpers';
 import { EditFormData, ProjectEditSection } from '../hooks/useProjectEditMode';
 import { getPackageTerms } from '../../packages/packageTerms';
@@ -148,21 +142,12 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   const [isEditingFinalLink, setIsEditingFinalLink] = useState(false);
   const [editingSection, setEditingSection] = useState<ProjectEditSection | null>(null);
   const [tempFinalLink, setTempFinalLink] = useState('');
-  const [editingChecklistNotesId, setEditingChecklistNotesId] = useState<string | null>(null);
-  const [checklistNotesDraft, setChecklistNotesDraft] = useState('');
-  const [editingChecklistItemId, setEditingChecklistItemId] = useState<string | null>(null);
-  const [checklistItemNameDraft, setChecklistItemNameDraft] = useState('');
-  const [picDraft, setPicDraft] = useState('');
-  const [editingCategoryName, setEditingCategoryName] = useState<string | null>(null);
-  const [categoryNameDraft, setCategoryNameDraft] = useState('');
-  const [isInitializingChecklist, setIsInitializingChecklist] = useState(false);
   const [paymentToProcess, setPaymentToProcess] = useState<TeamProjectPayment | null>(null);
   const [paymentSourceId, setPaymentSourceId] = useState('');
   const [isProcessingTeamPayment, setIsProcessingTeamPayment] = useState(false);
   const [paymentProofToView, setPaymentProofToView] = useState<TeamPaymentRecord | null>(null);
   const [isPreparingPaymentProof, setIsPreparingPaymentProof] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [mobileSectionTab, setMobileSectionTab] = useState<'info' | 'meetings' | 'team' | 'checklist' | 'terms' | 'workflow' | 'files'>('info');
+  const [mobileSectionTab, setMobileSectionTab] = useState<'info' | 'meetings' | 'team' | 'terms' | 'workflow' | 'files'>('info');
 
   const startSectionEdit = (section: ProjectEditSection) => {
     setEditingSection(section);
@@ -217,18 +202,6 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
     );
   }, [selectedProject?.team, teamMembers]);
 
-  // ── reset checklist state on project change ───────────────────────────────
-  useEffect(() => {
-    setEditingChecklistItemId(null);
-    setChecklistItemNameDraft('');
-    setPicDraft('');
-    setEditingChecklistNotesId(null);
-    setChecklistNotesDraft('');
-    setEditingCategoryName(null);
-    setCategoryNameDraft('');
-    setActiveCategory(null);
-  }, [selectedProject?.id]);
-
   useEffect(() => {
     const projectId = selectedProject?.id;
     if (!projectId) {
@@ -268,60 +241,6 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
 
     return () => { isCurrent = false; };
   }, [selectedProject?.id, showNotification]);
-
-  // ── real-time checklist sync ──────────────────────────────────────────────
-  useEffect(() => {
-    const projectId = selectedProject?.id;
-    if (!projectId) return;
-
-    (async () => {
-      try {
-        const items = await listChecklistByProject(projectId);
-        setSelectedProject(prev => {
-          if (!prev || prev.id !== projectId) return prev;
-          return { ...prev, weddingDayChecklist: items };
-        });
-        setProjects(all => all.map(p => (p.id === projectId ? { ...p, weddingDayChecklist: items } : p)));
-      } catch (e) {
-        console.error('Failed to load checklist:', e);
-      }
-    })();
-
-    const channel = supabase
-      .channel(`admin:wedding_day_checklists:project_id=eq.${projectId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'wedding_day_checklists', filter: `project_id=eq.${projectId}` },
-        payload => {
-          let updatedChecklist: any[] | null = null;
-          setSelectedProject(prev => {
-            if (!prev || prev.id !== projectId) return prev;
-            const cur = prev.weddingDayChecklist || [];
-            let next = [...cur];
-            if (payload.eventType === 'INSERT') {
-              const n = payload.new as any;
-              const item = { id: n.id, projectId: n.project_id, category: n.category, itemName: n.item_name, isCompleted: n.is_completed, assignedTo: n.assigned_to, notes: n.notes, createdAt: n.created_at, updatedAt: n.updated_at };
-              if (!next.some(i => i.id === item.id)) next.push(item);
-            } else if (payload.eventType === 'UPDATE') {
-              const n = payload.new as any;
-              const item = { id: n.id, projectId: n.project_id, category: n.category, itemName: n.item_name, isCompleted: n.is_completed, assignedTo: n.assigned_to, notes: n.notes, createdAt: n.created_at, updatedAt: n.updated_at };
-              next = next.map(i => (i.id === item.id ? item : i));
-            } else if (payload.eventType === 'DELETE') {
-              next = next.filter(i => i.id !== (payload.old as any).id);
-            }
-            if (JSON.stringify(next) === JSON.stringify(cur)) return prev;
-            updatedChecklist = next;
-            return { ...prev, weddingDayChecklist: next };
-          });
-          if (updatedChecklist) {
-            setProjects(all => all.map(p => (p.id === projectId ? { ...p, weddingDayChecklist: updatedChecklist! } : p)));
-          }
-        },
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [selectedProject?.id, setProjects]);
 
   // ── handlers (view mode) ─────────────────────────────────────────────────
 
@@ -565,151 +484,6 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
     onOpenSharePreview({ title: `Bagikan Link File Jadi — ${selectedProject.projectName}`, message, phone });
   };
 
-  const handleToggleChecklistItem = async (itemId: string, current: boolean) => {
-    if (!selectedProject) return;
-    try {
-      const row = await setChecklistItemCompleted(itemId, !current);
-      const items = selectedProject.weddingDayChecklist?.map(i => (i.id === itemId ? { ...i, isCompleted: row.isCompleted, updatedAt: row.updatedAt } : i)) || [];
-      const updated = { ...selectedProject, weddingDayChecklist: items };
-      setSelectedProject(updated);
-      setProjects(prev => prev.map(p => (p.id === selectedProject.id ? updated : p)));
-    } catch {
-      showNotification('Gagal memperbarui checklist.');
-    }
-  };
-
-  const handleSaveChecklistNotes = async () => {
-    if (!selectedProject || !editingChecklistNotesId) return;
-    try {
-      const row = await updateChecklistItemFields(editingChecklistNotesId, { notes: checklistNotesDraft });
-      const items = selectedProject.weddingDayChecklist?.map(i => (i.id === editingChecklistNotesId ? { ...i, notes: row.notes, updatedAt: row.updatedAt } : i)) || [];
-      const updated = { ...selectedProject, weddingDayChecklist: items };
-      setSelectedProject(updated);
-      setProjects(prev => prev.map(p => (p.id === selectedProject.id ? updated : p)));
-      setEditingChecklistNotesId(null);
-      setChecklistNotesDraft('');
-    } catch {
-      showNotification('Gagal menyimpan catatan.');
-    }
-  };
-
-  const handleSaveItemEdits = async () => {
-    if (!selectedProject || !editingChecklistItemId) return;
-    try {
-      const row = await updateChecklistItemFields(editingChecklistItemId, { itemName: checklistItemNameDraft, assignedTo: picDraft });
-      const items = selectedProject.weddingDayChecklist?.map(i => (i.id === editingChecklistItemId ? { ...i, itemName: row.itemName, assignedTo: row.assignedTo, updatedAt: row.updatedAt } : i)) || [];
-      const updated = { ...selectedProject, weddingDayChecklist: items };
-      setSelectedProject(updated);
-      setProjects(prev => prev.map(p => (p.id === selectedProject.id ? updated : p)));
-      setEditingChecklistItemId(null);
-      setChecklistItemNameDraft('');
-      setPicDraft('');
-    } catch {
-      showNotification('Gagal menyimpan item.');
-    }
-  };
-
-  const handleAddChecklistItem = async (category: string, itemName: string) => {
-    if (!selectedProject) return;
-    try {
-      const [row] = await upsertChecklistItems([{ projectId: selectedProject.id, category, itemName, isCompleted: false }]);
-      const items = [...(selectedProject.weddingDayChecklist || []), row];
-      const updated = { ...selectedProject, weddingDayChecklist: items };
-      setSelectedProject(updated);
-      setProjects(prev => prev.map(p => (p.id === selectedProject.id ? updated : p)));
-    } catch {
-      showNotification('Gagal menambah item.');
-    }
-  };
-
-  const handleDeleteChecklistItem = async (itemId: string) => {
-    if (!selectedProject) return;
-    try {
-      await deleteChecklistItem(itemId);
-      const items = selectedProject.weddingDayChecklist?.filter(i => i.id !== itemId) || [];
-      const updated = { ...selectedProject, weddingDayChecklist: items };
-      setSelectedProject(updated);
-      setProjects(prev => prev.map(p => (p.id === selectedProject.id ? updated : p)));
-    } catch {
-      showNotification('Gagal menghapus item.');
-    }
-  };
-
-  const handleSaveCategoryName = async () => {
-    if (!selectedProject || !editingCategoryName) return;
-    const newName = categoryNameDraft.trim();
-    if (!newName) { showNotification('Nama kategori tidak boleh kosong.'); return; }
-    if (newName === editingCategoryName) { setEditingCategoryName(null); setCategoryNameDraft(''); return; }
-    try {
-      await renameChecklistCategory(selectedProject.id, editingCategoryName, newName);
-      const refreshed = await listChecklistByProject(selectedProject.id);
-      const updated = { ...selectedProject, weddingDayChecklist: refreshed };
-      setSelectedProject(updated);
-      setProjects(prev => prev.map(p => (p.id === selectedProject.id ? updated : p)));
-      setEditingCategoryName(null);
-      setCategoryNameDraft('');
-      showNotification('Kategori berhasil diubah.');
-    } catch {
-      showNotification('Gagal mengubah nama kategori.');
-    }
-  };
-
-  const handleDeleteCategory = async (category: string) => {
-    if (!selectedProject) return;
-    const catItems = selectedProject.weddingDayChecklist?.filter(i => i.category === category) || [];
-    if (!catItems.length) return;
-    if (!window.confirm(`Hapus kategori "${category}" beserta ${catItems.length} item di dalamnya?`)) return;
-    try {
-      await deleteChecklistItemsByProjectAndCategory(selectedProject.id, category);
-      const refreshed = await listChecklistByProject(selectedProject.id);
-      const updated = { ...selectedProject, weddingDayChecklist: refreshed };
-      setSelectedProject(updated);
-      setProjects(prev => prev.map(p => (p.id === selectedProject.id ? updated : p)));
-      showNotification('Kategori berhasil dihapus.');
-    } catch {
-      showNotification('Gagal menghapus kategori.');
-    }
-  };
-
-  const handleInitializeChecklist = async () => {
-    if (!selectedProject || isInitializingChecklist) return;
-    setIsInitializingChecklist(true);
-    try {
-      const custom = profile.checklistTemplates?.length ? profile.checklistTemplates : undefined;
-      const result = await initializeDefaultChecklist(selectedProject.id, custom);
-      const updated = { ...selectedProject, weddingDayChecklist: result };
-      setSelectedProject(updated);
-      setProjects(prev => prev.map(p => (p.id === selectedProject.id ? updated : p)));
-      showNotification('Checklist Hari H berhasil dibuat.');
-    } catch {
-      showNotification('Gagal membuat checklist default.');
-    } finally {
-      setIsInitializingChecklist(false);
-    }
-  };
-
-  const handleShareChecklist = () => {
-    if (!selectedProject) return;
-    const byCat = (selectedProject.weddingDayChecklist || []).reduce((acc, item) => {
-      if (!acc[item.category]) acc[item.category] = [];
-      acc[item.category].push(item);
-      return acc;
-    }, {} as Record<string, any[]>);
-    let message = `*REKAP CHECKLIST HARI H — ${selectedProject.projectName}*\n\n`;
-    Object.entries(byCat).forEach(([cat, items]) => {
-      message += `*${cat}:*\n`;
-      items.forEach(i => { message += `${i.isCompleted ? '✅' : '⬜'} ${i.itemName}\n`; });
-      message += '\n';
-    });
-    onOpenSharePreview({ title: `Bagikan Rekap Checklist — ${selectedProject.projectName}`, message, phone: null });
-  };
-
-  const handleShareChecklistPortal = () => {
-    if (!selectedProject) return;
-    const link = `${window.location.origin}/#/checklist-portal/${selectedProject.id}`;
-    onOpenSharePreview({ title: `Portal Checklist — ${selectedProject.projectName}`, message: `Portal Checklist Hari H — ${selectedProject.projectName}\n\n${link}`, phone: null });
-  };
-
   // ── guard ─────────────────────────────────────────────────────────────────
   if (!selectedProject) return null;
 
@@ -839,7 +613,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
             setPaymentSourceId('');
           }
         }}
-        title="Bayar Fee Tim / Vendor"
+        title="Bayar Pembayaran Tim / Vendor"
         size="md"
         footer={(
           <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -1440,7 +1214,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                                         </div>
                                         <div className="text-right shrink-0">
                                           <p className="text-xs font-extrabold text-[#2A3547] tabular-nums">
-                                            {formatCurrency(assignment.fee)}
+                                            {formatCurrency(payment?.fee ?? assignment.fee)}
                                           </p>
                                           <div className="mt-1 flex items-center justify-end gap-1.5">
                                             <span
@@ -1502,246 +1276,6 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
             <section className="pt-3 border-t border-slate-200">
               <WorkflowDisplay workflows={workflows} projectName={selectedProject.projectName} showHeader={false} />
             </section>
-          )}
-
-          {/* ──────────── SEKSI 2: CHECKLIST HARI H ────────────────── */}
-          {mobileSectionTab === 'checklist' && (
-            <div className="space-y-3.5 pt-3 border-t border-slate-200">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 shadow-[0_4px_12px_rgba(0,0,0,0.03)]">
-                <div>
-                  <h3 className="text-sm sm:text-base font-extrabold text-[#2A3547]">Checklist Hari H</h3>
-                  <p className="text-[11px] text-[#5A6A85]">Kelola persiapan lapangan secara real-time</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                  <button
-                    onClick={handleShareChecklistPortal}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F8FAFC] border border-slate-200 text-[11px] sm:text-xs font-bold text-[#2A3547] hover:border-brand-accent transition-all active:scale-95"
-                  >
-                    <SendIcon className="w-3.5 h-3.5 text-brand-accent" /> Portal
-                  </button>
-                  <button
-                    onClick={handleShareChecklist}
-                    className="flex-1 sm:flex-none btn-box-wa justify-center px-3 py-1.5 text-[11px] sm:text-xs"
-                  >
-                    <SendIcon className="w-3.5 h-3.5 text-white" /> <span>WhatsApp</span>
-                  </button>
-                  {!selectedProject.weddingDayChecklist?.length && (
-                    <button
-                      onClick={handleInitializeChecklist}
-                      disabled={isInitializingChecklist}
-                      className="w-full sm:w-auto button-primary !py-1.5 !px-3 text-[11px] sm:text-xs disabled:opacity-50"
-                    >
-                      {isInitializingChecklist ? 'Membuat…' : 'Buat Checklist'}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {selectedProject.weddingDayChecklist?.length ? (() => {
-                const total = selectedProject.weddingDayChecklist.length;
-                const done  = selectedProject.weddingDayChecklist.filter(i => i.isCompleted).length;
-                const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
-                return (
-                  <div className="grid grid-cols-4 gap-2">
-                    {([
-                      { label: 'Total',   val: total,        color: 'text-[#2A3547]',  bg: 'bg-white border-slate-200', labelColor: 'text-[#5A6A85]' },
-                      { label: 'Selesai', val: done,         color: 'text-white', bg: 'grad-green border-transparent', labelColor: 'text-white/80' },
-                      { label: 'Sisa',    val: total - done, color: 'text-white', bg: 'grad-orange border-transparent', labelColor: 'text-white/80' },
-                      { label: 'Progres', val: `${pct}%`,    color: 'text-white', bg: 'grad-purple border-transparent', labelColor: 'text-white/80' },
-                    ] as const).map(s => (
-                      <div key={s.label} className={`${s.bg} border rounded-xl p-2 sm:p-3 flex flex-col items-center shadow-2xs`}>
-                        <p className={`text-[9px] font-bold uppercase tracking-wider ${s.labelColor}`}>{s.label}</p>
-                        <p className={`text-base sm:text-xl font-black ${s.color} mt-0.5 tabular-nums`}>{s.val}</p>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })() : null}
-
-              {(() => {
-                const existingCategories = Array.from(new Set(
-                  (selectedProject.weddingDayChecklist || []).slice().sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()).map(i => i.category),
-                ));
-                if (!existingCategories.length) {
-                  return (
-                    <div className="flex flex-col items-center justify-center py-8 px-4 bg-white rounded-2xl border-2 border-dashed border-slate-200 text-center">
-                      <h4 className="text-sm font-bold text-[#2A3547]">Belum Ada Checklist</h4>
-                      <p className="text-xs text-[#5A6A85] mt-1 mb-4">Inisialisasi checklist default untuk membantu persiapan lapangan.</p>
-                      <button onClick={handleInitializeChecklist} className="button-primary !py-2 !px-5 text-xs">Inisialisasi Sekarang</button>
-                    </div>
-                  );
-                }
-                const currentCat = activeCategory || existingCategories[0];
-                return (
-                  <>
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-                      {existingCategories.map(cat => {
-                        const catItems = (selectedProject.weddingDayChecklist || []).filter(i => i.category === cat);
-                        const catDone  = catItems.filter(i => i.isCompleted).length;
-                        const isAct    = cat === currentCat;
-                        return (
-                          <button
-                            key={cat}
-                            onClick={() => setActiveCategory(cat)}
-                            className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all ${
-                              isAct
-                                ? 'bg-brand-accent border-brand-accent text-white shadow-xs'
-                                : 'bg-white border-slate-200 text-[#2A3547] hover:bg-slate-50'
-                            }`}
-                          >
-                            {cat}
-                            <span
-                              className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
-                                isAct
-                                  ? 'bg-white/25 text-white'
-                                  : catDone === catItems.length && catItems.length > 0
-                                    ? 'bg-emerald-100 text-emerald-700'
-                                    : 'bg-slate-100 text-slate-600'
-                              }`}
-                            >
-                              {catDone}/{catItems.length}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {(() => {
-                      const catItems = (selectedProject.weddingDayChecklist || []).filter(i => i.category === currentCat);
-                      const catDone  = catItems.filter(i => i.isCompleted).length;
-                      return (
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-                          <div className="px-3.5 py-2.5 bg-[#F8FAFC] border-b border-slate-200 flex items-center justify-between gap-2 group">
-                            {editingCategoryName === currentCat ? (
-                              <div className="flex items-center gap-2 flex-grow">
-                                <input
-                                  value={categoryNameDraft}
-                                  onChange={e => setCategoryNameDraft(e.target.value)}
-                                  className="flex-grow bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs sm:text-sm text-[#2A3547] focus:outline-none focus:border-brand-accent"
-                                  onKeyDown={e => { if (e.key === 'Enter') handleSaveCategoryName(); if (e.key === 'Escape') { setEditingCategoryName(null); setCategoryNameDraft(''); } }}
-                                  autoFocus
-                                />
-                                <button onClick={handleSaveCategoryName} className="p-2 bg-brand-accent text-white rounded-lg"><CheckCircleIcon className="w-4 h-4" /></button>
-                              </div>
-                            ) : (
-                              <>
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div className="w-2 h-2 rounded-full bg-brand-accent flex-shrink-0" />
-                                  <p className="text-xs font-extrabold uppercase tracking-wider text-[#2A3547] truncate">{currentCat}</p>
-                                  <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => { setEditingCategoryName(currentCat); setCategoryNameDraft(currentCat); }} className="p-1 text-[#5A6A85] hover:text-brand-accent transition-colors" title="Ubah Kategori"><PencilIcon className="w-3.5 h-3.5" /></button>
-                                    <button onClick={() => handleDeleteCategory(currentCat)} className="p-1 text-[#5A6A85] hover:text-red-500 transition-colors" title="Hapus Kategori"><Trash2Icon className="w-3.5 h-3.5" /></button>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <span className="text-[10px] font-black text-[#5A6A85]">{catDone}/{catItems.length}</span>
-                                  <div className="w-14 sm:w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                                    <div className="h-full bg-brand-accent rounded-full transition-all duration-500" style={{ width: `${catItems.length > 0 ? (catDone / catItems.length) * 100 : 0}%` }} />
-                                  </div>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                          <div className="p-2.5 sm:p-3 divide-y divide-slate-100">
-                            {catItems.map(item => (
-                              <div key={item.id} className="flex items-start gap-2.5 sm:gap-3 py-2.5 px-2 rounded-xl hover:bg-[#F8FAFC] transition-all group/item">
-                                <button
-                                  onClick={() => handleToggleChecklistItem(item.id, item.isCompleted)}
-                                  className={`checklist-item-toggle flex-shrink-0 mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all active:scale-90 ${
-                                    item.isCompleted ? 'bg-brand-accent border-brand-accent shadow-xs' : 'border-slate-300 bg-white hover:border-brand-accent'
-                                  }`}
-                                >
-                                  {item.isCompleted && <CheckCircleIcon className="w-3.5 h-3.5 text-white" />}
-                                </button>
-                                <div className="flex-grow min-w-0">
-                                  {editingChecklistItemId === item.id ? (
-                                    <div className="flex flex-col gap-2 p-2.5 rounded-xl bg-[#F8FAFC] border border-slate-200">
-                                      <input
-                                        value={checklistItemNameDraft}
-                                        onChange={e => setChecklistItemNameDraft(e.target.value)}
-                                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs sm:text-sm text-[#2A3547] focus:outline-none focus:border-brand-accent"
-                                        placeholder="Nama tugas"
-                                        autoFocus
-                                      />
-                                      <div className="flex flex-col sm:flex-row gap-2">
-                                        <div className="relative flex-grow">
-                                          <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#5A6A85]" />
-                                          <input
-                                            value={picDraft}
-                                            onChange={e => setPicDraft(e.target.value)}
-                                            className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-xs sm:text-sm text-[#2A3547] focus:outline-none focus:border-brand-accent"
-                                            placeholder="PIC / Penanggung Jawab"
-                                            onKeyDown={e => { if (e.key === 'Enter') handleSaveItemEdits(); if (e.key === 'Escape') { setEditingChecklistItemId(null); setChecklistItemNameDraft(''); setPicDraft(''); } }}
-                                          />
-                                        </div>
-                                        <div className="flex gap-2">
-                                          <button onClick={() => { setEditingChecklistItemId(null); setChecklistItemNameDraft(''); setPicDraft(''); }} className="flex-1 sm:flex-none px-3 py-1.5 bg-white text-[#5A6A85] text-xs font-bold rounded-xl border border-slate-200">Batal</button>
-                                          <button onClick={handleSaveItemEdits} className="flex-1 sm:flex-none button-primary !py-1.5 !px-3 text-xs">Simpan</button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div className="min-w-0 flex-1">
-                                        <p className={`text-xs sm:text-sm font-semibold transition-colors break-words ${item.isCompleted ? 'text-[#5A6A85] line-through' : 'text-[#2A3547]'}`}>
-                                          {item.itemName}
-                                        </p>
-                                        {item.assignedTo && (
-                                          <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md bg-[#F8FAFC] border border-slate-200 text-[10px] font-semibold text-[#5A6A85]">
-                                            <UserIcon className="w-2.5 h-2.5 text-brand-accent" />{item.assignedTo}
-                                          </span>
-                                        )}
-                                        <div className="flex items-center gap-2 mt-1">
-                                          <button onClick={() => { setEditingChecklistNotesId(item.id); setChecklistNotesDraft(item.notes || ''); }} className={`text-[10px] font-bold uppercase tracking-wider hover:text-brand-accent transition-colors ${item.notes ? 'text-brand-accent' : 'text-[#5A6A85]'}`}>
-                                            {item.notes ? '• Lihat Catatan' : '+ Catatan'}
-                                          </button>
-                                          {item.isCompleted && item.updatedAt && (
-                                            <span className="text-[9px] text-[#5A6A85]">✓ {new Date(item.updatedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover/item:opacity-100 transition-opacity flex-shrink-0">
-                                        <button onClick={() => { setEditingChecklistItemId(item.id); setChecklistItemNameDraft(item.itemName); setPicDraft(item.assignedTo || ''); }} className="p-1.5 rounded-lg bg-[#F8FAFC] border border-slate-200 text-[#5A6A85] hover:text-brand-accent transition-colors"><PencilIcon className="w-3 h-3" /></button>
-                                        <button onClick={() => handleDeleteChecklistItem(item.id)} className="p-1.5 rounded-lg bg-[#F8FAFC] border border-slate-200 text-[#5A6A85] hover:text-red-500 transition-colors"><Trash2Icon className="w-3 h-3" /></button>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {editingChecklistNotesId === item.id && (
-                                    <div className="mt-2 p-2.5 rounded-xl bg-[#F8FAFC] border border-slate-200 animate-fade-in">
-                                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#5A6A85] mb-1.5">Catatan Item</p>
-                                      <textarea value={checklistNotesDraft} onChange={e => setChecklistNotesDraft(e.target.value)} rows={3} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs sm:text-sm text-[#2A3547] focus:outline-none focus:border-brand-accent resize-none" placeholder="Tambahkan instruksi atau update lapangan…" />
-                                      <div className="flex justify-end gap-2 mt-2">
-                                        <button onClick={() => { setEditingChecklistNotesId(null); setChecklistNotesDraft(''); }} className="px-3 py-1.5 bg-white text-[#5A6A85] text-xs font-bold rounded-xl border border-slate-200">Batal</button>
-                                        <button onClick={handleSaveChecklistNotes} className="button-primary !py-1.5 !px-3 text-xs">Simpan Catatan</button>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                            <div className="pt-3">
-                              <div className="relative">
-                                <PlusIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5A6A85] pointer-events-none" />
-                                <input
-                                  type="text"
-                                  placeholder={`Tambah item ke ${currentCat}…`}
-                                  className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-xs sm:text-sm text-[#2A3547] placeholder:text-[#5A6A85] focus:outline-none focus:bg-white focus:border-brand-accent transition-all"
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                                      handleAddChecklistItem(currentCat, e.currentTarget.value);
-                                      e.currentTarget.value = '';
-                                    }
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </>
-                );
-              })()}
-            </div>
           )}
 
           {/* ──────────── SEKSI 3: FILE & TAUTAN PENTING ───────────── */}
@@ -2007,7 +1541,7 @@ const EditModeContent: React.FC<EditModeContentProps> = ({
                               </div>
                               <div className="flex-grow min-w-0">
                                 <p className="text-xs sm:text-sm font-bold text-[#2A3547] truncate">{member.name}</p>
-                                {isSelected && <p className="text-[10px] text-[#5A6A85] mt-0.5">Fee standar: {formatCurrency(member.standardFee)}</p>}
+                                {isSelected && <p className="text-[10px] text-[#5A6A85] mt-0.5">Pembayaran standar: {formatCurrency(member.standardFee)}</p>}
                               </div>
                             </label>
                             {isSelected && (

@@ -43,7 +43,7 @@ const CategoryButton: React.FC<{
     return (
         <button
             onClick={onClick}
-            className={`w-full min-h-[44px] flex justify-between items-center text-left px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all border ${
+            className={`w-full min-h-[44px] min-w-0 flex flex-col justify-center items-start gap-0.5 text-left px-2 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
                 isActive
                     ? isIncome
                         ? 'bg-green-700/40 border-white/30 text-white shadow-sm'
@@ -51,9 +51,9 @@ const CategoryButton: React.FC<{
                     : 'border-transparent text-white/85 hover:bg-white/10'
             }`}
         >
-            <span className="truncate">{categoryName}</span>
+            <span className="w-full truncate">{categoryName}</span>
             <span
-                className={`font-bold text-xs ${
+                className={`max-w-full truncate font-bold text-[10px] leading-tight ${
                     amount > 0
                         ? 'text-white'
                         : 'text-white/60'
@@ -137,7 +137,7 @@ const TransactionsTab: React.FC<TransactionsTabProps> = ({
                         )}
                         <div className="grad-green text-white p-3 sm:p-4 rounded-2xl shadow-[0_9px_17.5px_rgba(0,0,0,0.05)] border border-white/10">
                             <h4 className="font-black text-xs uppercase tracking-wider text-white mb-2 px-2">Pemasukan</h4>
-                            <div className="space-y-1.5">
+                            <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-1">
                                 <CategoryButton
                                     type={TransactionType.INCOME}
                                     categoryName="Semua"
@@ -159,7 +159,7 @@ const TransactionsTab: React.FC<TransactionsTabProps> = ({
                         </div>
                         <div className="grad-orange text-white p-3 sm:p-4 rounded-2xl shadow-[0_9px_17.5px_rgba(0,0,0,0.05)] border border-white/10">
                             <h4 className="font-black text-xs uppercase tracking-wider text-white mb-2 px-2">Pengeluaran</h4>
-                            <div className="space-y-1.5">
+                            <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-1">
                                 <CategoryButton
                                     type={TransactionType.EXPENSE}
                                     categoryName="Semua"

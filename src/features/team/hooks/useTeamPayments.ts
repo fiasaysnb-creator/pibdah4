@@ -66,7 +66,7 @@ interface UseTeamPaymentsParams {
     userProfile: Profile;
     showNotification: (message: string) => void;
     onSignPaymentRecord: (recordId: string, signatureDataUrl: string) => void;
-    setDetailTab: (tab: 'projects' | 'payments' | 'performance' | 'create-payment') => void;
+    setDetailTab: (tab: 'projects' | 'salary' | 'payments' | 'performance' | 'create-payment') => void;
     setIsDetailOpen: (open: boolean) => void;
     /** Date-range-filtered payments — used to derive unpaid projects for selectedMember */
     teamProjectPaymentsInDateRange: TeamProjectPayment[];
@@ -183,7 +183,7 @@ export const useTeamPayments = ({
 
     const handleDeletePaymentRecord = useCallback(async (record: TeamPaymentRecord) => {
         const confirmed = window.confirm(
-            `Hapus slip ${record.recordNumber} dari riwayat? Transaksi dan status fee acara tidak berubah.`,
+            `Hapus slip ${record.recordNumber} dari riwayat? Transaksi dan status pembayaran acara tidak berubah.`,
         );
         if (!confirmed) return false;
 
@@ -248,7 +248,7 @@ export const useTeamPayments = ({
                 .sort((a, b) => a.date.localeCompare(b.date));
 
             if (selectedPayments.length === 0) {
-                showNotification('Fee yang dipilih sudah lunas atau tidak ditemukan. Muat ulang daftar lalu coba lagi.');
+                showNotification('Pembayaran yang dipilih sudah lunas atau tidak ditemukan. Muat ulang daftar lalu coba lagi.');
                 return;
             }
 
@@ -261,7 +261,7 @@ export const useTeamPayments = ({
                 return;
             }
 
-            let method = 'Transfer Bank';
+            let method: Transaction['method'] = 'Transfer Bank';
             let cardId: string | undefined;
             let pocketId: string | undefined;
             let selectedPocket: FinancialPocket | undefined;
@@ -335,7 +335,7 @@ export const useTeamPayments = ({
                 persistedPayments = await updateTeamProjectPaymentsApi(paymentsToUpdate);
             } catch (error) {
                 console.error('[useTeamPayments] Failed to update fee status:', error);
-                showNotification('Status fee gagal disimpan. Transaksi tidak dibuat. Periksa tanggal acara lalu coba lagi.');
+                showNotification('Status pembayaran gagal disimpan. Transaksi tidak dibuat. Periksa tanggal acara lalu coba lagi.');
                 return;
             }
 
@@ -359,7 +359,7 @@ export const useTeamPayments = ({
                 }
                 const rollbackById = new Map(rollbackPayments.map(payment => [payment.id, payment]));
                 setTeamProjectPayments(prev => prev.map(payment => rollbackById.get(payment.id) ?? payment));
-                showNotification('Transaksi gagal disimpan. Status fee dikembalikan; belum ada slip pembayaran yang dibuat.');
+                showNotification('Transaksi gagal disimpan. Status pembayaran dikembalikan; belum ada slip pembayaran yang dibuat.');
                 return;
             }
 
